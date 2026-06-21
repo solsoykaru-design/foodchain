@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Портал поставщика — FoodChain</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{background:#f3f4f6}.loader{border:3px solid #e5e7eb;border-top:3px solid #6366f1;border-radius:50%;width:32px;height:32px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style>
+</head>
+<body class="font-sans antialiased">
+<div id="app" class="min-h-screen"></div>
+<script>
+const API = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+let state = { page: 'login', user: null, products: [], orders: [], loading: false };
+
+function render() {
+  const app = document.getElementById('app');
+  if (state.loading) { app.innerHTML = '<div class="flex items-center justify-center min-h-screen"><div class="loader"></div></div>'; return; }
+  if (!state.user) { renderLogin(app); return; }
+  renderDashboard(app);
+}
+
+function renderLogin(app) {
+  app.innerHTML = `
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-6">
+        <div class="text-center mb-6">
+          <div class="w-14 h-14 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white font-bold text-xl">FC</div>
+          <h1 class="text-xl font-bold text-gray-900">Портал поставщика</h1>
+          <p class="text-sm text-gray-500 mt-1">FoodChain</p>
+        </div>
+        <div class="space-y-3">
+          <input id="login" placeholder="Логин" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+          <input id="password" type="password" placeholder="Пароль" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+          <button onclick="doLogin()" class="w-full bg-indigo-500 text-white font-semibold py-2.5 rounded-xl hover:bg-indigo-600 transition-colors">Войти</button>
+          <p id="loginError" class="text-red-500 text-xs text-center hidden"></p>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doLogin() {
+  const login = document.getElementById('login').value;
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('loginError');
+  if (!login || !password) { errEl.textContent = 'Введите логин и пароль'; errEl.classList.remove('hidden'); return; }
+  state.loading = true; render();
+  try {
+    const res = await fetch(API + '/api/supplier-portal/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login, password }) });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Ошибка входа'); }
+    const data = await res.json();
+    state.user = data.user;
+    state.loading = false;
+    localStorage.setItem('supplier_token', data.token);
+    localStorage.setItem('supplier_login', login);
+    await loadData();
+    render();
+  } catch (e) {
+    state.loading = false;
+    errEl.textContent = e.message; errEl.classList.remove('hidden');
+    render();
+  }
+}
+
+async function loadData() {
+  const headers = { 'X-Supplier-Login': localStorage.getItem('supplier_login') || '' };
+  const [products, orders] = await Promise.all([
+    fetch(API + '/api/supplier-portal/products', { headers }).then(r => r.json()).catch(() => []),
+    fetch(API + '/api/supplier-portal/orders', { headers }).then(r => r.json()).catch(() => []),
+  ]);
+  state.products = products;
+  state.orders = orders;
+}
+
+async function savePrices() {
+  const priceInputs = document.querySelectorAll('[data-price]');
+  const prices = Array.from(priceInputs).map(el => ({ product_id: Number(el.dataset.price), price: Number(el.value) })).filter(p => p.price > 0);
+  if (prices.length === 0) return;
+  try {
+    await fetch(API + '/api/supplier-portal/prices', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Supplier-Login': localStorage.getItem('supplier_login') || '' },
+      body: JSON.stringify({ prices })
+    });
+    alert('Цены сохранены');
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+async function saveStock() {
+  const stockInputs = document.querySelectorAll('[data-stock]');
+  const stock = Array.from(stockInputs).map(el => ({ product_id: Number(el.dataset.stock), quantity: Number(el.value) })).filter(s => !isNaN(s.quantity));
+  if (stock.length === 0) return;
+  try {
+    await fetch(API + '/api/supplier-portal/stock', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Supplier-Login': localStorage.getItem('supplier_login') || '' },
+      body: JSON.stringify({ stock })
+    });
+    alert('Остатки сохранены');
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+async function updateOrderStatus(orderId, status) {
+  try {
+    await fetch(API + '/api/supplier-portal/orders/' + orderId + '/status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Supplier-Login': localStorage.getItem('supplier_login') || '' },
+      body: JSON.stringify({ status })
+    });
+    await loadData(); render();
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function renderDashboard(app) {
+  const user = state.user;
+  const tabs = ['products', 'prices', 'orders'];
+  const tabNames = { products: 'Мои товары', prices: 'Цены и остатки', orders: 'Заказы' };
+  const statusLabels = { new: 'Новый', confirmed: 'Подтверждён', shipped: 'В пути', delivered: 'Доставлен', cancelled: 'Отменён' };
+  const statusColors = { new: 'bg-blue-100 text-blue-700', confirmed: 'bg-amber-100 text-amber-700', shipped: 'bg-indigo-100 text-indigo-700', delivered: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-700' };
+  
+  const perms = user.permissions || {};
+  const allowedTabs = tabs.filter(t => perms[t] || t === 'products');
+
+  app.innerHTML = `
+    <div class="max-w-4xl mx-auto p-4">
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 mb-4 p-4 flex items-center justify-between">
+        <div>
+          <h1 class="text-lg font-bold text-gray-900">Портал поставщика</h1>
+          <p class="text-sm text-gray-500">${user.supplier_name}</p>
+        </div>
+        <button onclick="doLogout()" class="text-sm text-gray-500 hover:text-red-500 font-medium">Выйти</button>
+      </div>
+      <div class="flex gap-2 mb-4 flex-wrap">
+        ${allowedTabs.map(t => `<button onclick="switchTab('${t}')" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${state.page === t ? 'bg-indigo-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 ring-1 ring-gray-200'}" data-tab="${t}">${tabNames[t]}</button>`).join('')}
+      </div>
+      <div id="tabContent"></div>
+    </div>`;
+  state.page = allowedTabs[0] || 'products';
+  renderTab();
+}
+
+function switchTab(tab) {
+  state.page = tab;
+  document.querySelectorAll('[data-tab]').forEach(el => {
+    el.className = `px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${state.page === el.dataset.tab ? 'bg-indigo-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 ring-1 ring-gray-200'}`;
+  });
+  renderTab();
+}
+
+function renderTab() {
+  const content = document.getElementById('tabContent');
+  if (!content) return;
+  const perms = state.user.permissions || {};
+
+  if (state.page === 'products') {
+    if (!perms.products) { content.innerHTML = '<p class="text-gray-500 text-sm">Нет доступа</p>'; return; }
+    content.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+        <div class="p-4 border-b border-gray-100"><h2 class="font-semibold text-gray-900">Мои товары</h2></div>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
+            <th class="text-left p-4">Товар</th><th class="text-left p-4">Ед.</th><th class="text-left p-4">Штрихкод</th><th class="text-right p-4">Остаток в ресторане</th>
+          </tr></thead>
+          <tbody>${state.products.map(p => `
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+              <td class="p-4 font-medium text-gray-900">${p.name}</td>
+              <td class="p-4 text-gray-500">${p.unit}</td>
+              <td class="p-4 text-gray-500 text-xs font-mono">${p.barcode || '—'}</td>
+              <td class="p-4 text-right text-gray-700">${p.current_stock || 0}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } else if (state.page === 'prices') {
+    content.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 class="font-semibold text-gray-900">Цены и остатки</h2>
+          <div class="flex gap-2">
+            <button onclick="savePrices()" class="px-3 py-1.5 bg-indigo-500 text-white text-xs font-semibold rounded-lg hover:bg-indigo-600">${perms.prices ? 'Сохранить цены' : ''}</button>
+            <button onclick="saveStock()" class="px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600">${perms.stock ? 'Сохранить остатки' : ''}</button>
+          </div>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
+            <th class="text-left p-4">Товар</th>
+            ${perms.prices ? '<th class="text-right p-4">Цена (₽)</th>' : ''}
+            ${perms.stock ? '<th class="text-right p-4">Остаток у поставщика</th>' : ''}
+            <th class="text-right p-4">Текущий остаток</th>
+          </tr></thead>
+          <tbody>${state.products.map(p => `
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+              <td class="p-4 font-medium text-gray-900">${p.name}</td>
+              ${perms.prices ? `<td class="p-4 text-right"><input data-price="${p.id}" value="${p.price || ''}" type="number" step="0.01" class="w-24 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></td>` : ''}
+              ${perms.stock ? `<td class="p-4 text-right"><input data-stock="${p.id}" value="${p.supplier_quantity || 0}" type="number" step="0.1" class="w-20 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-green-500 outline-none"></td>` : ''}
+              <td class="p-4 text-right text-gray-700">${p.current_stock || 0}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } else if (state.page === 'orders') {
+    content.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+        <div class="p-4 border-b border-gray-100"><h2 class="font-semibold text-gray-900">История заказов</h2></div>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
+            <th class="text-left p-4">№</th><th class="text-left p-4">Товар</th><th class="text-right p-4">Кол-во</th><th class="text-right p-4">Цена</th><th class="text-right p-4">Сумма</th><th class="text-center p-4">Статус</th><th class="text-center p-4">Дата</th>
+            ${perms.orders ? '<th class="text-right p-4">Действия</th>' : ''}
+          </tr></thead>
+          <tbody>${state.orders.map(o => `
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+              <td class="p-4 font-medium text-gray-900">${o.order_id || o.id}</td>
+              <td class="p-4 text-gray-700">${o.product_name || ''}</td>
+              <td class="p-4 text-right text-gray-700">${o.quantity || 0}</td>
+              <td class="p-4 text-right text-gray-700">${o.price ? o.price + ' ₽' : '—'}</td>
+              <td class="p-4 text-right font-medium text-gray-900">${o.total ? o.total + ' ₽' : '—'}</td>
+              <td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[o.status] || 'bg-gray-100 text-gray-700'}">${statusLabels[o.status] || o.status}</span></td>
+              <td class="p-4 text-center text-xs text-gray-500">${o.created_at ? new Date(o.created_at).toLocaleDateString() : '—'}</td>
+              ${perms.orders ? `<td class="p-4 text-right">
+                <select onchange="updateOrderStatus(${o.id}, this.value)" class="text-xs border border-gray-200 rounded-lg px-2 py-1">
+                  <option value="">Изменить</option>
+                  <option value="confirmed">Подтвердить</option>
+                  <option value="shipped">В пути</option>
+                  <option value="delivered">Доставлен</option>
+                  <option value="cancelled">Отменить</option>
+                </select>
+              </td>` : ''}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+}
+
+function doLogout() {
+  state.user = null; localStorage.removeItem('supplier_token'); localStorage.removeItem('supplier_login'); render();
+}
+
+(async () => {
+  const login = localStorage.getItem('supplier_login');
+  if (login) {
+    try {
+      const res = await fetch(API + '/api/supplier-portal/check', { headers: { 'X-Supplier-Login': login } });
+      if (res.ok) { state.user = { login, supplier_name: '...', permissions: {} }; await loadData(); }
+    } catch {}
+  }
+  state.loading = false; render();
+})();
+</script>
+</body>
+</html>

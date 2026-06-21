@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  api:
+    build: ./server
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server/foodchain.db:/app/foodchain.db
+      - ./server/uploads:/app/uploads
+    environment:
+      - PORT=4000
+    restart: unless-stopped
+
+  admin:
+    build: .
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped

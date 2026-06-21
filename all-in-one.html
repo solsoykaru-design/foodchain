@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodChain — Все роли</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: sans-serif; background: #1a1a2e; }
+    .tabs { display: flex; background: #16213e; border-bottom: 2px solid #0f3460; }
+    .tabs button {
+      flex: 1; padding: 14px; font-size: 16px; font-weight: bold;
+      border: none; cursor: pointer; background: transparent; color: #888;
+      transition: all 0.3s;
+    }
+    .tabs button:hover { background: #1a1a3e; }
+    .tabs button.active { color: #fff; background: #0f3460; border-bottom: 3px solid #e94560; }
+    iframe { width: 100%; border: none; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <button class="active" onclick="switchTab('guest', this)">👤 Гость</button>
+    <button onclick="switchTab('admin', this)">🛠 Админ</button>
+    <button onclick="switchTab('courier', this)">🚚 Курьер</button>
+  </div>
+  <div id="guest" class="tab-content active">
+    <iframe src="http://localhost:5173" height="900"></iframe>
+  </div>
+  <div id="admin" class="tab-content">
+    <iframe src="http://localhost:5174" height="900"></iframe>
+  </div>
+  <div id="courier" class="tab-content">
+    <iframe src="http://localhost:5175" height="900"></iframe>
+  </div>
+
+  <script>
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(tab).classList.add('active');
+    }
+  </script>
+</body>
+</html>

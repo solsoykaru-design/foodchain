@@ -1,0 +1,9 @@
+ALTER TABLE branches ADD COLUMN lat REAL DEFAULT 0;
+ALTER TABLE branches ADD COLUMN lng REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN is_returning INTEGER DEFAULT 0;
+ALTER TABLE orders ADD COLUMN return_started_at TEXT;
+ALTER TABLE orders ADD COLUMN return_distance_km REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN return_duration_min REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN return_eta TEXT;
+ALTER TABLE orders ADD COLUMN return_courier_lat REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN return_courier_lng REAL DEFAULT 0;

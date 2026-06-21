@@ -1,0 +1,9 @@
+{
+  "appId": "com.foodchain.courier",
+  "appName": "FoodChain Курьер",
+  "webDir": "dist-courier",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

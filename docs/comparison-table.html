@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Сравнение FoodChain с конкурентами</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1a1a1a; }
+  h1 { font-size: 24px; margin-bottom: 5px; }
+  .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: center; }
+  th { background: #f5f5f5; font-weight: 600; }
+  td:first-child { text-align: left; font-weight: 500; }
+  .green { background: #d4edda; }
+  .yellow { background: #fff3cd; }
+  .red { background: #f8d7da; }
+  .legend { margin-top: 30px; font-size: 13px; }
+  .legend span { display: inline-block; padding: 4px 12px; margin-right: 15px; border-radius: 4px; }
+  .section { font-weight: 700; background: #e8f4f8 !important; text-align: left !important; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+
+<h1>Сравнение функционала FoodChain с конкурентами</h1>
+<p class="subtitle">Обновлено: июнь 2026. ✅ — есть, ⚠️ — частично/базово, ❌ — нет. Зелёным выделены добавленные функции.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Функция</th><th>iiko</th><th>Poster</th><th>R-Keeper</th><th>YUMA</th><th>FoodChain</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="section" colspan="6">ФИНАНСЫ И УЧЁТ</td></tr>
+    <tr>
+      <td>POS-терминалы / Фискализация (Атол, Штрих-М и др.)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr style="background:#eaf7ea;">
+      <td>НДС / Налоговый учёт (книги продаж/покупок, декларация)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green" style="font-weight:700;">✅ Добавлено (полно)</td>
+    </tr>
+    <tr>
+      <td>Баланс (активы/пассивы)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="yellow">⚠️ Базово</td>
+    </tr>
+    <tr style="background:#eaf7ea;">
+      <td>Банковские выписки / Автосверка</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green" style="font-weight:700;">✅ Добавлено</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">СКЛАД И ПРОИЗВОДСТВО</td></tr>
+    <tr>
+      <td>Техкарты и калькуляция себестоимости</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>Складской учёт / автосписание / документы</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>Портал поставщика (самообслуживание)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="yellow">⚠️ Частично</td>
+    </tr>
+    <tr>
+      <td>KDS (кухонный экран с рецептами)</td>
+      <td class="green">✅</td><td class="red">❌</td><td class="green">✅</td><td class="green">✅ (Про)</td><td class="yellow">⚠️ Частично</td>
+    </tr>
+    <tr>
+      <td>Сканер штрихкодов (камера)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="yellow">⚠️ Базово</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">МЕНЮ И КЛИЕНТЫ</td></tr>
+    <tr>
+      <td>Управление меню / модификаторы / стоп-листы</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>Бронирование столов</td>
+      <td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="red">❌</td><td class="green">✅ Есть</td>
+    </tr>
+    <tr>
+      <td>Программа лояльности</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>Подарочные сертификаты</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr style="background:#eaf7ea;">
+      <td>CRM (amoCRM / Bitrix24)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="green" style="font-weight:700;">✅ Добавлено</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">ПЕРСОНАЛ</td></tr>
+    <tr style="background:#eaf7ea;">
+      <td>График сотрудников (календарь смен)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green" style="font-weight:700;">✅ Добавлено</td>
+    </tr>
+    <tr>
+      <td>Биометрия на вход</td>
+      <td class="red">❌</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="red">❌</td>
+    </tr>
+    <tr>
+      <td>Зарплата / KPI / чаевые</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅ Есть</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">МАРКЕТИНГ И КОММУНИКАЦИИ</td></tr>
+    <tr style="background:#eaf7ea;">
+      <td>E-mail рассылки (SMTP + интерфейс)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="yellow">⚠️ (SMS)</td><td class="green" style="font-weight:700;">✅ Добавлено</td>
+    </tr>
+    <tr>
+      <td>Telegram-бот</td>
+      <td class="red">❌</td><td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="yellow">⚠️ Базово</td>
+    </tr>
+    <tr>
+      <td>Система чатов (гость /staff/курьер)</td>
+      <td class="green">✅</td><td class="yellow">⚠️</td><td class="red">❌</td><td class="red">❌</td><td class="green">✅ Полно</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">ДОСТАВКА И ИНТЕГРАЦИИ</td></tr>
+    <tr>
+      <td>Агрегаторы доставки</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>Онлайн-оплата (4 провайдера)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅ Полно</td>
+    </tr>
+    <tr>
+      <td>1C Интеграция</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅ Есть</td>
+    </tr>
+    <tr>
+      <td>Яндекс Афиша / бронирование</td>
+      <td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="red">❌</td><td class="red">❌</td>
+    </tr>
+
+    <tr><td class="section" colspan="6">ТЕХНОЛОГИИ</td></tr>
+    <tr>
+      <td>Нативное моб. приложение (гость)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅</td><td class="red">❌ (план)</td>
+    </tr>
+    <tr>
+      <td>Нативное моб. приложение (курьер)</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green">✅</td><td class="red">❌ (план)</td>
+    </tr>
+    <tr>
+      <td>Офлайн-режим (через IndexedDB)</td>
+      <td class="green">✅</td><td class="red">❌</td><td class="green">✅</td><td class="red">❌</td><td class="yellow">⚠️ Базово</td>
+    </tr>
+    <tr style="background:#eaf7ea;">
+      <td>Swagger / OpenAPI документация</td>
+      <td class="green">✅</td><td class="green">✅</td><td class="green">✅</td><td class="red">❌</td><td class="green" style="font-weight:700;">✅ Добавлено</td>
+    </tr>
+    <tr>
+      <td>Франчайзинг / роялти</td>
+      <td class="green">✅</td><td class="red">❌</td><td class="red">❌</td><td class="red">❌</td><td class="red">❌</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="legend">
+  <span style="background:#d4edda;">✅ Полностью реализовано</span>
+  <span style="background:#eaf7ea;border:2px solid #4caf50;">🆕 Добавлено в этом обновлении</span>
+  <span style="background:#fff3cd;">⚠️ Частично / базово</span>
+  <span style="background:#f8d7da;">❌ Отсутствует</span>
+</div>
+
+<p style="margin-top:30px; font-size:12px; color:#888;">
+  FoodChain Enterprise — статус на июнь 2026. В этом обновлении добавлены: Swagger, E-mail рассылки,<br>
+  банковские выписки, график сотрудников, CRM-интеграции (amoCRM/Bitrix24).
+</p>
+
+</body>
+</html>

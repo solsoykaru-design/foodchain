@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Портал поставщика</title>
+<style>
+:root {
+  --color-primary: #1a5cff;
+  --color-primary-hover: #0d4ad9;
+  --color-primary-light: #e8eeff;
+  --color-primary-dark: #0d3ba8;
+  --color-success: #00a854;
+  --color-success-light: #e6f7ee;
+  --color-warning: #fa8c16;
+  --color-warning-light: #fff7e6;
+  --color-danger: #f5222d;
+  --color-danger-light: #fff1f0;
+  --color-info: #1890ff;
+  --color-bg: #f0f2f5;
+  --color-bg-white: #ffffff;
+  --color-bg-sidebar: #001529;
+  --color-bg-sidebar-hover: #002140;
+  --color-bg-sidebar-active: #1890ff;
+  --color-text: #262626;
+  --color-text-secondary: #595959;
+  --color-text-tertiary: #8c8c8c;
+  --color-text-sidebar: #ffffffa6;
+  --color-text-sidebar-active: #ffffff;
+  --color-border: #d9d9d9;
+  --color-border-light: #f0f0f0;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 0px;
+  --header-height: 64px;
+  --transition: all 0.2s ease;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5715;
+  overflow: hidden;
+  height: 100vh;
+}
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { color: var(--color-primary-hover); }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* ===== Layout ===== */
+.app-layout { display: flex; height: 100vh; }
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--color-bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: var(--transition);
+  position: relative;
+  z-index: 100;
+  overflow: hidden;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99;
+}
+.sidebar-logo {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+.sidebar-logo svg { margin-right: 10px; flex-shrink: 0; }
+.sidebar-logo span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  color: var(--color-text-sidebar);
+  cursor: pointer;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+  gap: 12px;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.sidebar-nav-item:hover { background: var(--color-bg-sidebar-hover); color: #fff; }
+.sidebar-nav-item.active {
+  background: var(--color-bg-sidebar-hover);
+  color: var(--color-text-sidebar-active);
+  border-left-color: var(--color-bg-sidebar-active);
+}
+.sidebar-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.85; }
+.sidebar-nav-item.active svg { opacity: 1; }
+.sidebar-nav-item .nav-label { overflow: hidden; text-overflow: ellipsis; }
+.sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-sidebar);
+  cursor: pointer;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+.sidebar-user:hover { background: var(--color-bg-sidebar-hover); color: #fff; }
+.sidebar-user-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--color-primary);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 15px;
+  flex-shrink: 0;
+}
+.sidebar-user-info { overflow: hidden; flex: 1; }
+.sidebar-user-name { font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user-role { font-size: 12px; color: var(--color-text-sidebar); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== Main ===== */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ===== Header ===== */
+.header {
+  height: var(--header-height);
+  background: var(--color-bg-white);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  gap: 16px;
+}
+.header-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+}
+.header-menu-btn:hover { background: var(--color-bg); }
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ===== Content ===== */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+.page { display: none; }
+.page.active { display: block; }
+
+/* ===== Cards ===== */
+.card {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+}
+.card-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.card-header h2 { font-size: 16px; font-weight: 600; }
+.card-body { padding: 24px; }
+.card-body:only-child { border: none; }
+
+/* ===== Stats Grid ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: var(--transition);
+}
+.stat-card:hover { box-shadow: var(--shadow-md); }
+.stat-icon {
+  width: 48px; height: 48px; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 22px;
+}
+.stat-icon.blue { background: var(--color-primary-light); color: var(--color-primary); }
+.stat-icon.green { background: var(--color-success-light); color: var(--color-success); }
+.stat-icon.orange { background: var(--color-warning-light); color: var(--color-warning); }
+.stat-icon.red { background: var(--color-danger-light); color: var(--color-danger); }
+.stat-info { flex: 1; min-width: 0; }
+.stat-label { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1.2; color: var(--color-text); }
+.stat-desc { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
+
+/* ===== Tables ===== */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+}
+tr:hover td { background: #fafafa; }
+tr:last-child td { border-bottom: none; }
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5715;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  font-family: var(--font);
+}
+.btn:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); color: #fff; }
+.btn-success { background: var(--color-success); border-color: var(--color-success); color: #fff; }
+.btn-success:hover { background: #00994a; border-color: #00994a; color: #fff; }
+.btn-danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+.btn-danger:hover { background: #d91b24; border-color: #d91b24; color: #fff; }
+.btn-sm { padding: 2px 10px; font-size: 13px; }
+.btn-lg { padding: 8px 24px; font-size: 16px; }
+.btn-ghost { border: none; background: transparent; color: var(--color-text-secondary); padding: 4px 8px; }
+.btn-ghost:hover { background: var(--color-bg); color: var(--color-text); }
+.btn-link { border: none; background: none; color: var(--color-primary); padding: 0; }
+.btn-link:hover { color: var(--color-primary-hover); }
+
+/* ===== Form ===== */
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.5715;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  background: var(--color-bg-white);
+  color: var(--color-text);
+  font-family: var(--font);
+}
+.form-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(26,92,255,0.2); }
+.form-input::placeholder { color: var(--color-text-tertiary); }
+.form-input.error { border-color: var(--color-danger); }
+.form-error { font-size: 12px; color: var(--color-danger); margin-top: 4px; }
+.form-inline { display: flex; align-items: center; gap: 8px; }
+
+/* ===== Login ===== */
+.login-page {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #001529 0%, #003a70 100%);
+}
+.login-page.hidden { display: none; }
+.login-card {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 420px;
+  max-width: 94vw;
+  padding: 40px 36px;
+}
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo svg { margin-bottom: 12px; }
+.login-logo h1 { font-size: 24px; font-weight: 700; color: var(--color-text); }
+.login-logo p { color: var(--color-text-secondary); margin-top: 4px; font-size: 14px; }
+.login-submit { width: 100%; padding: 10px; font-size: 16px; margin-top: 8px; }
+
+/* ===== Inline Edit ===== */
+.inline-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.inline-edit input {
+  width: 100px;
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  text-align: right;
+  font-family: var(--font);
+}
+.inline-edit input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(26,92,255,0.2); }
+.inline-edit .btn-save-edit { padding: 2px 8px; font-size: 12px; }
+
+/* ===== Badge ===== */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 10px;
+  line-height: 1.5715;
+}
+.badge-success { background: var(--color-success-light); color: var(--color-success); }
+.badge-warning { background: var(--color-warning-light); color: var(--color-warning); }
+.badge-danger { background: var(--color-danger-light); color: var(--color-danger); }
+.badge-info { background: var(--color-primary-light); color: var(--color-primary); }
+.badge-default { background: var(--color-bg); color: var(--color-text-secondary); }
+
+/* ===== Status ===== */
+.status-confirmed { color: var(--color-info); }
+.status-shipped { color: var(--color-warning); }
+.status-delivered { color: var(--color-success); }
+.status-pending { color: var(--color-text-tertiary); }
+
+/* ===== Toast ===== */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+  width: calc(100% - 32px);
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  background: var(--color-bg-white);
+  border-left: 4px solid var(--color-primary);
+  animation: toastIn 0.3s ease;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.toast.toast-success { border-left-color: var(--color-success); }
+.toast.toast-error { border-left-color: var(--color-danger); }
+.toast.toast-warning { border-left-color: var(--color-warning); }
+.toast.toast-info { border-left-color: var(--color-info); }
+.toast-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+.toast-success .toast-icon { color: var(--color-success); }
+.toast-error .toast-icon { color: var(--color-danger); }
+.toast-warning .toast-icon { color: var(--color-warning); }
+.toast-info .toast-icon { color: var(--color-info); }
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { font-weight: 600; margin-bottom: 2px; }
+.toast-message { color: var(--color-text-secondary); font-size: 13px; }
+.toast-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-tertiary); padding: 2px;
+  font-size: 16px; line-height: 1;
+  flex-shrink: 0;
+}
+.toast-close:hover { color: var(--color-text); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 520px;
+  max-width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal-header {
+  padding: 20px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h2 { font-size: 18px; font-weight: 600; }
+.modal-close { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--color-text-tertiary); padding: 4px; line-height: 1; }
+.modal-close:hover { color: var(--color-text); }
+.modal-body { padding: 20px 24px; overflow-y: auto; }
+.modal-footer { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ===== Confirm Dialog ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 400;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.confirm-overlay.open { display: flex; }
+.confirm-dialog {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 420px;
+  max-width: 100%;
+  padding: 28px 24px 24px;
+  animation: modalIn 0.2s ease;
+  text-align: center;
+}
+.confirm-icon { font-size: 44px; margin-bottom: 16px; line-height: 1; }
+.confirm-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+.confirm-message { color: var(--color-text-secondary); margin-bottom: 24px; font-size: 14px; line-height: 1.6; }
+.confirm-actions { display: flex; justify-content: center; gap: 10px; }
+
+/* ===== Loading ===== */
+.spinner {
+  display: inline-block;
+  width: 20px; height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.spinner-lg { width: 36px; height: 36px; border-width: 3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: var(--color-text-secondary);
+  gap: 12px;
+  font-size: 15px;
+}
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--color-text-secondary);
+}
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 15px; }
+
+/* ===== Import ===== */
+.import-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--color-bg);
+}
+.import-zone:hover, .import-zone.dragover { border-color: var(--color-primary); background: var(--color-primary-light); }
+.import-zone .import-icon { font-size: 40px; margin-bottom: 8px; }
+.import-zone p { color: var(--color-text-secondary); font-size: 14px; }
+.import-zone .import-hint { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
+.import-file-name { margin-top: 12px; padding: 8px 12px; background: var(--color-primary-light); border-radius: var(--radius-sm); display: inline-block; font-size: 13px; color: var(--color-primary); }
+.import-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+
+/* ===== Search ===== */
+.search-input {
+  position: relative;
+}
+.search-input input {
+  padding-left: 32px;
+}
+.search-input .search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  font-size: 14px;
+}
+
+/* ===== Tabs ===== */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); margin-bottom: 16px; }
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  transition: var(--transition);
+  background: none;
+  border-top: none; border-left: none; border-right: none;
+  font-family: var(--font);
+}
+.tab:hover { color: var(--color-text); }
+.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+/* ===== Checkbox ===== */
+.checkbox-wrap { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.checkbox-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: calc(-1 * var(--sidebar-width)); top: 0; bottom: 0; z-index: 100; }
+  .sidebar.open { left: 0; }
+  .sidebar-overlay.open { display: block; }
+  .header-menu-btn { display: flex; }
+  .content-area { padding: 16px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .card-body { padding: 16px; }
+  .login-card { padding: 28px 20px; }
+  .table-wrap { margin: 0 -16px; padding: 0 16px; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .header-title { font-size: 15px; }
+  .card-header { flex-direction: column; align-items: flex-start; }
+  .toast-container { left: 16px; right: 16px; max-width: none; }
+}
+
+/* ===== Misc ===== */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-primary { color: var(--color-primary); }
+.text-success { color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.text-warning { color: var(--color-warning); }
+.text-muted { color: var(--color-text-tertiary); }
+.fw-600 { font-weight: 600; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.gap-8 { gap: 8px; }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.w-full { width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#1890ff"/>
+        <path d="M8 12L14 7L20 12V20H16V15H12V20H8V12Z" fill="white"/>
+      </svg>
+      <span>Портал поставщика</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="nav-label">Дашборд</span>
+      </div>
+      <div class="sidebar-nav-item" data-page="products" onclick="navigateTo('products')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <span class="nav-label">Товары</span>
+      </div>
+      <div class="sidebar-nav-item" data-page="orders" onclick="navigateTo('orders')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span class="nav-label">Заказы</span>
+      </div>
+      <div class="sidebar-nav-item" data-page="settings" onclick="navigateTo('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="nav-label">Настройки</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" onclick="navigateTo('settings')">
+        <div class="sidebar-user-avatar" id="sidebarAvatar">П</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebarUserName">Поставщик</div>
+          <div class="sidebar-user-role">Поставщик</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <!-- Header -->
+    <header class="header">
+      <button class="header-menu-btn" onclick="toggleSidebar()" title="Меню">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="header-title" id="pageTitle">Дашборд</div>
+      <div class="header-right">
+        <button class="btn btn-ghost" onclick="logout()" title="Выйти">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Выйти
+        </button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content-area" id="contentArea">
+
+      <!-- ===== Dashboard ===== -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-loading" id="dashboardLoading">
+          <div class="spinner spinner-lg"></div>
+        </div>
+        <div id="dashboardContent" style="display:none;">
+          <div class="stats-grid" id="statsGrid"></div>
+          <div class="card">
+            <div class="card-header"><h2>Последние заказы</h2></div>
+            <div class="card-body" id="recentOrders"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Products ===== -->
+      <div class="page" id="page-products">
+        <div class="card">
+          <div class="card-header">
+            <h2>Каталог товаров</h2>
+            <div class="flex items-center gap-8 flex-wrap">
+              <div class="search-input">
+                <span class="search-icon">&#128270;</span>
+                <input class="form-input" type="text" placeholder="Поиск товаров..." id="productSearch" oninput="renderProducts()" style="width:200px;">
+              </div>
+              <button class="btn btn-primary" onclick="openImportModal()">&#8593; Импорт цен</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="page-loading" id="productsLoading">
+              <div class="spinner spinner-lg"></div>
+            </div>
+            <div id="productsContent" style="display:none;">
+              <div class="table-wrap" id="productsTableWrap"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Orders ===== -->
+      <div class="page" id="page-orders">
+        <div class="card">
+          <div class="card-header">
+            <h2>История заказов</h2>
+            <div class="flex items-center gap-8">
+              <div class="search-input">
+                <span class="search-icon">&#128270;</span>
+                <input class="form-input" type="text" placeholder="Поиск заказов..." id="orderSearch" oninput="renderOrders()" style="width:200px;">
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="page-loading" id="ordersLoading">
+              <div class="spinner spinner-lg"></div>
+            </div>
+            <div id="ordersContent" style="display:none;">
+              <div class="tabs" id="orderTabs">
+                <button class="tab active" data-status="all" onclick="filterOrders('all',this)">Все</button>
+                <button class="tab" data-status="pending" onclick="filterOrders('pending',this)">Ожидают</button>
+                <button class="tab" data-status="confirmed" onclick="filterOrders('confirmed',this)">Подтверждены</button>
+                <button class="tab" data-status="shipped" onclick="filterOrders('shipped',this)">Отгружены</button>
+                <button class="tab" data-status="delivered" onclick="filterOrders('delivered',this)">Доставлены</button>
+              </div>
+              <div class="table-wrap" id="ordersTableWrap"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Settings ===== -->
+      <div class="page" id="page-settings">
+        <div class="card" style="max-width:480px;">
+          <div class="card-header"><h2>Смена пароля</h2></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Текущий пароль</label>
+              <input class="form-input" type="password" id="settingsCurrentPassword" placeholder="Введите текущий пароль">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Новый пароль</label>
+              <input class="form-input" type="password" id="settingsNewPassword" placeholder="Введите новый пароль">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Подтверждение пароля</label>
+              <input class="form-input" type="password" id="settingsConfirmPassword" placeholder="Подтвердите новый пароль">
+            </div>
+            <button class="btn btn-primary btn-lg w-full" id="settingsSubmitBtn" onclick="changePassword()">Сменить пароль</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Login Page ===== -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#1890ff"/>
+        <path d="M8 12L14 7L20 12V20H16V15H12V20H8V12Z" fill="white"/>
+      </svg>
+      <h1>Портал поставщика</h1>
+      <p>Войдите в систему для управления поставками</p>
+    </div>
+    <div id="loginAlert" style="display:none;background:#fff1f0;border:1px solid #ffa39e;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:16px;color:#cf1322;font-size:13px;"></div>
+    <div class="form-group">
+      <label class="form-label">Логин</label>
+      <input class="form-input" type="text" id="loginUsername" placeholder="Введите логин" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Пароль</label>
+      <input class="form-input" type="password" id="loginPassword" placeholder="Введите пароль" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary login-submit" id="loginBtn" onclick="doLogin()">Войти</button>
+  </div>
+</div>
+
+<!-- ===== Modal ===== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Заголовок</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- ===== Confirm ===== -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-dialog">
+    <div class="confirm-icon" id="confirmIcon">&#9888;&#65039;</div>
+    <div class="confirm-title" id="confirmTitle">Подтвердите действие</div>
+    <div class="confirm-message" id="confirmMessage">Вы уверены?</div>
+    <div class="confirm-actions">
+      <button class="btn" onclick="closeConfirm()">Отмена</button>
+      <button class="btn btn-danger" id="confirmOkBtn" onclick="closeConfirm()">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast Container ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* =========================================================
+   STATE
+   ========================================================= */
+const STATE = {
+  token: localStorage.getItem('sp_token') || null,
+  user: JSON.parse(localStorage.getItem('sp_user') || 'null'),
+  dashboard: null,
+  products: null,
+  orders: null,
+  orderFilter: 'all',
+  currentPage: 'dashboard',
+};
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+function toast(type, title, message, duration) {
+  duration = duration || 4000;
+  const container = document.getElementById('toastContainer');
+  const icons = { success: '\u2713', error: '\u2717', warning: '\u26A0', info: '\u2139' };
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.innerHTML = '<div class="toast-icon">' + (icons[type] || '') + '</div><div class="toast-body"><div class="toast-title">' + title + '</div><div class="toast-message">' + (message || '') + '</div></div><button class="toast-close" onclick="this.parentElement.remove()">&times;</button>';
+  container.appendChild(el);
+  setTimeout(function() {
+    el.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(function() { if (el.parentElement) el.remove(); }, 300);
+  }, duration);
+}
+
+/* =========================================================
+   CONFIRM DIALOG
+   ========================================================= */
+let confirmCallback = null;
+function showConfirm(icon, title, message, cb) {
+  document.getElementById('confirmIcon').textContent = icon || '\u26A0\uFE0F';
+  document.getElementById('confirmTitle').textContent = title || 'Подтвердите действие';
+  document.getElementById('confirmMessage').textContent = message || 'Вы уверены?';
+  document.getElementById('confirmOverlay').classList.add('open');
+  confirmCallback = cb;
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+document.getElementById('confirmOkBtn').onclick = function() {
+  var cb = confirmCallback;
+  closeConfirm();
+  if (cb) cb();
+};
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalFooter').innerHTML = footerHtml || '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+/* =========================================================
+   API CLIENT
+   ========================================================= */
+async function api(method, url, body) {
+  var headers = { 'Content-Type': 'application/json' };
+  if (STATE.token) headers['x-supplier-token'] = STATE.token;
+  var opts = { method: method, headers: headers };
+  if (body !== undefined && body !== null) opts.body = JSON.stringify(body);
+  var res = await fetch(url, opts);
+  var data = null;
+  var contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json();
+  } else {
+    var text = await res.text();
+    if (text) data = text;
+  }
+  if (!res.ok) {
+    var msg = (data && data.message) || (typeof data === 'string' ? data : 'Ошибка запроса');
+    throw new Error(msg);
+  }
+  // special case: auth returns token in header
+  var token = res.headers.get('x-supplier-token');
+  if (token) STATE.token = token;
+  return { data: data, headers: res.headers };
+}
+
+/* =========================================================
+   AUTH
+   ========================================================= */
+function setLoggedIn(token, user) {
+  STATE.token = token;
+  STATE.user = user || { name: 'Поставщик', username: 'supplier' };
+  localStorage.setItem('sp_token', token);
+  localStorage.setItem('sp_user', JSON.stringify(STATE.user));
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('sidebarUserName').textContent = STATE.user.name || STATE.user.username || 'Поставщик';
+  var initial = (STATE.user.name || STATE.user.username || 'П')[0].toUpperCase();
+  document.getElementById('sidebarAvatar').textContent = initial;
+  loadDashboard();
+}
+
+function setLoggedOut() {
+  STATE.token = null;
+  STATE.user = null;
+  localStorage.removeItem('sp_token');
+  localStorage.removeItem('sp_user');
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginAlert').style.display = 'none';
+}
+
+async function doLogin() {
+  var username = document.getElementById('loginUsername').value.trim();
+  var password = document.getElementById('loginPassword').value;
+  if (!username || !password) {
+    document.getElementById('loginAlert').textContent = 'Пожалуйста, введите логин и пароль.';
+    document.getElementById('loginAlert').style.display = 'block';
+    return;
+  }
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'Вход...';
+  try {
+    var res = await api('POST', '/api/supplier-portal/auth', { username: username, password: password });
+    var token = res.headers.get('x-supplier-token');
+    if (!token) throw new Error('Токен не получен');
+    setLoggedIn(token, { name: username, username: username });
+    toast('success', 'Успешный вход', 'Добро пожаловать в портал поставщика.');
+  } catch (e) {
+    document.getElementById('loginAlert').textContent = 'Ошибка входа: ' + e.message;
+    document.getElementById('loginAlert').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Войти';
+  }
+}
+
+function logout() {
+  showConfirm('\u2757', 'Выход из системы', 'Вы уверены, что хотите выйти?', function() {
+    setLoggedOut();
+    toast('info', 'Выход выполнен', 'До свидания!');
+  });
+}
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+const pageTitles = {
+  dashboard: 'Дашборд',
+  products: 'Товары',
+  orders: 'Заказы',
+  settings: 'Настройки',
+};
+
+function navigateTo(page) {
+  STATE.currentPage = page;
+  document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+  document.querySelectorAll('.sidebar-nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  document.querySelectorAll('.page').forEach(function(el) {
+    el.classList.toggle('active', el.id === 'page-' + page);
+  });
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  // load data on demand
+  if (page === 'dashboard' && !STATE.dashboard) loadDashboard();
+  if (page === 'products' && !STATE.products) loadProducts();
+  if (page === 'orders' && !STATE.orders) loadOrders();
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+async function loadDashboard() {
+  var loading = document.getElementById('dashboardLoading');
+  var content = document.getElementById('dashboardContent');
+  loading.style.display = 'flex';
+  content.style.display = 'none';
+  try {
+    var res = await api('GET', '/api/supplier-portal/dashboard');
+    STATE.dashboard = res.data;
+    renderDashboard(res.data);
+  } catch (e) {
+    toast('error', 'Ошибка загрузки', e.message);
+  } finally {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  }
+}
+
+function renderDashboard(data) {
+  var grid = document.getElementById('statsGrid');
+  var stats = [
+    { label: 'Всего товаров', value: data.totalProducts || 0, icon: '\uD83D\uDCE6', cls: 'blue', desc: 'В каталоге' },
+    { label: 'Ожидающие заказы', value: data.pendingOrders || 0, icon: '\u23F3', cls: 'orange', desc: 'Требуют подтверждения' },
+    { label: 'Доставленные заказы', value: data.deliveredOrders || 0, icon: '\u2714\uFE0F', cls: 'green', desc: 'Завершены' },
+    { label: 'Всего заказов', value: data.totalOrders || 0, icon: '\uD83D\uDCCB', cls: 'red', desc: 'За весь период' },
+  ];
+  grid.innerHTML = stats.map(function(s) {
+    return '<div class="stat-card"><div class="stat-icon ' + s.cls + '">' + s.icon + '</div><div class="stat-info"><div class="stat-label">' + s.label + '</div><div class="stat-value">' + s.value + '</div><div class="stat-desc">' + s.desc + '</div></div></div>';
+  }).join('');
+
+  var recent = document.getElementById('recentOrders');
+  var orders = (data.recentOrders || []).slice(0, 5);
+  if (!orders.length) {
+    recent.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128203;</div><p>Нет заказов</p></div>';
+    return;
+  }
+  recent.innerHTML = '<div class="table-wrap"><table><thead><tr><th>№ заказа</th><th>Дата</th><th>Сумма</th><th>Статус</th></tr></thead><tbody>' + orders.map(function(o) {
+    return '<tr><td class="fw-600">#' + (o.id || o.orderId || '—') + '</td><td>' + (o.date || o.createdAt || '—') + '</td><td class="nowrap">' + formatPrice(o.total || o.amount || 0) + '</td><td>' + statusBadge(o.status) + '</td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+
+/* =========================================================
+   PRODUCTS
+   ========================================================= */
+async function loadProducts() {
+  var loading = document.getElementById('productsLoading');
+  var content = document.getElementById('productsContent');
+  loading.style.display = 'flex';
+  content.style.display = 'none';
+  try {
+    var res = await api('GET', '/api/supplier-portal/products');
+    STATE.products = res.data;
+    renderProducts();
+  } catch (e) {
+    toast('error', 'Ошибка загрузки', e.message);
+  } finally {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  }
+}
+
+function renderProducts() {
+  var wrap = document.getElementById('productsTableWrap');
+  var items = STATE.products || [];
+  var q = (document.getElementById('productSearch').value || '').toLowerCase().trim();
+  if (q) {
+    items = items.filter(function(p) {
+      return (p.name || p.productName || '').toLowerCase().includes(q) ||
+             (p.sku || p.article || '').toLowerCase().includes(q) ||
+             (p.category || '').toLowerCase().includes(q);
+    });
+  }
+  if (!items.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128230;</div><p>Товары не найдены</p></div>';
+    return;
+  }
+  wrap.innerHTML = '<table><thead><tr><th>Артикул</th><th>Наименование</th><th>Категория</th><th class="text-right">Цена, \u20BD</th><th class="text-right">Остаток</th><th></th></tr></thead><tbody>' + items.map(function(p, idx) {
+    var id = p.id || p.productId || idx;
+    var name = p.name || p.productName || '—';
+    var sku = p.sku || p.article || '—';
+    var category = p.category || '—';
+    var price = p.price || 0;
+    var stock = p.stock || p.quantity || 0;
+    return '<tr>' +
+      '<td class="text-muted">' + sku + '</td>' +
+      '<td class="fw-600">' + name + '</td>' +
+      '<td>' + category + '</td>' +
+      '<td class="text-right nowrap">' +
+        '<div class="inline-edit" style="justify-content:flex-end;">' +
+          '<input type="number" step="0.01" min="0" class="price-input" data-id="' + id + '" data-field="price" value="' + price.toFixed(2) + '">' +
+          '<button class="btn btn-sm btn-primary btn-save-edit" onclick="savePrice(this,' + id + ')">\u2713</button>' +
+        '</div>' +
+      '</td>' +
+      '<td class="text-right nowrap">' +
+        '<div class="inline-edit" style="justify-content:flex-end;">' +
+          '<input type="number" step="1" min="0" class="stock-input" data-id="' + id + '" data-field="stock" value="' + stock + '">' +
+          '<button class="btn btn-sm btn-primary btn-save-edit" onclick="saveStock(this,' + id + ')">\u2713</button>' +
+        '</div>' +
+      '</td>' +
+      '<td></td>' +
+    '</tr>';
+  }).join('') + '</tbody></table>';
+}
+
+async function savePrice(btn, id) {
+  var input = btn.previousElementSibling;
+  var val = parseFloat(input.value);
+  if (isNaN(val) || val < 0) { toast('error', 'Ошибка', 'Некорректная цена'); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>';
+  try {
+    await api('PUT', '/api/supplier-portal/prices', { productId: id, price: val });
+    toast('success', 'Цена обновлена', 'Новая цена: ' + val.toFixed(2) + ' \u20BD');
+    // update local
+    var p = (STATE.products || []).find(function(x) { return (x.id || x.productId) === id; });
+    if (p) p.price = val;
+  } catch (e) {
+    toast('error', 'Ошибка', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u2713';
+  }
+}
+
+async function saveStock(btn, id) {
+  var input = btn.previousElementSibling;
+  var val = parseInt(input.value, 10);
+  if (isNaN(val) || val < 0) { toast('error', 'Ошибка', 'Некорректное количество'); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>';
+  try {
+    await api('PUT', '/api/supplier-portal/stock', { productId: id, stock: val });
+    toast('success', 'Остаток обновлён', 'Новый остаток: ' + val);
+    var p = (STATE.products || []).find(function(x) { return (x.id || x.productId) === id; });
+    if (p) p.stock = val;
+  } catch (e) {
+    toast('error', 'Ошибка', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u2713';
+  }
+}
+
+/* =========================================================
+   IMPORT PRICES
+   ========================================================= */
+let importFile = null;
+
+function openImportModal() {
+  importFile = null;
+  openModal('Импорт цен из CSV', '' +
+    '<p style="margin-bottom:16px;color:var(--color-text-secondary);">Загрузите CSV-файл с колонками: артикул, цена. Первая строка — заголовок.</p>' +
+    '<div class="import-zone" id="importDropZone" onclick="document.getElementById(\'importFileInput\').click()">' +
+      '<div class="import-icon">&#128196;</div>' +
+      '<p>Нажмите или перетащите файл сюда</p>' +
+      '<div class="import-hint">Поддерживаются файлы .csv</div>' +
+      '<div id="importFileName" style="display:none;"></div>' +
+    '</div>' +
+    '<input type="file" id="importFileInput" accept=".csv" style="display:none;" onchange="onImportFileSelect(event)">' +
+    '<div id="importPreview" style="margin-top:16px;"></div>',
+    '<button class="btn" onclick="closeModal()">Отмена</button><button class="btn btn-primary" id="importSubmitBtn" onclick="doImport()" disabled>Загрузить</button>'
+  );
+  setupImportDragDrop();
+}
+
+function setupImportDragDrop() {
+  var zone = document.getElementById('importDropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', function() { zone.classList.remove('dragover'); });
+  zone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleImportFile(e.dataTransfer.files[0]);
+  });
+}
+
+function onImportFileSelect(e) {
+  if (e.target.files.length) handleImportFile(e.target.files[0]);
+}
+
+function handleImportFile(file) {
+  if (!file.name.endsWith('.csv')) {
+    toast('error', 'Ошибка', 'Пожалуйста, выберите CSV-файл');
+    return;
+  }
+  importFile = file;
+  var fn = document.getElementById('importFileName');
+  fn.style.display = 'block';
+  fn.className = 'import-file-name';
+  fn.textContent = '\uD83D\uDCC4 ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+  document.getElementById('importSubmitBtn').disabled = false;
+  // preview first 5 lines
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var lines = e.target.result.split('\n').filter(function(l) { return l.trim(); });
+    var preview = document.getElementById('importPreview');
+    if (lines.length > 1) {
+      preview.innerHTML = '<div class="text-muted" style="margin-bottom:8px;">Найдено строк: ' + (lines.length - 1) + '</div><div class="table-wrap" style="max-height:200px;overflow-y:auto;"><table><thead><tr>' + lines[0].split(',').map(function(h) { return '<th>' + h.trim() + '</th>'; }).join('') + '</tr></thead><tbody>' + lines.slice(1, 6).map(function(line) {
+        return '<tr>' + line.split(',').map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+    } else {
+      preview.innerHTML = '<div class="text-muted">Файл не содержит данных</div>';
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function doImport() {
+  if (!importFile) return;
+  var btn = document.getElementById('importSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Загрузка...';
+  try {
+    var formData = new FormData();
+    formData.append('file', importFile);
+    var res = await fetch('/api/supplier-portal/prices/import', {
+      method: 'POST',
+      headers: { 'x-supplier-token': STATE.token },
+      body: formData,
+    });
+    if (!res.ok) {
+      var errData = null;
+      try { errData = await res.json(); } catch(_) {}
+      throw new Error((errData && errData.message) || 'Ошибка импорта');
+    }
+    var result = await res.json();
+    toast('success', 'Импорт выполнен', 'Обработано строк: ' + (result.imported || result.count || '—'));
+    closeModal();
+    // reload products
+    STATE.products = null;
+    loadProducts();
+  } catch (e) {
+    toast('error', 'Ошибка импорта', e.message);
+    btn.disabled = false;
+    btn.textContent = 'Загрузить';
+  }
+}
+
+/* =========================================================
+   ORDERS
+   ========================================================= */
+async function loadOrders() {
+  var loading = document.getElementById('ordersLoading');
+  var content = document.getElementById('ordersContent');
+  loading.style.display = 'flex';
+  content.style.display = 'none';
+  try {
+    var res = await api('GET', '/api/supplier-portal/orders');
+    STATE.orders = res.data;
+    renderOrders();
+  } catch (e) {
+    toast('error', 'Ошибка загрузки', e.message);
+  } finally {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  }
+}
+
+function renderOrders() {
+  var wrap = document.getElementById('ordersTableWrap');
+  var items = STATE.orders || [];
+  var q = (document.getElementById('orderSearch').value || '').toLowerCase().trim();
+  if (q) {
+    items = items.filter(function(o) {
+      return String(o.id || o.orderId || '').includes(q) ||
+             (o.customer || o.clientName || '').toLowerCase().includes(q);
+    });
+  }
+  // filter by status tab
+  var filter = STATE.orderFilter;
+  if (filter !== 'all') {
+    items = items.filter(function(o) { return (o.status || '').toLowerCase() === filter; });
+  }
+  if (!items.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128203;</div><p>Заказы не найдены</p></div>';
+    return;
+  }
+  wrap.innerHTML = '<table><thead><tr><th>№ заказа</th><th>Дата</th><th>Клиент</th><th class="text-right">Сумма</th><th>Статус</th><th>Действия</th></tr></thead><tbody>' + items.map(function(o) {
+    var oid = o.id || o.orderId || '—';
+    var status = (o.status || 'pending').toLowerCase();
+    var canConfirm = status === 'pending';
+    var canShip = status === 'confirmed';
+    var canDeliver = status === 'shipped';
+    var actions = '';
+    if (canConfirm) actions += '<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(\'' + oid + '\',\'confirmed\')">\u2713 Подтвердить</button> ';
+    if (canShip) actions += '<button class="btn btn-sm btn-success" onclick="updateOrderStatus(\'' + oid + '\',\'shipped\')">\uD83D\uDE9A Отгрузить</button> ';
+    if (canDeliver) actions += '<button class="btn btn-sm btn-primary" onclick="updateOrderStatus(\'' + oid + '\',\'delivered\')">\u2714\uFE0F Доставить</button> ';
+    if (!actions) actions = '<span class="text-muted">—</span>';
+    return '<tr><td class="fw-600">#' + oid + '</td><td>' + (o.date || o.createdAt || '—') + '</td><td>' + (o.customer || o.clientName || '—') + '</td><td class="text-right nowrap">' + formatPrice(o.total || o.amount || 0) + '</td><td>' + statusBadge(status) + '</td><td class="nowrap">' + actions + '</td></tr>';
+  }).join('') + '</tbody></table>';
+}
+
+function filterOrders(status, btn) {
+  STATE.orderFilter = status;
+  document.querySelectorAll('#orderTabs .tab').forEach(function(t) { t.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderOrders();
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+  var labels = { confirmed: 'подтверждения', shipped: 'отгрузки', delivered: 'доставки' };
+  showConfirm('\u26A0\uFE0F', 'Изменение статуса', 'Подтвердить изменение статуса заказа #' + orderId + ' на "' + (labels[newStatus] || newStatus) + '"?', async function() {
+    try {
+      await api('POST', '/api/supplier-portal/orders/' + encodeURIComponent(orderId) + '/status', { status: newStatus });
+      toast('success', 'Статус обновлён', 'Заказ #' + orderId + ' переведён в статус "' + (labels[newStatus] || newStatus) + '"');
+      STATE.orders = null;
+      loadOrders();
+    } catch (e) {
+      toast('error', 'Ошибка', e.message);
+    }
+  });
+}
+
+/* =========================================================
+   CHANGE PASSWORD
+   ========================================================= */
+async function changePassword() {
+  var curr = document.getElementById('settingsCurrentPassword').value;
+  var newp = document.getElementById('settingsNewPassword').value;
+  var conf = document.getElementById('settingsConfirmPassword').value;
+  if (!curr || !newp || !conf) {
+    toast('error', 'Ошибка', 'Заполните все поля');
+    return;
+  }
+  if (newp !== conf) {
+    toast('error', 'Ошибка', 'Пароли не совпадают');
+    return;
+  }
+  if (newp.length < 6) {
+    toast('error', 'Ошибка', 'Пароль должен быть не менее 6 символов');
+    return;
+  }
+  var btn = document.getElementById('settingsSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Сохранение...';
+  try {
+    await api('POST', '/api/supplier-portal/change-password', { currentPassword: curr, newPassword: newp });
+    toast('success', 'Пароль изменён', 'Пароль успешно обновлён');
+    document.getElementById('settingsCurrentPassword').value = '';
+    document.getElementById('settingsNewPassword').value = '';
+    document.getElementById('settingsConfirmPassword').value = '';
+  } catch (e) {
+    toast('error', 'Ошибка', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сменить пароль';
+  }
+}
+
+/* =========================================================
+   UTILITIES
+   ========================================================= */
+function formatPrice(val) {
+  return Number(val).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20BD';
+}
+
+function statusBadge(s) {
+  s = (s || '').toLowerCase();
+  var map = {
+    pending: ['badge-default', '\u23F3 Ожидает'],
+    confirmed: ['badge-info', '\u2713 Подтверждён'],
+    shipped: ['badge-warning', '\uD83D\uDE9A Отгружен'],
+    delivered: ['badge-success', '\u2714\uFE0F Доставлен'],
+    cancelled: ['badge-danger', '\u2717 Отменён'],
+  };
+  var m = map[s] || ['badge-default', s];
+  return '<span class="badge ' + m[0] + '">' + m[1] + '</span>';
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+(function init() {
+  if (STATE.token) {
+    document.getElementById('loginPage').classList.add('hidden');
+    if (STATE.user) {
+      document.getElementById('sidebarUserName').textContent = STATE.user.name || STATE.user.username || 'Поставщик';
+      var initial = (STATE.user.name || STATE.user.username || 'П')[0].toUpperCase();
+      document.getElementById('sidebarAvatar').textContent = initial;
+    }
+    loadDashboard();
+  }
+})();
+</script>
+
+</body>
+</html>

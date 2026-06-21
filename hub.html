@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodChain — Все приложения</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e4e4e7;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { text-align: center; padding: 2rem; }
+    h1 {
+      font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: #71717a; margin-bottom: 2.5rem; font-size: 0.9rem; }
+    .grid { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+    .card {
+      background: #18181b; border: 1px solid #27272a; border-radius: 1rem;
+      padding: 1.5rem 2rem; width: 180px; text-decoration: none; color: inherit;
+      transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    }
+    .card:hover {
+      border-color: #6366f1; transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+    }
+    .icon { font-size: 2rem; }
+    .name { font-weight: 700; font-size: 1rem; }
+    .port { font-size: 0.75rem; color: #52525b; }
+    .card:nth-child(1) .icon { color: #3b82f6; }
+    .card:nth-child(2) .icon { color: #22c55e; }
+    .card:nth-child(3) .icon { color: #f59e0b; }
+    .card:nth-child(4) .icon { color: #ef4444; }
+    .card:nth-child(5) .icon { color: #a855f7; }
+    .card:nth-child(6) .icon { color: #06b6d4; }
+    .badge {
+      display: inline-block; background: #6366f1; color: white;
+      font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem;
+      border-radius: 999px; margin-left: 0.25rem; vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>FoodChain Ecosystem</h1>
+    <p class="subtitle">Выберите приложение для перехода</p>
+    <div class="grid">
+      <a href="http://localhost:5173" target="_blank" class="card">
+        <div class="icon">&#9881;&#65039;</div>
+        <div class="name">Admin</div>
+        <div class="port">5173</div>
+      </a>
+      <a href="http://localhost:5174" target="_blank" class="card">
+        <div class="icon">&#128722;</div>
+        <div class="name">Guest</div>
+        <div class="port">5174</div>
+      </a>
+      <a href="http://localhost:5175" target="_blank" class="card">
+        <div class="icon">&#127860;</div>
+        <div class="name">Waiter</div>
+        <div class="port">5175</div>
+      </a>
+      <a href="http://localhost:5176" target="_blank" class="card">
+        <div class="icon">&#128104;&zwj;&127859;</div>
+        <div class="name">Kitchen</div>
+        <div class="port">5176</div>
+      </a>
+      <a href="http://localhost:5177" target="_blank" class="card">
+        <div class="icon">&#128666;</div>
+        <div class="name">Courier</div>
+        <div class="port">5177</div>
+      </a>
+      <a href="http://localhost:5180" target="_blank" class="card">
+        <div class="icon">&#127760;</div>
+        <div class="name">Portal <span class="badge">SaaS</span></div>
+        <div class="port">5180</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

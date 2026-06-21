@@ -1,0 +1,96 @@
+{
+  "name": "foodchain-ecosystem",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:guest": "vite",
+    "dev:courier": "set VITE_APP=courier && vite",
+    "dev:admin": "set VITE_APP=admin && vite",
+    "dev:waiter": "set VITE_APP=waiter && vite --port 5174",
+    "dev:kitchen": "set VITE_APP=kitchen && vite --port 5176",
+    "build:guest": "set VITE_APP=guest && vite build",
+    "build:courier": "set VITE_APP=courier && vite build",
+    "build:admin": "set VITE_APP=admin && vite build",
+    "build:waiter": "set VITE_APP=waiter && vite build",
+    "cap:waiter:add": "npx cap add android --config capacitor.waiter.config.ts",
+    "cap:waiter:copy": "npx cap copy --config capacitor.waiter.config.ts",
+    "cap:waiter:sync": "npx cap sync --config capacitor.waiter.config.ts",
+    "cap:waiter:open": "npx cap open android --config capacitor.waiter.config.ts",
+    "build:kitchen": "set VITE_APP=kitchen && vite build",
+    "dev:website": "set VITE_APP=website && vite --port 5175",
+    "build:website": "set VITE_APP=website && vite build",
+    "build:kiosk": "set VITE_APP=kiosk && vite build",
+    "preview": "vite preview",
+    "electron:start": "electron .",
+    "electron:build": "npm run build:admin && electron-builder",
+    "cap:guest:add": "cd dist-guest && npx cap add android",
+    "cap:courier:add": "cd dist-courier && npx cap add android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/core": "^5.7.0",
+    "@capacitor/ios": "^5.7.0",
+    "@tanstack/react-table": "^8.21.3",
+    "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "i18next": "^26.3.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.344.0",
+    "multer": "^2.1.1",
+    "node-cron": "^4.3.0",
+    "node-telegram-bot-api": "^1.1.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^17.0.8",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.12.2",
+    "speakeasy": "^2.0.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "tailwind-merge": "^2.2.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.7.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^20.11.24",
+    "@types/react": "^18.2.61",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.12.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "vite-plugin-singlefile": "^2.0.1"
+  },
+  "build": {
+    "appId": "com.foodchain.admin",
+    "productName": "FoodChain Admin",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-admin/**/*",
+      "main.cjs"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

@@ -1,0 +1,76 @@
+# --------------------
+# Dependencies
+# --------------------
+node_modules/
+server/node_modules/
+
+# --------------------
+# Build outputs
+# --------------------
+dist-/
+dist-admin/
+dist-courier/
+dist-guest/
+dist-kitchen/
+dist-waiter/
+dist-website/
+release/
+
+# --------------------
+# Environment & secrets
+# --------------------
+.env
+.env.local
+.env.production
+*.key
+*.pem
+*.cert
+
+# --------------------
+# Databases
+# --------------------
+*.db
+*.db-shm
+*.db-wal
+
+# --------------------
+# IDE
+# --------------------
+.idea/
+*.swp
+*.swo
+*~
+
+# --------------------
+# OS
+# --------------------
+.DS_Store
+Thumbs.db
+
+# --------------------
+# Logs & temp
+# --------------------
+*.log
+*.txt
+temp/
+_archive/
+
+# --------------------
+# Capacitor / Android
+# --------------------
+android/.gradle/
+android/build/
+android/captures/
+android/local.properties
+android/app/build/
+
+# --------------------
+# Uploads
+# --------------------
+server/uploads/*
+!server/uploads/.gitkeep
+
+# --------------------
+# Scripts (dev utilities)
+# --------------------
+scripts/
