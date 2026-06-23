@@ -17,7 +17,7 @@ import {
 
 /* ─── ANIMATED TEXT ─── */
 
-const venueTypes = ['Restaurants', 'Cafes', 'Takeaways', 'Bars & Pubs', 'Bakeries', 'Food Trucks'];
+const venueTypes = ['Рестораны', 'Кафе', 'Доставка', 'Бары', 'Пекарни', 'Фудтраки'];
 
 /* ─── MOCK IMAGES (placeholder product screenshots) ─── */
 
@@ -246,11 +246,11 @@ function BackOfficeMock() {
 /* ─── DATA ─── */
 
 const benefitIcons = [
-  { icon: Settings, label: 'Pricing that works for your business' },
-  { icon: Monitor, label: 'All functionality in one Back Office' },
-  { icon: Zap, label: 'Free implementation' },
-  { icon: PhoneCall, label: 'Free technical support' },
-  { icon: Truck, label: 'Integration with Just-Eat, Uber Eats and Deliveroo' },
+  { icon: Settings, label: 'Гибкая стоимость под ваш бизнес' },
+  { icon: Monitor, label: 'Вся функциональность в бэк-офисе' },
+  { icon: Zap, label: 'Бесплатное внедрение' },
+  { icon: PhoneCall, label: 'Бесплатная техподдержка' },
+  { icon: Truck, label: 'Интеграция с Яндекс.Едой, Delivery Club и другими' },
 ];
 
 const features17 = [
@@ -276,7 +276,7 @@ const features17 = [
 const industrySections = [
   {
     icon: UtensilsCrossed,
-    title: 'Restaurants & Cafes',
+    title: 'Рестораны и кафе',
     painPoints: [
       { icon: Shield, title: 'Как контролировать сотрудников и избежать воровства' },
       { icon: Star, title: 'Как контролировать качество блюд и сервиса' },
@@ -293,7 +293,7 @@ const industrySections = [
   },
   {
     icon: Pizza,
-    title: 'Fast Food',
+    title: 'Фастфуд',
     painPoints: [
       { icon: UsersIcon, title: 'Что делать с высокой текучкой' },
       { icon: Clock, title: 'Как быстро обслуживать в часы пик' },
@@ -310,7 +310,7 @@ const industrySections = [
   },
   {
     icon: Truck,
-    title: 'Delivery',
+    title: 'Доставка еды',
     painPoints: [
       { icon: MapPin, title: 'Как организовать логистику доставки' },
       { icon: PieChart, title: 'Как управлять заказами с агрегаторов' },
@@ -327,7 +327,7 @@ const industrySections = [
   },
   {
     icon: Coffee,
-    title: 'Bakeries & Coffee Shops',
+    title: 'Пекарни и кофейни',
     painPoints: [
       { icon: Warehouse, title: 'Как эффективно вести складской учет' },
       { icon: TrendingUp, title: 'Как удержать клиентов и вернуть их снова' },
@@ -344,7 +344,7 @@ const industrySections = [
   },
   {
     icon: Building2,
-    title: 'Canteen / Corporate Dining',
+    title: 'Столовые и корпоративное питание',
     painPoints: [
       { icon: ClipboardList, title: 'Как эффективно управлять производством' },
       { icon: UserCheck, title: 'Как создать базу постоянных клиентов' },
@@ -361,7 +361,7 @@ const industrySections = [
   },
   {
     icon: Store,
-    title: 'Franchises & Chains',
+    title: 'Франшизы и сети',
     painPoints: [
       { icon: FileText, title: 'Как франчайзи соответствовать требованиям' },
       { icon: Activity, title: 'Как контролировать работу нескольких точек' },
@@ -520,16 +520,16 @@ export function Portal() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div className="reveal opacity-0 translate-y-8 transition-all duration-700">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-                The all-in-one<br />
-                EPOS for{' '}
+                Вся сила<br />
+                EPOS для{' '}
                 <span className="text-green-600 inline-block min-w-[200px]">{venueTypes[venueIdx]}</span>
               </h1>
               <p className="mt-6 text-lg text-gray-600 max-w-xl leading-relaxed">
-                Operate faster, market smarter, and keep customers coming back — all from one connected system.
+                Работайте быстрее, продавайте умнее и возвращайте клиентов — всё из одной связанной системы.
               </p>
               <div className="mt-8">
                 <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-sm font-bold shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">
-                  Enquire now <ArrowRight className="h-4 w-4" />
+                  Запросить демо <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
 
@@ -564,7 +564,7 @@ export function Portal() {
       {/* CLIENT LOGOS CAROUSEL */}
       <section className="py-12 border-y border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-center text-sm text-gray-400 mb-8">These businesses are already loving FoodChain</p>
+          <p className="text-center text-sm text-gray-400 mb-8">Уже используют FoodChain</p>
           <div className="flex overflow-hidden">
             <div className="flex gap-8 animate-scroll">
               {[...clientLogos, ...clientLogos].map((logo, i) => (
@@ -576,7 +576,7 @@ export function Portal() {
           </div>
           <div className="text-center mt-8">
             <Link to="/register" className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-semibold">
-              Join us now <ArrowRight className="h-3.5 w-3.5" />
+              Присоединяйтесь <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
@@ -586,17 +586,17 @@ export function Portal() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Check out everything on the FoodChain system</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Всё о системе FoodChain</h2>
             <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
-              For over 5 years, we have worked directly alongside hospitality businesses to master the unique flow and demands of real-world service.
+              Более 5 лет мы работаем с заведениями общественного питания, чтобы понять особенности реального сервиса.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: Settings, title: 'All functionality in one Back Office', desc: 'Your Back Office brings everything together: warehouse accounting, menu setup, staff management, financial reports, cost control, and marketing.' },
-              { icon: MenuIcon, title: 'Advanced menu management', desc: 'Process all orders in one place — dine-in, delivery and collection. Receive delivery app orders directly. Send orders to the kitchen instantly.' },
-              { icon: Globe, title: 'Branded website for your store', desc: 'Launch your own direct delivery service. Use QR codes for ordering. Flexible customisation for chains and franchises.' },
+              { icon: Settings, title: 'Вся функциональность в бэк-офисе', desc: 'Ваш бэк-офис объединяет всё: учёт склада, настройку меню, управление персоналом, финансы, контроль затрат и маркетинг.' },
+              { icon: MenuIcon, title: 'Продвинутое управление меню', desc: 'Обрабатывайте все заказы из зала, доставки и самовывоза. Принимайте заказы с доставки напрямую. Отправляйте заказы на кухню мгновенно.' },
+              { icon: Globe, title: 'Сайт под ваш бренд', desc: 'Запустите собственную службу доставки. Используйте QR-коды для заказа. Гибкая настройка для сетей и франшиз.' },
             ].map((item, i) => (
               <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-gray-100 p-8 hover:border-green-200 hover:shadow-lg transition-all">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all">
@@ -610,10 +610,10 @@ export function Portal() {
 
           <div className="grid md:grid-cols-4 gap-8 mt-12">
             {[
-              { icon: Smartphone, title: 'Waiter app', desc: 'Waiters can take orders quickly, enrol customers into loyalty, add preferences and send orders straight to the kitchen.' },
-              { icon: Truck, title: 'Delivery app', desc: 'Assign drivers directly from the till and track delivery routes in real time with Google Maps integration.' },
-              { icon: Monitor, title: 'Self-service kiosk', desc: 'Speed up service, reduce queues and lower staffing pressure. Use the screen as a menu, order tracker and promotional space.' },
-              { icon: ChefHat, title: 'Kitchen app', desc: 'Orders go straight to the correct kitchen station. When dishes are ready, the kitchen notifies the waiter instantly.' },
+              { icon: Smartphone, title: 'Приложение официанта', desc: 'Официанты быстро принимают заказы, записывают гостей в программу лояльности, добавляют предпочтения и отправляют заказы на кухню.' },
+              { icon: Truck, title: 'Приложение курьера', desc: 'Назначайте курьеров прямо с кассы и отслеживайте маршруты доставки в реальном времени с интеграцией Google Maps.' },
+              { icon: Monitor, title: 'Киоск самообслуживания', desc: 'Ускоряйте обслуживание, сокращайте очереди и снижайте нагрузку на персонал. Используйте экран как меню, трекер заказов и рекламное пространство.' },
+              { icon: ChefHat, title: 'Экран кухни', desc: 'Заказы поступают на нужный станок кухни. Когда блюда готовы, кухня мгновенно уведомляет официанта.' },
             ].map((item, i) => (
               <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-gray-100 p-6 hover:border-green-200 hover:shadow-lg transition-all text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-600 group-hover:bg-green-50 group-hover:text-green-600 transition-all mx-auto">
@@ -631,16 +631,16 @@ export function Portal() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">All apps for your business</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">6 applications that cover every process of your restaurant</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Все приложения для вашего бизнеса</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">6 приложений, которые полностью покрывают все процессы вашего заведения</p>
           </div>
           <div className="space-y-16">
             {[
-              { mock: WaiterAppMock, title: 'Waiter App', desc: 'Схема зала, приём заказов, отправка на кухню и оплата с планшета.', features: ['Интуитивный интерфейс', 'Работает на любых устройствах', 'Синхронизация в реальном времени'] },
-              { mock: DeliveryAppMock, title: 'Delivery App', desc: 'Маршруты, геолокация, статусы доставки. Работает на любом смартфоне.', features: ['Автоматическая прокладка маршрута', 'Отслеживание в реальном времени', 'Приём оплаты на месте'] },
-              { mock: KioskMock, title: 'Self-Service Kiosk', desc: 'Сенсорный терминал для самостоятельного заказа в зале.', features: ['Электронная очередь', 'Рекламные баннеры', 'Приём любых способов оплаты'] },
-              { mock: KDSMock, title: 'Kitchen Display System', desc: 'Очередь заказов с таймерами, автосписание ингредиентов.', features: ['Статусы заказов', 'Звуковые оповещения', 'Приоритизация блюд'] },
-              { mock: BackOfficeMock, title: 'Back Office', desc: 'Дашборд, управление меню, склад, финансы и персонал.', features: ['Аналитика и отчёты', 'Управление персоналом', 'Контроль затрат'] },
+              { mock: WaiterAppMock, title: 'Приложение официанта', desc: 'Схема зала, приём заказов, отправка на кухню и оплата с планшета.', features: ['Интуитивный интерфейс', 'Работает на любых устройствах', 'Синхронизация в реальном времени'] },
+              { mock: DeliveryAppMock, title: 'Приложение курьера', desc: 'Маршруты, геолокация, статусы доставки. Работает на любом смартфоне.', features: ['Автоматическая прокладка маршрута', 'Отслеживание в реальном времени', 'Приём оплаты на месте'] },
+              { mock: KioskMock, title: 'Киоск самообслуживания', desc: 'Сенсорный терминал для самостоятельного заказа в зале.', features: ['Электронная очередь', 'Рекламные баннеры', 'Приём любых способов оплаты'] },
+              { mock: KDSMock, title: 'Экран кухни (KDS)', desc: 'Очередь заказов с таймерами, автосписание ингредиентов.', features: ['Статусы заказов', 'Звуковые оповещения', 'Приоритизация блюд'] },
+              { mock: BackOfficeMock, title: 'Бэк-офис', desc: 'Дашборд, управление меню, склад, финансы и персонал.', features: ['Аналитика и отчёты', 'Управление персоналом', 'Контроль затрат'] },
             ].map((app, i) => {
               const Mock = app.mock;
               return (
@@ -668,8 +668,8 @@ export function Portal() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">FoodChain knows your business</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">We understand the unique needs of every type of hospitality business</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">FoodChain знает ваш бизнес</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">Мы понимаем особенности каждого типа заведения</p>
           </div>
 
           <div className="space-y-20">
@@ -723,8 +723,8 @@ export function Portal() {
       <section className="py-20 bg-gray-50" id="features">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">17 features your competitors don't have</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">FoodChain is the only system that gives you these advantages out of the box.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">17 функций, которых нет у конкурентов</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">FoodChain — единственная система, которая даёт все эти преимущества из коробки.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {features17.map((f, i) => (
@@ -746,14 +746,14 @@ export function Portal() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Compare for yourself</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">We outperform competitors in functionality and price</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Сравните сами</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">Мы обгоняем конкурентов по функциональности и цене</p>
           </div>
           <div className="overflow-x-auto reveal opacity-0 translate-y-8 transition-all duration-700">
             <table className="w-full min-w-[700px] border-collapse">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Feature</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Функция</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-green-700 uppercase tracking-wider bg-green-50 rounded-t-xl">FoodChain</th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">iiko</th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">YUMA</th>
@@ -790,8 +790,8 @@ export function Portal() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">The trusted provider of EPOS systems</h2>
-            <p className="mt-4 text-lg text-gray-500">Real results from real users</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Надёжный поставщик EPOS-систем</h2>
+            <p className="mt-4 text-lg text-gray-500">Реальные результаты от реальных пользователей</p>
           </div>
           <div className="relative reveal opacity-0 translate-y-8 transition-all duration-700">
             {testimonials.map((t, i) => (
@@ -821,13 +821,13 @@ export function Portal() {
       <section className="py-20 bg-white" id="pricing">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Choose your plan</h2>
-            <p className="mt-4 text-lg text-gray-500">All plans include a 14-day free trial</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Выберите ваш тариф</h2>
+            <p className="mt-4 text-lg text-gray-500">Все тарифы включают 14-дневный бесплатный пробный период</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {plans.map((plan, i) => (
               <div key={i} className={`reveal opacity-0 translate-y-8 transition-all duration-700 relative flex flex-col rounded-2xl border p-8 ${plan.popular ? 'border-green-500 bg-gradient-to-b from-green-50 to-white shadow-xl shadow-green-500/10 ring-1 ring-green-500/20 scale-105' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-4 py-1 text-xs font-bold text-white shadow-lg">Most Popular</span>}
+                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-4 py-1 text-xs font-bold text-white shadow-lg">Самый популярный</span>}
                 <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">{plan.sub}</p>
                 <div className="mt-6 flex items-baseline gap-1"><span className="text-4xl font-bold text-gray-900">{plan.price}</span><span className="text-sm text-gray-500">/мес</span></div>
@@ -847,7 +847,7 @@ export function Portal() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-12 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Frequently Asked Questions</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Часто задаваемые вопросы</h2>
           </div>
           <div className="space-y-3 reveal opacity-0 translate-y-8 transition-all duration-700">
             {faqs.map((faq, i) => {
@@ -871,13 +871,13 @@ export function Portal() {
       {/* CTA */}
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4 text-center reveal opacity-0 translate-y-8 transition-all duration-700">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Let's build the right EPOS setup for your business</h2>
-          <p className="mt-4 text-lg text-gray-500">14 days full access. No credit card required. No obligations.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Начните бесплатно уже сегодня</h2>
+          <p className="mt-4 text-lg text-gray-500">14 дней полного доступа. Без привязки карты. Без обязательств.</p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">Get started <ArrowRight className="h-4 w-4" /></Link>
-            <Link to="/contact" className="inline-flex items-center gap-2 border border-gray-200 bg-white px-8 py-4 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Contact us</Link>
+            <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">Начать бесплатно <ArrowRight className="h-4 w-4" /></Link>
+            <Link to="/contact" className="inline-flex items-center gap-2 border border-gray-200 bg-white px-8 py-4 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Связаться с нами</Link>
           </div>
-          <p className="mt-4 text-xs text-gray-400">By clicking the button, you accept the agreement on the processing of digital data</p>
+          <p className="mt-4 text-xs text-gray-400">Нажимая кнопку, вы принимаете соглашение об обработке персональных данных</p>
         </div>
       </section>
 
@@ -892,47 +892,47 @@ export function Portal() {
                 </div>
                 <span className="font-bold text-white text-lg">Food<span className="text-green-400">Chain</span></span>
               </div>
-              <p className="text-sm leading-relaxed text-gray-500 max-w-xs">All-in-one EPOS for hospitality.</p>
+              <p className="text-sm leading-relaxed text-gray-500 max-w-xs">Единая EPOS-система для общественного питания.</p>
             </div>
             <div>
-              <h4 className="font-semibold text-white text-sm mb-4">Products</h4>
+              <h4 className="font-semibold text-white text-sm mb-4">Продукт</h4>
               <div className="space-y-3 text-sm">
-                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">EPOS Terminal</Link>
-                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Back Office</Link>
-                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Marketing & Loyalty</Link>
-                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Online Ordering</Link>
-                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Self-Serve Kiosk</Link>
-                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Digital Queue</Link>
+                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">EPOS-терминал</Link>
+                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Бэк-офис</Link>
+                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Маркетинг и лояльность</Link>
+                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Онлайн-заказы</Link>
+                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Киоск самообслуживания</Link>
+                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Электронная очередь</Link>
               </div>
             </div>
             <div>
-              <h4 className="font-semibold text-white text-sm mb-4">Apps</h4>
+              <h4 className="font-semibold text-white text-sm mb-4">Приложения</h4>
               <div className="space-y-3 text-sm">
-                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Kitchen Display System</Link>
-                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Driver App</Link>
+                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Экран кухни</Link>
+                <Link to="/apps" className="block text-gray-500 hover:text-green-400 transition">Приложение курьера</Link>
               </div>
             </div>
             <div>
-              <h4 className="font-semibold text-white text-sm mb-4">We offer</h4>
+              <h4 className="font-semibold text-white text-sm mb-4">Услуги</h4>
               <div className="space-y-3 text-sm">
-                <Link to="/pricing" className="block text-gray-500 hover:text-green-400 transition">Software Pricing</Link>
-                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Hardware</Link>
+                <Link to="/pricing" className="block text-gray-500 hover:text-green-400 transition">Цены</Link>
+                <Link to="/features" className="block text-gray-500 hover:text-green-400 transition">Оборудование</Link>
               </div>
             </div>
             <div>
-              <h4 className="font-semibold text-white text-sm mb-4">FoodChain</h4>
+              <h4 className="font-semibold text-white text-sm mb-4">Компания</h4>
               <div className="space-y-3 text-sm">
-                <Link to="/about" className="block text-gray-500 hover:text-green-400 transition">About</Link>
-                <Link to="/contact" className="block text-gray-500 hover:text-green-400 transition">Contact</Link>
+                <Link to="/about" className="block text-gray-500 hover:text-green-400 transition">О нас</Link>
+                <Link to="/contact" className="block text-gray-500 hover:text-green-400 transition">Контакты</Link>
               </div>
             </div>
           </div>
           <div className="border-t border-gray-800 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-600">© 2026 FoodChain / MIRUZ. All rights reserved.</p>
+            <p className="text-xs text-gray-600">© 2026 FoodChain / MIRUZ. Все права защищены.</p>
             <div className="flex items-center gap-4 text-xs text-gray-600">
-              <a href="#" className="hover:text-green-400 transition">Privacy Policy</a>
-              <a href="#" className="hover:text-green-400 transition">Terms & Conditions</a>
-              <a href="#" className="hover:text-green-400 transition">Cookies</a>
+              <a href="#" className="hover:text-green-400 transition">Политика конфиденциальности</a>
+              <a href="#" className="hover:text-green-400 transition">Условия использования</a>
+              <a href="#" className="hover:text-green-400 transition">Файлы cookie</a>
             </div>
           </div>
         </div>

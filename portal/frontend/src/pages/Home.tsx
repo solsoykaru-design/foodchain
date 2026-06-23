@@ -1,24 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, Check, ChevronRight, Star, ChevronDown, Menu, X,
-  Smartphone, Tablet, Monitor, ShoppingCart, Package, BarChart3,
+  ArrowRight, Check, ChevronDown, Menu, X, Star,
+  Smartphone, Monitor, ShoppingCart, Package, BarChart3,
   Users, Megaphone, MessageCircle, Globe, Bike, ChefHat,
   CreditCard, QrCode, Shield, Zap, Settings, PhoneCall,
   MapPin, Truck, Clock, PieChart, Activity, Warehouse,
   Building2, Coffee, UtensilsCrossed, Pizza, Store, ClipboardList,
-  UserCheck, FileText, TrendingUp, Headphones,
+  UserCheck, FileText, TrendingUp, Headphones, DollarSign, Gift,
 } from 'lucide-react';
 
-/* ─── ANIMATED TEXT ─── */
-const venueTypes = ['Restaurants', 'Cafes', 'Takeaways', 'Bars & Pubs', 'Bakeries', 'Food Trucks'];
+const venueTypes = ['Рестораны', 'Кафе', 'Доставка', 'Бары', 'Пекарни', 'Фудтраки'];
 
 const benefitIcons = [
-  { icon: Settings, label: 'Pricing that works for your business' },
-  { icon: Monitor, label: 'All functionality in one Back Office' },
-  { icon: Zap, label: 'Free implementation' },
-  { icon: PhoneCall, label: 'Free technical support' },
-  { icon: Truck, label: 'Integration with Just-Eat, Uber Eats and Deliveroo' },
+  { icon: Settings, label: 'Гибкая стоимость под ваш бизнес' },
+  { icon: Monitor, label: 'Вся функциональность в одном бэк-офисе' },
+  { icon: Zap, label: 'Бесплатное внедрение' },
+  { icon: PhoneCall, label: 'Бесплатная техподдержка' },
+  { icon: Truck, label: 'Интеграция с Яндекс.Едой, Delivery Club и другими' },
 ];
 
 const features = [
@@ -32,18 +31,18 @@ const features = [
   { icon: BarChart3, title: 'Аналитика и прогноз', desc: 'ML-модель прогнозирует продажи и закупки на основе данных.' },
   { icon: Globe, title: 'Интеграции и API', desc: 'Эквайринг, фискализация, Telegram, соцсети, 1С, агрегаторы.' },
   { icon: Shield, title: 'Безопасность и 2FA', desc: 'Двухфакторная аутентификация, аудит всех действий.' },
-  { icon: MessageCircle, title: 'Встроенные чаты', desc: 'Гость-официант, гость-курьер, курьер-официант — общение в реальном времени.' },
-  { icon: Gift, title: 'Геймификация', desc: 'Колесо удачи, викторины, челленджи для повышения вовлечённости.' },
+  { icon: MessageCircle, title: 'Чаты в реальном времени', desc: 'Общение гостя с официантом и курьером без звонков.' },
+  { icon: Gift, title: 'Геймификация', desc: 'Колесо удачи, викторины, челленджи для вовлечения гостей.' },
   { icon: DollarSign, title: 'Мультивалютность', desc: 'Поддержка нескольких валют для международных сетей.' },
   { icon: Headphones, title: 'Оператор колл-центра', desc: 'Интерфейс для приёма заказов по телефону.' },
-  { icon: QrCode, title: 'QR-самозаказ', desc: 'Гость сканирует QR и делает заказ сам.' },
-  { icon: Shield, title: 'Честный знак', desc: 'Учёт маркированных товаров.' },
-  { icon: Globe, title: 'PWA', desc: 'Сайт работает как приложение на телефоне.' },
+  { icon: QrCode, title: 'QR-самозаказ', desc: 'Гость сканирует QR и делает заказ сам со смартфона.' },
+  { icon: Shield, title: 'Честный знак', desc: 'Учёт маркированных товаров из коробки.' },
+  { icon: Globe, title: 'PWA-приложение', desc: 'Сайт работает как приложение на телефоне без установки.' },
 ];
 
 const appList = [
   { icon: Smartphone, title: 'Приложение официанта', desc: 'Схема зала, приём заказов, отправка на кухню и оплата с планшета.' },
-  { icon: Truck, title: 'Приложение курьера', desc: 'Маршруты, геолокация, статусы доставки. Работает на любом смартфоне.' },
+  { icon: Truck, title: 'Приложение курьера', desc: 'Маршруты, геолокация, статусы доставки на любом смартфоне.' },
   { icon: Monitor, title: 'Киоск самообслуживания', desc: 'Сенсорный терминал для самостоятельного заказа в зале.' },
   { icon: ChefHat, title: 'Экран кухни (KDS)', desc: 'Очередь заказов с таймерами, автосписание ингредиентов.' },
   { icon: BarChart3, title: 'Бэк-офис', desc: 'Дашборд, управление меню, склад, финансы и персонал.' },
@@ -52,38 +51,38 @@ const appList = [
 
 const industrySections = [
   {
-    icon: UtensilsCrossed, title: 'Restaurants & Cafes',
+    icon: UtensilsCrossed, title: 'Рестораны и кафе',
     painPoints: [{ icon: Shield, title: 'Как контролировать сотрудников' }, { icon: Star, title: 'Как контролировать качество блюд' }],
     features: ['Оплата любыми способами', 'Безлимитные техкарты', 'Меню по часам', 'RFM-анализ', 'Складской учет', 'Интеграция с агрегаторами'],
     img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop',
   },
   {
-    icon: Pizza, title: 'Fast Food',
+    icon: Pizza, title: 'Фастфуд',
     painPoints: [{ icon: Users, title: 'Высокая текучка персонала' }, { icon: Clock, title: 'Обслуживание в часы пик' }],
     features: ['Киоски самообслуживания', 'Единое управление заказами', 'Зоны доставки на карте', 'Заказ в один клик', 'Приложение для курьера', 'Статусы для покупателей'],
     img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=400&fit=crop',
   },
   {
-    icon: Truck, title: 'Delivery',
+    icon: Truck, title: 'Доставка еды',
     painPoints: [{ icon: MapPin, title: 'Логистика доставки' }, { icon: PieChart, title: 'Управление агрегаторами' }],
     features: ['Сайт для онлайн-заказов', 'Электронная очередь', 'Заказ через QR-коды', 'Удобный интерфейс кассы', 'Баннеры на экранах', 'Автоматические скидки'],
     img: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=600&h=400&fit=crop',
   },
   {
-    icon: Coffee, title: 'Bakeries & Coffee',
+    icon: Coffee, title: 'Пекарни и кофейни',
     painPoints: [{ icon: Warehouse, title: 'Складской учет' }, { icon: TrendingUp, title: 'Удержание клиентов' }],
     features: ['Несколько покупателей одновременно', 'Автоскидки после 20:00', 'Весовой товар', 'Учёт ингредиентов', 'Полная инвентаризация', 'Модификаторы и топпинги'],
     img: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&h=400&fit=crop',
   },
   {
-    icon: Building2, title: 'Canteen / Corporate',
+    icon: Building2, title: 'Столовые и корпоративное питание',
     painPoints: [{ icon: ClipboardList, title: 'Управление производством' }, { icon: UserCheck, title: 'База постоянных клиентов' }],
-    features: ['Меню по дням недели', 'Планирование производства', 'Продажа на вес', 'Быстрый интерфейс', 'Постоянные посетители', 'Система баллов'],
+    features: ['Меню по дням недели', 'Планирование производства', 'Продажа на вес', 'Быстрый интерфейс кассы', 'Постоянные посетители', 'Система баллов'],
     img: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=400&fit=crop',
   },
   {
-    icon: Store, title: 'Franchises & Chains',
-    painPoints: [{ icon: FileText, title: 'Требования франчайзи' }, { icon: Activity, title: 'Контроль нескольких точек' }],
+    icon: Store, title: 'Франшизы и сети',
+    painPoints: [{ icon: FileText, title: 'Требования франчайзера' }, { icon: Activity, title: 'Контроль нескольких точек' }],
     features: ['Масштабирование', 'Финансовое управление сетью', 'Стандарты качества', 'Централизованные поставки', 'Маркетинг для филиалов', 'Контроль запасов'],
     img: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop',
   },
@@ -95,7 +94,7 @@ const comparisonData = [
   { feature: 'Геймификация', fc: true, iiko: false, yuma: false, poster: false, rk: false },
   { feature: 'AI-прогнозы', fc: true, iiko: false, yuma: false, poster: false, rk: false },
   { feature: 'QR-самозаказ', fc: true, iiko: false, yuma: false, poster: false, rk: false },
-  { feature: 'Split bill', fc: true, iiko: false, yuma: false, poster: false, rk: false },
+  { feature: 'Разделение счёта', fc: true, iiko: false, yuma: false, poster: false, rk: false },
   { feature: 'Приложение курьера', fc: true, iiko: false, yuma: false, poster: false, rk: false },
   { feature: 'Мобильное приложение гостя', fc: true, iiko: true, yuma: false, poster: false, rk: false },
   { feature: 'Облачная версия', fc: true, iiko: true, yuma: true, poster: true, rk: true },
@@ -131,11 +130,9 @@ const clientLogos = [
   { name: 'Pizza House', bg: 'bg-red-50 text-red-700' },
   { name: 'Бистро №1', bg: 'bg-purple-50 text-purple-700' },
   { name: 'Суши Мастер', bg: 'bg-pink-50 text-pink-700' },
-  { name: 'Кофейня', bg: 'bg-amber-50 text-amber-700' },
+  { name: 'Кофейня豆', bg: 'bg-amber-50 text-amber-700' },
   { name: 'Burger Club', bg: 'bg-orange-50 text-orange-700' },
 ];
-
-/* ─── MOCK COMPONENTS ─── */
 
 function TerminalMock() {
   return (
@@ -196,23 +193,14 @@ function Cell({ val }: { val: boolean | string }) {
   return <span className="text-gray-500 text-xs">{val}</span>;
 }
 
-/* ─── MAIN ─── */
-
 export function Home() {
   const [venueIdx, setVenueIdx] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
 
-  useEffect(() => {
-    const t = setInterval(() => setVenueIdx(p => (p + 1) % venueTypes.length), 2500);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    const t = setInterval(() => setTestimonialIdx(p => (p + 1) % testimonials.length), 5000);
-    return () => clearInterval(t);
-  }, []);
+  useEffect(() => { const t = setInterval(() => setVenueIdx(p => (p + 1) % venueTypes.length), 2500); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setTestimonialIdx(p => (p + 1) % testimonials.length), 5000); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -231,18 +219,13 @@ export function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-green-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">F</span>
-              </div>
+              <div className="w-9 h-9 bg-green-600 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">F</span></div>
               <span className="font-bold text-xl text-gray-900">Food<span className="text-green-600">Chain</span></span>
             </Link>
             <nav className="hidden md:flex items-center gap-1">
-              {['Возможности', 'Приложения', 'Цены', 'О нас', 'Блог', 'Контакты'].map((label, i) => {
-                const paths = ['/features', '/apps', '/pricing', '/about', '/blog', '/contact'];
-                return (
-                  <Link key={label} to={paths[i]} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition">{label}</Link>
-                );
-              })}
+              {['Возможности', 'Приложения', 'Цены', 'О нас', 'Блог', 'Контакты'].map((label, i) => (
+                <Link key={label} to={['/features', '/apps', '/pricing', '/about', '/blog', '/contact'][i]} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition">{label}</Link>
+              ))}
             </nav>
             <div className="hidden md:flex items-center gap-3">
               <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900">Вход</Link>
@@ -256,10 +239,10 @@ export function Home() {
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-1">
             {['Возможности', 'Приложения', 'Цены', 'О нас', 'Блог', 'Контакты'].map((label, i) => (
-              <Link key={label} to={['/features', '/apps', '/pricing', '/about', '/blog', '/contact'][i]} className="block px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50" onClick={() => setMobileOpen(false)}>{label}</Link>
+              <Link key={label} to={['/features', '/apps', '/pricing', '/about', '/blog', '/contact'][i]} className="block px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50" onClick={() => setMobileOpen(false)}>{label}</Link>
             ))}
             <hr className="my-2 border-gray-100" />
-            <Link to="/login" className="block px-4 py-2.5 text-sm font-medium text-gray-600" onClick={() => setMobileOpen(false)}>Вход</Link>
+            <Link to="/login" className="block px-4 py-2.5 text-sm text-gray-600" onClick={() => setMobileOpen(false)}>Вход</Link>
             <Link to="/register" className="block px-4 py-2.5 text-sm font-bold text-green-600" onClick={() => setMobileOpen(false)}>Попробовать бесплатно</Link>
           </div>
         )}
@@ -271,12 +254,12 @@ export function Home() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div className="reveal opacity-0 translate-y-8 transition-all duration-700">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-                The all-in-one<br />
-                EPOS for{' '}
+                Вся сила EPOS<br />
+                для{' '}
                 <span className="text-green-600 inline-block min-w-[200px]">{venueTypes[venueIdx]}</span>
               </h1>
               <p className="mt-6 text-lg text-gray-600 max-w-xl leading-relaxed">
-                Operate faster, market smarter, and keep customers coming back — all from one connected system.
+                Работайте быстрее, продавайте умнее и возвращайте клиентов — всё из одной связанной системы.
               </p>
               <div className="mt-8">
                 <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-sm font-bold shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">
@@ -288,9 +271,7 @@ export function Home() {
                   const BI = b.icon;
                   return (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
-                        <BI className="h-5 w-5" />
-                      </div>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600"><BI className="h-5 w-5" /></div>
                       <p className="text-sm text-gray-700 leading-snug">{b.label}</p>
                     </div>
                   );
@@ -300,19 +281,17 @@ export function Home() {
             <div className="flex justify-center lg:justify-end reveal opacity-0 translate-y-8 transition-all duration-700 delay-200">
               <div className="relative">
                 <TerminalMock />
-                <div className="absolute -bottom-8 -left-16">
-                  <PhoneMock />
-                </div>
+                <div className="absolute -bottom-8 -left-16"><PhoneMock /></div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CLIENT LOGOS */}
+      {/* ЛОГОТИПЫ КЛИЕНТОВ */}
       <section className="py-12 border-y border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-center text-sm text-gray-400 mb-8">These businesses are already loving FoodChain</p>
+          <p className="text-center text-sm text-gray-400 mb-8">Уже используют FoodChain</p>
           <div className="flex overflow-hidden">
             <div className="flex gap-8 animate-scroll">
               {[...clientLogos, ...clientLogos].map((logo, i) => (
@@ -321,30 +300,28 @@ export function Home() {
             </div>
           </div>
           <div className="text-center mt-8">
-            <Link to="/register" className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-semibold">Join us now <ArrowRight className="h-3.5 w-3.5" /></Link>
+            <Link to="/register" className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-semibold">Присоединяйтесь <ArrowRight className="h-3.5 w-3.5" /></Link>
           </div>
         </div>
       </section>
 
-      {/* WHY US */}
+      {/* ПОЧЕМУ МЫ */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Check out everything on the FoodChain system</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">For over 5 years, we have worked directly alongside hospitality businesses to master the unique flow of real-world service.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Всё о системе FoodChain</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">Более 5 лет мы работаем с заведениями общественного питания, чтобы закрыть 100% их задач.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: Settings, title: 'All functionality in one Back Office', desc: 'Warehouse accounting, menu setup, staff management, financial reports, cost control, and marketing — all in one place.' },
-              { icon: MenuIcon, title: 'Advanced menu management', desc: 'Process all orders in one place. Receive delivery app orders directly. Send orders to the kitchen instantly.' },
-              { icon: Globe, title: 'Branded website for your store', desc: 'Launch your own direct delivery service. Use QR codes for ordering. Flexible customisation for chains.' },
+              { icon: Settings, title: 'Вся функциональность в бэк-офисе', desc: 'Учёт склада, настройка меню, управление персоналом, финансы, контроль затрат и маркетинг — всё в одном месте.' },
+              { icon: ClipboardList, title: 'Продвинутое управление меню', desc: 'Обрабатывайте все заказы из зала, доставки и самовывоза. Принимайте заказы с доставки напрямую. Отправляйте на кухню мгновенно.' },
+              { icon: Globe, title: 'Сайт под ваш бренд', desc: 'Запустите собственную службу доставки. Используйте QR-коды для заказа. Гибкая настройка для сетей и франшиз.' },
             ].map((item, i) => {
               const Icon = item.icon;
               return (
                 <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-gray-100 p-8 hover:border-green-200 hover:shadow-lg transition-all">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all">
-                    <Icon className="h-7 w-7" />
-                  </div>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all"><Icon className="h-7 w-7" /></div>
                   <h3 className="mt-6 text-xl font-bold text-gray-900">{item.title}</h3>
                   <p className="mt-3 text-sm text-gray-500 leading-relaxed">{item.desc}</p>
                 </div>
@@ -354,21 +331,19 @@ export function Home() {
         </div>
       </section>
 
-      {/* APPS */}
-      <section className="py-20 bg-gray-50">
+      {/* ПРИЛОЖЕНИЯ */}
+      <section className="py-20 bg-gray-50" id="apps">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">All apps for your business</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">6 applications that cover every process of your restaurant</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Все приложения для вашего бизнеса</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">6 приложений, которые полностью покрывают все процессы ресторана</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {appList.map((app, i) => {
               const Icon = app.icon;
               return (
                 <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-gray-100 bg-white p-6 hover:border-green-200 hover:shadow-lg transition-all text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-600 group-hover:bg-green-50 group-hover:text-green-600 transition-all mx-auto">
-                    <Icon className="h-6 w-6" />
-                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-600 group-hover:bg-green-50 group-hover:text-green-600 transition-all mx-auto"><Icon className="h-6 w-6" /></div>
                   <h3 className="mt-4 text-lg font-bold text-gray-900">{app.title}</h3>
                   <p className="mt-2 text-sm text-gray-500 leading-relaxed">{app.desc}</p>
                 </div>
@@ -378,12 +353,12 @@ export function Home() {
         </div>
       </section>
 
-      {/* INDUSTRY SECTIONS */}
+      {/* ОТРАСЛИ */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">FoodChain knows your business</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">We understand the unique needs of every type of hospitality business</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">FoodChain знает ваш бизнес</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">Мы понимаем особенности каждого типа заведения</p>
           </div>
           <div className="space-y-20">
             {industrySections.map((section, i) => {
@@ -392,9 +367,7 @@ export function Home() {
                 <div key={i} className={`grid items-center gap-10 lg:grid-cols-2 reveal opacity-0 translate-y-8 transition-all duration-700 ${i % 2 === 1 ? 'lg:grid-flow-dense' : ''}`}>
                   <div className={i % 2 === 1 ? 'lg:col-start-2' : ''}>
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                        <SectionIcon className="h-6 w-6" />
-                      </div>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600"><SectionIcon className="h-6 w-6" /></div>
                       <h3 className="text-2xl font-bold text-gray-900">{section.title}</h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -402,26 +375,19 @@ export function Home() {
                         const PPIcon = pp.icon;
                         return (
                           <div key={j} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                            <div className="flex items-center gap-2">
-                              <PPIcon className="h-4 w-4 text-green-600" />
-                              <span className="text-xs font-medium text-gray-700">{pp.title}</span>
-                            </div>
+                            <div className="flex items-center gap-2"><PPIcon className="h-4 w-4 text-green-600" /><span className="text-xs font-medium text-gray-700">{pp.title}</span></div>
                           </div>
                         );
                       })}
                     </div>
                     <ul className="space-y-2.5">
                       {section.features.map((f, j) => (
-                        <li key={j} className="flex items-start gap-2.5 text-sm text-gray-600">
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />{f}
-                        </li>
+                        <li key={j} className="flex items-start gap-2.5 text-sm text-gray-600"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />{f}</li>
                       ))}
                     </ul>
                   </div>
                   <div className={`flex justify-center ${i % 2 === 1 ? 'lg:col-start-1' : ''}`}>
-                    <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100">
-                      <img src={section.img} alt={section.title} className="w-full h-[300px] object-cover" />
-                    </div>
+                    <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100"><img src={section.img} alt={section.title} className="w-full h-[300px] object-cover" /></div>
                   </div>
                 </div>
               );
@@ -430,19 +396,17 @@ export function Home() {
         </div>
       </section>
 
-      {/* 17 FEATURES */}
+      {/* 17 ФИЧ */}
       <section className="py-20 bg-gray-50" id="features">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">17 features your competitors don't have</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">FoodChain is the only system that gives you these advantages out of the box.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">17 функций, которых нет у конкурентов</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">FoodChain — единственная система, которая даёт эти преимущества из коробки.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {features.map((f, i) => (
               <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group flex gap-4 rounded-xl border border-gray-100 bg-white p-5 hover:border-green-200 hover:shadow-md transition-all">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
-                  <f.icon className="h-5 w-5" />
-                </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600"><f.icon className="h-5 w-5" /></div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">{f.title}</h3>
                   <p className="mt-1 text-xs text-gray-500 leading-relaxed">{f.desc}</p>
@@ -453,18 +417,18 @@ export function Home() {
         </div>
       </section>
 
-      {/* COMPARISON */}
+      {/* СРАВНЕНИЕ */}
       <section className="py-20 bg-white" id="compare">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Compare for yourself</h2>
-            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">We outperform competitors in functionality and price</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Сравните сами</h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">Мы обгоняем конкурентов по функциональности и цене</p>
           </div>
           <div className="overflow-x-auto reveal opacity-0 translate-y-8 transition-all duration-700">
             <table className="w-full min-w-[700px] border-collapse">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Feature</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Функция</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-green-700 uppercase tracking-wider bg-green-50 rounded-t-xl">FoodChain</th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">iiko</th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">YUMA</th>
@@ -477,9 +441,7 @@ export function Home() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition">
                     <td className="px-4 py-4 text-sm text-gray-900">{row.feature}</td>
                     {(['fc', 'iiko', 'yuma', 'poster', 'rk'] as const).map(key => (
-                      <td key={key} className={`px-4 py-4 text-center ${key === 'fc' ? 'bg-green-50/50' : ''}`}>
-                        <Cell val={row[key]} />
-                      </td>
+                      <td key={key} className={`px-4 py-4 text-center ${key === 'fc' ? 'bg-green-50/50' : ''}`}><Cell val={row[key]} /></td>
                     ))}
                   </tr>
                 ))}
@@ -489,21 +451,19 @@ export function Home() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* ОТЗЫВЫ */}
       <section className="py-20 bg-gray-50" id="reviews">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">What our customers say</h2>
-            <p className="mt-4 text-lg text-gray-500">Real results from real users</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Что говорят наши клиенты</h2>
+            <p className="mt-4 text-lg text-gray-500">Реальные результаты от реальных пользователей</p>
           </div>
           <div className="relative reveal opacity-0 translate-y-8 transition-all duration-700">
             {testimonials.map((t, i) => (
               <div key={i} className={`transition-all duration-500 ${i === testimonialIdx ? 'block' : 'hidden'}`}>
                 <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-12 text-center shadow-sm">
-                  <div className="flex justify-center gap-1 mb-6">
-                    {Array.from({ length: t.rating }, (_, j) => <Star key={j} className="h-5 w-5 fill-amber-400 text-amber-400" />)}
-                  </div>
-                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed italic">"{t.text}"</p>
+                  <div className="flex justify-center gap-1 mb-6">{Array.from({ length: t.rating }, (_, j) => <Star key={j} className="h-5 w-5 fill-amber-400 text-amber-400" />)}</div>
+                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed italic">«{t.text}»</p>
                   <div className="mt-8 flex items-center justify-center gap-4">
                     <img src={t.img} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-green-100" />
                     <div className="text-left"><p className="text-sm font-semibold text-gray-900">{t.name}</p><p className="text-xs text-gray-500">{t.role}</p></div>
@@ -520,24 +480,22 @@ export function Home() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* ТАРИФЫ */}
       <section className="py-20 bg-white" id="pricing">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Choose your plan</h2>
-            <p className="mt-4 text-lg text-gray-500">All plans include a 14-day free trial</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Выберите ваш тариф</h2>
+            <p className="mt-4 text-lg text-gray-500">Все тарифы включают 14-дневный бесплатный период</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
             {plans.map((plan, i) => (
               <div key={i} className={`reveal opacity-0 translate-y-8 transition-all duration-700 relative flex flex-col rounded-2xl border p-8 ${plan.popular ? 'border-green-500 bg-gradient-to-b from-green-50 to-white shadow-xl shadow-green-500/10 ring-1 ring-green-500/20 scale-105' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-4 py-1 text-xs font-bold text-white shadow-lg">Most Popular</span>}
+                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-4 py-1 text-xs font-bold text-white shadow-lg">Самый популярный</span>}
                 <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">{plan.sub}</p>
                 <div className="mt-6 flex items-baseline gap-1"><span className="text-4xl font-bold text-gray-900">{plan.price}</span><span className="text-sm text-gray-500">/мес</span></div>
                 <ul className="mt-8 flex-1 space-y-3.5">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-start gap-3 text-sm text-gray-600"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />{f}</li>
-                  ))}
+                  {plan.features.map((f, j) => (<li key={j} className="flex items-start gap-3 text-sm text-gray-600"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />{f}</li>))}
                 </ul>
                 <Link to="/register" className={`mt-8 block w-full rounded-lg px-6 py-3 text-center text-sm font-semibold transition-all ${plan.popular ? 'bg-green-600 text-white shadow-lg hover:bg-green-700' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>Выбрать тариф</Link>
               </div>
@@ -550,7 +508,7 @@ export function Home() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-12 reveal opacity-0 translate-y-8 transition-all duration-700">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Frequently Asked Questions</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Часто задаваемые вопросы</h2>
           </div>
           <div className="space-y-3 reveal opacity-0 translate-y-8 transition-all duration-700">
             {faqs.map((faq, i) => {
@@ -574,11 +532,11 @@ export function Home() {
       {/* CTA */}
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4 text-center reveal opacity-0 translate-y-8 transition-all duration-700">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Let's build the right EPOS setup for your business</h2>
-          <p className="mt-4 text-lg text-gray-500">14 days full access. No credit card required. No obligations.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Начните бесплатно уже сегодня</h2>
+          <p className="mt-4 text-lg text-gray-500">14 дней полного доступа. Без привязки карты. Без обязательств.</p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">Get started <ArrowRight className="h-4 w-4" /></Link>
-            <Link to="/contact" className="inline-flex items-center gap-2 border border-gray-200 bg-white px-8 py-4 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Contact us</Link>
+            <Link to="/register" className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 px-8 py-4 rounded-lg text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition-all hover:-translate-y-0.5">Начать бесплатно <ArrowRight className="h-4 w-4" /></Link>
+            <Link to="/contact" className="inline-flex items-center gap-2 border border-gray-200 bg-white px-8 py-4 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Связаться с нами</Link>
           </div>
         </div>
       </section>
@@ -589,12 +547,10 @@ export function Home() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 py-16">
             <div className="col-span-2 md:col-span-1">
               <Link to="/" className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 bg-green-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">F</span>
-                </div>
+                <div className="w-9 h-9 bg-green-600 rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">F</span></div>
                 <span className="font-bold text-white text-lg">Food<span className="text-green-400">Chain</span></span>
               </Link>
-              <p className="text-sm leading-relaxed text-gray-500 max-w-xs">All-in-one EPOS for hospitality.</p>
+              <p className="text-sm leading-relaxed text-gray-500 max-w-xs">Единая EPOS-система для общественного питания.</p>
             </div>
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Продукт</h4>
@@ -639,16 +595,4 @@ export function Home() {
       </footer>
     </div>
   );
-}
-
-function MenuIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>;
-}
-
-function Gift(props: React.SVGProps<SVGSVGElement>) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>;
-}
-
-function DollarSign(props: React.SVGProps<SVGSVGElement>) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
 }
