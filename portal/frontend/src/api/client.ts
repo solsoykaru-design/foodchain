@@ -64,7 +64,7 @@ export async function request<T = any>(
       res = await fetchApi(path, options);
     } else {
       clearTokens();
-      window.location.href = '/login';
+      window.location.href = '/portal/login';
       throw new Error('Сессия истекла');
     }
   }
