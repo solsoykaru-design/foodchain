@@ -216,12 +216,12 @@ export function ImportPage() {
       onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileSelect(e.dataTransfer.files[0]); }}
       onClick={() => fileInputRef.current?.click()}
       className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition ${
-        dragOver ? 'border-blue-400 bg-blue-50' : 'border-zinc-300 hover:border-zinc-400 bg-white'
+        dragOver ? 'border-cyan-400/60 bg-cyan-500/5' : 'border-white/10 hover:border-white/20 bg-transparent'
       }`}
     >
-      <Upload size={40} className="mx-auto mb-4 text-zinc-300" />
-      <p className="text-zinc-600 font-medium mb-1">Перетащите файл сюда или нажмите для выбора</p>
-      <p className="text-sm text-zinc-400">Поддерживаются форматы .xlsx и .xls</p>
+      <Upload size={40} className="mx-auto mb-4 text-slate-500" />
+      <p className="text-slate-300 font-medium mb-1">Перетащите файл сюда или нажмите для выбора</p>
+      <p className="text-sm text-slate-500">Поддерживаются форматы .xlsx и .xls</p>
       <input
         ref={fileInputRef}
         type="file"
@@ -235,18 +235,13 @@ export function ImportPage() {
   const renderFileInfo = () => {
     if (!file) return null;
     return (
-      <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6">
-        <FileSpreadsheet size={20} className="text-blue-600 shrink-0" />
+      <div className="flex items-center gap-3 bg-[#112240]/60 backdrop-blur-sm border border-white/5 rounded-xl px-4 py-3 mb-6">
+        <FileSpreadsheet size={20} className="text-cyan-400 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-zinc-800 truncate">{file.name}</p>
-          <p className="text-xs text-zinc-500">{formatFileSize(file.size)}</p>
+          <p className="font-medium text-white truncate">{file.name}</p>
+          <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
         </div>
-        <button
-          onClick={resetForm}
-          className="text-sm text-zinc-500 hover:text-red-600 transition shrink-0"
-        >
-          Удалить
-        </button>
+        <button onClick={resetForm} className="text-sm text-slate-400 hover:text-red-400 transition shrink-0">Удалить</button>
       </div>
     );
   };
@@ -255,26 +250,26 @@ export function ImportPage() {
     if (columns.length === 0) return null;
     return (
       <div className="mb-6">
-        <h3 className="font-bold text-zinc-800 mb-3 flex items-center gap-2">
-          <Table2 size={16} className="text-zinc-400" />
+        <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+          <Table2 size={16} className="text-cyan-400" />
           Предпросмотр (первые {preview.length} строк)
         </h3>
-        <div className="overflow-x-auto rounded-xl border border-zinc-200">
+        <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#112240]/40 backdrop-blur-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-zinc-50">
-                <th className="text-left px-3 py-2 font-medium text-zinc-500 text-xs">#</th>
+              <tr className="bg-white/5">
+                <th className="text-left px-3 py-2 font-medium text-slate-400 text-xs">#</th>
                 {columns.map(col => (
-                  <th key={col} className="text-left px-3 py-2 font-medium text-zinc-500 text-xs whitespace-nowrap">{col}</th>
+                  <th key={col} className="text-left px-3 py-2 font-medium text-slate-400 text-xs whitespace-nowrap">{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {preview.map((row, i) => (
-                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-zinc-50/50'}>
-                  <td className="px-3 py-2 text-zinc-400 text-xs">{i + 1}</td>
+                <tr key={i} className={i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'}>
+                  <td className="px-3 py-2 text-slate-500 text-xs">{i + 1}</td>
                   {columns.map(col => (
-                    <td key={col} className="px-3 py-2 text-zinc-700 whitespace-nowrap max-w-[200px] truncate">
+                    <td key={col} className="px-3 py-2 text-slate-300 whitespace-nowrap max-w-[200px] truncate">
                       {String(row[col] ?? '')}
                     </td>
                   ))}
@@ -291,16 +286,16 @@ export function ImportPage() {
     if (columns.length === 0) return null;
     return (
       <div className="mb-6">
-        <h3 className="font-bold text-zinc-800 mb-3">Сопоставление колонок</h3>
+        <h3 className="font-bold text-white mb-3">Сопоставление колонок</h3>
         <div className="space-y-2">
           {columns.map(col => (
-            <div key={col} className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-4 py-2.5">
-              <span className="font-medium text-zinc-800 min-w-[160px]">{col}</span>
-              <ArrowRight size={14} className="text-zinc-300 shrink-0" />
+            <div key={col} className="flex items-center gap-3 bg-[#112240]/40 backdrop-blur-sm border border-white/5 rounded-lg px-4 py-2.5">
+              <span className="font-medium text-white min-w-[160px]">{col}</span>
+              <ArrowRight size={14} className="text-slate-500 shrink-0" />
               <select
                 value={mapping[col] ?? ''}
                 onChange={(e) => handleMappingChange(col, e.target.value)}
-                className="flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                className="flex-1 border border-white/10 rounded-lg px-3 py-1.5 text-sm bg-transparent text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/40"
               >
                 <option value="">(Пропустить)</option>
                 {fields.map(f => (
@@ -317,46 +312,31 @@ export function ImportPage() {
   const renderSettings = () => {
     if (columns.length === 0) return null;
     return (
-      <div className="mb-6 bg-white border border-zinc-200 rounded-xl p-5">
-        <h3 className="font-bold text-zinc-800 mb-4">Настройки импорта</h3>
+      <div className="mb-6 bg-[#112240]/40 backdrop-blur-sm border border-white/5 rounded-xl p-5">
+        <h3 className="font-bold text-white mb-4">Настройки импорта</h3>
         <div className="space-y-3">
           <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={updateExisting}
-              onChange={(e) => setUpdateExisting(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-zinc-700">Обновлять существующие {activeTab === 0 ? 'блюда' : 'техкарты'}</span>
+            <input type="checkbox" checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-transparent text-cyan-500 focus:ring-cyan-500/30" />
+            <span className="text-sm text-slate-300">Обновлять существующие {activeTab === 0 ? 'блюда' : 'техкарты'}</span>
           </label>
           {activeTab === 0 ? (
             <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={createCategories}
-                onChange={(e) => setCreateCategories(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-zinc-700">Создавать отсутствующие категории</span>
+              <input type="checkbox" checked={createCategories} onChange={(e) => setCreateCategories(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-transparent text-cyan-500 focus:ring-cyan-500/30" />
+              <span className="text-sm text-slate-300">Создавать отсутствующие категории</span>
             </label>
           ) : (
             <>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={createIngredients}
-                  onChange={(e) => setCreateIngredients(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-zinc-700">Создавать отсутствующие ингредиенты</span>
+                <input type="checkbox" checked={createIngredients} onChange={(e) => setCreateIngredients(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/20 bg-transparent text-cyan-500 focus:ring-cyan-500/30" />
+                <span className="text-sm text-slate-300">Создавать отсутствующие ингредиенты</span>
               </label>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-zinc-700 min-w-[160px]">Режим обновления:</span>
-                <select
-                  value={updateMode}
-                  onChange={(e) => setUpdateMode(e.target.value as 'replace' | 'append')}
-                  className="border border-zinc-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                >
+                <span className="text-sm text-slate-300 min-w-[160px]">Режим обновления:</span>
+                <select value={updateMode} onChange={(e) => setUpdateMode(e.target.value as 'replace' | 'append')}
+                  className="border border-white/10 rounded-lg px-3 py-1.5 text-sm bg-transparent text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/40">
                   <option value="replace">Заменить ингредиенты</option>
                   <option value="append">Дополнить новыми</option>
                 </select>
@@ -371,21 +351,12 @@ export function ImportPage() {
   const renderImportButton = () => {
     if (columns.length === 0) return null;
     return (
-      <button
-        onClick={handleImport}
-        disabled={loading}
-        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2"
-      >
+      <button onClick={handleImport} disabled={loading}
+        className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:shadow-lg hover:shadow-cyan-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2">
         {loading ? (
-          <>
-            <Loader2 size={18} className="animate-spin" />
-            Импортирование...
-          </>
+          <><Loader2 size={18} className="animate-spin" /> Импортирование...</>
         ) : (
-          <>
-            <Upload size={18} />
-            Импортировать
-          </>
+          <><Upload size={18} /> Импортировать</>
         )}
       </button>
     );
@@ -397,21 +368,13 @@ export function ImportPage() {
     const hasErrors = result.errors && result.errors.length > 0;
 
     return (
-      <div className={`rounded-2xl border p-6 ${isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <div className={`rounded-2xl border p-6 backdrop-blur-sm ${isSuccess ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
         <div className="flex items-center gap-3 mb-4">
-          {isSuccess ? (
-            <CheckCircle2 size={28} className="text-green-600" />
-          ) : (
-            <XCircle size={28} className="text-red-600" />
-          )}
+          {isSuccess ? <CheckCircle2 size={28} className="text-emerald-400" /> : <XCircle size={28} className="text-red-400" />}
           <div>
-            <h3 className="font-bold text-lg text-zinc-900">
-              {isSuccess ? 'Импорт завершён' : 'Ошибка импорта'}
-            </h3>
+            <h3 className="font-bold text-lg text-white">{isSuccess ? 'Импорт завершён' : 'Ошибка импорта'}</h3>
             {isSuccess && result.total_processed !== undefined && (
-              <p className="text-sm text-zinc-600">
-                Обработано строк: {result.total_processed}
-              </p>
+              <p className="text-sm text-slate-400">Обработано строк: {result.total_processed}</p>
             )}
           </div>
         </div>
@@ -419,34 +382,34 @@ export function ImportPage() {
         {isSuccess && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             {result.total_processed !== undefined && (
-              <div className="bg-white rounded-xl px-4 py-3 border border-blue-200">
-                <div className="text-xl font-bold text-blue-700">{result.total_processed}</div>
-                <div className="text-xs text-zinc-500">Всего строк обработано</div>
+              <div className="bg-[#112240]/60 rounded-xl px-4 py-3 border border-white/5">
+                <div className="text-xl font-bold text-cyan-400">{result.total_processed}</div>
+                <div className="text-xs text-slate-400">Всего строк обработано</div>
               </div>
             )}
             {result.created !== undefined && (
-              <div className="bg-white rounded-xl px-4 py-3 border border-green-200">
-                <div className="text-xl font-bold text-green-700">{result.created}</div>
-                <div className="text-xs text-zinc-500">Создано</div>
+              <div className="bg-[#112240]/60 rounded-xl px-4 py-3 border border-white/5">
+                <div className="text-xl font-bold text-emerald-400">{result.created}</div>
+                <div className="text-xs text-slate-400">Создано</div>
               </div>
             )}
             {result.updated !== undefined && (
-              <div className="bg-white rounded-xl px-4 py-3 border border-amber-200">
-                <div className="text-xl font-bold text-amber-700">{result.updated}</div>
-                <div className="text-xs text-zinc-500">Обновлено</div>
+              <div className="bg-[#112240]/60 rounded-xl px-4 py-3 border border-white/5">
+                <div className="text-xl font-bold text-amber-400">{result.updated}</div>
+                <div className="text-xs text-slate-400">Обновлено</div>
               </div>
             )}
             {result.skipped !== undefined && (
-              <div className="bg-white rounded-xl px-4 py-3 border border-zinc-200">
-                <div className="text-xl font-bold text-zinc-700">{result.skipped}</div>
-                <div className="text-xs text-zinc-500">Пропущено</div>
+              <div className="bg-[#112240]/60 rounded-xl px-4 py-3 border border-white/5">
+                <div className="text-xl font-bold text-slate-400">{result.skipped}</div>
+                <div className="text-xs text-slate-400">Пропущено</div>
               </div>
             )}
           </div>
         )}
 
         {!isSuccess && result.error && (
-          <div className="flex items-center gap-2 text-red-700 mb-4">
+          <div className="flex items-center gap-2 text-red-400 mb-4">
             <AlertTriangle size={16} />
             <span className="text-sm">{result.error}</span>
           </div>
@@ -454,30 +417,22 @@ export function ImportPage() {
 
         {hasErrors && (
           <div className="mb-4">
-            <h4 className="font-medium text-red-800 text-sm mb-2 flex items-center gap-1">
+            <h4 className="font-medium text-red-400 text-sm mb-2 flex items-center gap-1">
               <XCircle size={14} />
               Ошибки ({result.errors.length})
             </h4>
-            <div className="bg-white rounded-xl border border-red-200 max-h-48 overflow-y-auto">
+            <div className="bg-[#112240]/60 rounded-xl border border-red-500/20 max-h-48 overflow-y-auto">
               {result.errors.map((err: any, i: number) => (
-                <div
-                  key={i}
-                  className={`px-4 py-2 text-sm flex items-start gap-2 ${
-                    i % 2 === 0 ? 'bg-red-50/50' : 'bg-white'
-                  }`}
-                >
-                  <span className="text-red-500 font-medium shrink-0">Строка {err.row || '?'}:</span>
-                  <span className="text-red-700">{err.message || err.error}</span>
+                <div key={i} className={`px-4 py-2 text-sm flex items-start gap-2 ${i % 2 === 0 ? 'bg-red-500/5' : 'bg-transparent'}`}>
+                  <span className="text-red-400 font-medium shrink-0">Строка {err.row || '?'}:</span>
+                  <span className="text-slate-300">{err.message || err.error}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <button
-          onClick={resetForm}
-          className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
-        >
+        <button onClick={resetForm} className="mt-2 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1">
           <ArrowRight size={14} />
           Начать новый импорт
         </button>
@@ -489,7 +444,7 @@ export function ImportPage() {
     <>
       {renderFileInfo()}
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-red-700 text-sm">
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6 text-red-400 text-sm">
           <AlertTriangle size={16} className="shrink-0" />
           {error}
         </div>
@@ -507,19 +462,16 @@ export function ImportPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-zinc-900 mb-6">Импорт данных</h1>
+      <h1 className="text-2xl font-bold text-white tracking-tight mb-6">Импорт данных</h1>
 
-      <div className="flex gap-1 mb-8 border-b border-zinc-200">
+      <div className="flex gap-1 mb-8 border-b border-white/5">
         {['Импорт меню', 'Импорт техкарт'].map((label, i) => (
-          <button
-            key={i}
-            onClick={() => { setActiveTab(i); resetForm(); }}
+          <button key={i} onClick={() => { setActiveTab(i); resetForm(); }}
             className={`px-5 py-3 text-sm font-medium transition border-b-2 -mb-px ${
               activeTab === i
-                ? 'text-orange-600 border-orange-500'
-                : 'text-zinc-500 border-transparent hover:text-zinc-700'
-            }`}
-          >
+                ? 'text-cyan-400 border-cyan-400'
+                : 'text-slate-400 border-transparent hover:text-white'
+            }`}>
             {label}
           </button>
         ))}

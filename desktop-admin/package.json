@@ -1,0 +1,26 @@
+{
+  "name": "foodchain-admin",
+  "version": "1.0.0",
+  "description": "FoodChain Admin Panel",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.foodchain.admin",
+    "productName": "FoodChain Admin",
+    "win": {
+      "target": "nsis",
+      "icon": null
+    }
+  },
+  "dependencies": {
+    "express": "^4.22.2",
+    "http-proxy-middleware": "^3.0.7"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

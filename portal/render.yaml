@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: foodchain-portal
+    env: node
+    region: frankfurt
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd backend && npm install && node src/index.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://foodchain-portal.onrender.com

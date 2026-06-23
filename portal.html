@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoodChain — Управляйте рестораном нового поколения</title>
+<meta name="description" content="FoodChain — SaaS-платформа для ресторанов. Объединяет зал, кухню, доставку, склад и финансы. 100% функций без скрытых платежей.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Inter',-apple-system,sans-serif;background:#0a192f;color:#e2e8f0;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden}
+img{max-width:100%;height:auto;display:block}
+a{text-decoration:none;color:inherit}
+button,input,textarea{cursor:pointer;border:none;font-family:inherit;outline:none;background:none}
+ul{list-style:none}
+
+:root{
+--bg:#0a192f;
+--bg2:#0f1f3d;
+--bg3:#112240;
+--card:rgba(17,34,64,0.6);
+--card-border:rgba(255,255,255,0.06);
+--glass:rgba(17,34,64,0.5);
+--glass-border:rgba(255,255,255,0.08);
+--accent:#00b4d8;
+--accent2:#0077b6;
+--accent-glow:rgba(0,180,216,0.2);
+--gold:#f0b429;
+--gold2:#d49a1a;
+--gold-glow:rgba(240,180,41,0.2);
+--text:#e2e8f0;
+--text2:#94a3b8;
+--text3:#64748b;
+--success:#22c55e;
+--danger:#ef4444;
+--radius:20px;
+--radius-sm:14px;
+--shadow:0 8px 40px rgba(0,0,0,0.3),0 2px 10px rgba(0,0,0,0.2);
+--shadow-glow:0 0 60px rgba(0,180,216,0.1);
+--transition:0.5s cubic-bezier(0.16,1,0.3,1);
+--transition-fast:0.3s cubic-bezier(0.16,1,0.3,1);
+--max-w:1200px;
+}
+
+::selection{background:rgba(0,180,216,0.3)}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(0,180,216,0.3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,180,216,0.5)}
+
+.noise{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ===== REVEAL ===== */
+.reveal{opacity:0;transform:translateY(50px);transition:opacity 0.9s cubic-bezier(0.16,1,0.3,1),transform 0.9s cubic-bezier(0.16,1,0.3,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.r1{transition-delay:0.05s}.r2{transition-delay:0.12s}.r3{transition-delay:0.2s}.r4{transition-delay:0.28s}
+.r5{transition-delay:0.36s}.r6{transition-delay:0.44s}
+
+/* ===== GLASS ===== */
+.glass{background:var(--glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--glass-border)}
+.glass-card{background:var(--card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:var(--radius);transition:all var(--transition)}
+.glass-card:hover{transform:translateY(-6px);border-color:rgba(0,180,216,0.2);box-shadow:var(--shadow)}
+
+/* ===== GRADIENT TEXT ===== */
+.gradient-text{background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;background-size:200% 200%;animation:gradientShift 4s ease infinite}
+@keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+.glow{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;opacity:0.4}
+.glow-1{width:500px;height:500px;background:var(--accent);top:-200px;right:-100px}
+.glow-2{width:400px;height:400px;background:var(--accent2);bottom:-150px;left:-100px;opacity:0.3}
+.glow-3{width:300px;height:300px;background:var(--gold);top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.15}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 28px;border-radius:60px;font-size:0.9rem;font-weight:600;transition:all var(--transition-fast);position:relative;overflow:hidden;white-space:nowrap}
+.btn::before{content:'';position:absolute;inset:0;border-radius:60px;opacity:0;transition:opacity var(--transition-fast)}
+.btn-outline{border:1.5px solid rgba(255,255,255,0.15);color:#fff;background:transparent}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,0.06)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 25px rgba(0,180,216,0.3)}
+.btn-accent:hover{box-shadow:0 8px 40px rgba(0,180,216,0.5);transform:translateY(-3px)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#f59e0b);color:#0a192f;box-shadow:0 4px 25px rgba(240,180,41,0.3)}
+.btn-gold:hover{box-shadow:0 8px 40px rgba(240,180,41,0.5);transform:translateY(-3px)}
+.btn-lg{padding:16px 44px;font-size:1.05rem;font-weight:700}
+.btn-shine{overflow:hidden}
+.btn-shine::after{content:'';position:absolute;top:-50%;left:-60%;width:50%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);transform:rotate(25deg);transition:left 0.8s}
+.btn-shine:hover::after{left:120%}
+
+/* ===== HEADER ===== */
+.header{position:fixed;top:0;left:0;right:0;z-index:1000;padding:18px 0;transition:all var(--transition)}
+.header.scrolled{background:rgba(10,25,47,0.7);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);padding:10px 0;box-shadow:0 1px 0 rgba(255,255,255,0.05)}
+.header-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:12px;font-weight:800;font-size:1.4rem;color:#fff;letter-spacing:-0.5px}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem;font-weight:900;box-shadow:0 4px 15px rgba(0,180,216,0.3)}
+.nav{display:flex;gap:36px}
+.nav a{color:var(--text2);font-size:0.88rem;font-weight:500;transition:color var(--transition-fast);position:relative;padding:4px 0}
+.nav a::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width var(--transition-fast);border-radius:2px}
+.nav a:hover{color:#fff}
+.nav a:hover::after{width:100%}
+.header-actions{display:flex;gap:10px;align-items:center}
+.mobile-toggle{display:none;flex-direction:column;gap:5px;padding:4px;cursor:pointer;z-index:1001}
+.mobile-toggle span{width:26px;height:2px;background:#fff;border-radius:2px;transition:all 0.35s}
+
+/* ===== HERO ===== */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg video,.hero-bg img{width:100%;height:100%;object-fit:cover}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,25,47,0.95) 0%,rgba(10,25,47,0.7) 40%,rgba(10,25,47,0.4) 80%,rgba(10,25,47,0.2) 100%);z-index:1}
+.hero-particles{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none}
+.hero-particle{position:absolute;border-radius:50%;background:var(--accent);opacity:0;animation:particleFloat linear infinite}
+@keyframes particleFloat{0%{transform:translateY(100vh) scale(0);opacity:0}5%{opacity:0.4}90%{opacity:0.2}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+.hero-shape{position:absolute;z-index:2;pointer-events:none;border-radius:50%;border:1px solid rgba(0,180,216,0.08)}
+.hero-shape-1{width:600px;height:600px;top:-200px;right:-150px;animation:rotateSlow 40s linear infinite}
+.hero-shape-2{width:400px;height:400px;bottom:-100px;left:-100px;animation:rotateSlow 30s linear infinite reverse}
+@keyframes rotateSlow{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.hero-content{position:relative;z-index:3;max-width:var(--max-w);margin:0 auto;padding:140px 24px 80px;width:100%}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 22px;background:rgba(0,180,216,0.08);border:1px solid rgba(0,180,216,0.2);border-radius:60px;color:var(--accent);font-size:0.82rem;font-weight:600;margin-bottom:28px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);letter-spacing:0.5px;animation:fadeUp 1s ease}
+.hero h1{font-size:clamp(2.5rem,5.5vw,4.4rem);font-weight:900;line-height:1.05;letter-spacing:-2.5px;color:#fff;margin-bottom:22px;animation:fadeUp 1s ease 0.15s both}
+.hero h1 .gradient-text{display:inline}
+.hero-sub{font-size:clamp(1rem,1.4vw,1.2rem);color:var(--text2);max-width:640px;line-height:1.8;margin-bottom:40px;animation:fadeUp 1s ease 0.3s both}
+.hero-actions{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:50px;animation:fadeUp 1s ease 0.45s both}
+.hero-trust{display:flex;flex-wrap:wrap;gap:48px;animation:fadeUp 1s ease 0.6s both}
+.trust-item{display:flex;align-items:center;gap:14px}
+.trust-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:800}
+.trust-icon.teal{background:rgba(0,180,216,0.12);color:var(--accent)}
+.trust-icon.gold{background:rgba(240,180,41,0.12);color:var(--gold)}
+.trust-item .info{display:flex;flex-direction:column}
+.trust-item .num{font-size:1.6rem;font-weight:800;line-height:1.2;letter-spacing:-0.5px}
+.trust-item .num.teal{color:var(--accent)}
+.trust-item .num.gold{color:var(--gold)}
+.trust-item .label{font-size:0.8rem;color:var(--text3)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== SECTIONS ===== */
+.section{padding:120px 24px;position:relative}
+.section-inner{max-width:var(--max-w);margin:0 auto;position:relative}
+.section-header{text-align:center;margin-bottom:64px}
+.section-header .badge{display:inline-block;padding:6px 18px;background:rgba(0,180,216,0.08);border:1px solid rgba(0,180,216,0.15);border-radius:60px;color:var(--accent);font-size:0.78rem;font-weight:600;margin-bottom:18px;text-transform:uppercase;letter-spacing:1.5px}
+.section-header h2{font-size:clamp(1.8rem,3vw,2.8rem);font-weight:800;color:#fff;letter-spacing:-1.5px;margin-bottom:14px;line-height:1.15}
+.section-header p{color:var(--text2);font-size:1.02rem;max-width:620px;margin:0 auto;line-height:1.8}
+
+/* ===== WHY US ===== */
+.why-section{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.why-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.why-card{padding:40px 32px;position:relative;overflow:hidden}
+.why-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity var(--transition)}
+.why-card:hover::before{opacity:1}
+.why-icon{width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:22px;background:rgba(0,180,216,0.08);color:var(--accent);transition:all var(--transition-fast)}
+.why-card:hover .why-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 10px 30px rgba(0,180,216,0.25);transform:scale(1.05) rotate(-3deg)}
+.why-card h3{font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:-0.3px}
+.why-card p{color:var(--text2);font-size:0.9rem;line-height:1.7}
+
+/* ===== 17 FEATURES ===== */
+.f17-section{background:linear-gradient(180deg,var(--bg2),var(--bg))}
+.f17-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.f17-item{padding:18px 20px;display:flex;align-items:flex-start;gap:14px;border-radius:var(--radius-sm);background:var(--card);border:1px solid var(--card-border);transition:all var(--transition-fast)}
+.f17-item:hover{transform:translateY(-2px);border-color:rgba(0,180,216,0.15);box-shadow:0 4px 20px rgba(0,0,0,0.2);background:rgba(17,34,64,0.7)}
+.f17-icon{width:36px;height:36px;border-radius:10px;background:rgba(0,180,216,0.08);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;transition:all var(--transition-fast)}
+.f17-item:hover .f17-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.f17-body{flex:1;min-width:0}
+.f17-body h4{font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:3px}
+.f17-body p{font-size:0.78rem;color:var(--text3);line-height:1.6}
+.f17-num{width:28px;height:28px;border-radius:8px;background:rgba(0,180,216,0.06);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;transition:all var(--transition-fast)}
+.f17-item:hover .f17-num{background:var(--accent);color:#fff}
+.f17-cta{margin-top:40px;padding:28px 36px;background:linear-gradient(135deg,rgba(0,180,216,0.06),rgba(0,119,182,0.03));border-radius:var(--radius);border:1px solid rgba(0,180,216,0.1);text-align:center}
+.f17-cta p{font-size:0.95rem;color:var(--text2);line-height:1.8}
+.f17-cta strong{color:#fff}
+
+/* ===== CHATS ===== */
+.chats-section{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.chats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.chat-card{padding:36px 30px;position:relative}
+.chat-card:hover{transform:translateY(-6px);border-color:rgba(0,180,216,0.2);box-shadow:var(--shadow)}
+.chat-flow{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:0.82rem;font-weight:600;color:var(--accent)}
+.chat-flow .arrow{width:38px;height:38px;border-radius:50%;background:rgba(0,180,216,0.08);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0}
+.chat-flow svg{width:20px;height:20px;color:var(--text3);flex-shrink:0}
+.chat-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:16px;background:rgba(0,180,216,0.08);color:var(--accent);transition:all var(--transition-fast)}
+.chat-card:hover .chat-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 8px 25px rgba(0,180,216,0.2)}
+.chat-card h3{font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:-0.3px}
+.chat-card p{color:var(--text2);font-size:0.9rem;line-height:1.7}
+.chat-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:60px;color:var(--success);font-size:0.74rem;font-weight:600;margin-top:16px}
+.chat-note{text-align:center;margin-top:44px;color:var(--text2);font-size:0.9rem;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.8}
+
+/* ===== MODULES ===== */
+.modules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+.module-item{padding:26px 18px;text-align:center;border-radius:var(--radius-sm);background:var(--card);border:1px solid var(--card-border);cursor:pointer;transition:all var(--transition-fast)}
+.module-item:hover{transform:translateY(-4px);border-color:rgba(0,180,216,0.2);box-shadow:0 8px 30px rgba(0,180,216,0.08)}
+.module-item .mi-icon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:1.4rem;background:rgba(0,180,216,0.08);color:var(--accent);transition:all var(--transition-fast)}
+.module-item:hover .mi-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;transform:scale(1.05)}
+.module-item .mi-name{font-weight:600;font-size:0.84rem;color:#fff;margin-bottom:4px}
+.module-item .mi-desc{font-size:0.74rem;color:var(--text3);display:none;line-height:1.6}
+.module-item.expanded .mi-desc{display:block;margin-top:10px}
+.module-item.expanded{border-color:rgba(0,180,216,0.2);background:rgba(0,180,216,0.04)}
+
+/* ===== COMPARISON ===== */
+.compare-section{background:linear-gradient(180deg,var(--bg2),var(--bg))}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.06);background:var(--card)}
+.comparison-table{width:100%;border-collapse:collapse;min-width:700px;font-size:0.88rem}
+.comparison-table th{padding:18px 22px;text-align:left;background:var(--bg3);font-weight:700;color:#fff;border-bottom:2px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:5}
+.comparison-table th:first-child{border-radius:12px 0 0 0}
+.comparison-table th:last-child{border-radius:0 12px 0 0}
+.comparison-table th .fc-brand{color:var(--accent)}
+.comparison-table td{padding:15px 22px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--text2)}
+.comparison-table tr:last-child td{border-bottom:none}
+.comparison-table tr:hover td{background:rgba(0,180,216,0.03)}
+.comparison-table .fn{font-weight:600;color:#fff;font-size:0.84rem}
+.comparison-table .check{color:var(--success);font-weight:700}
+.comparison-table .cross{color:var(--danger);font-weight:700}
+.comparison-table .limited{color:var(--gold)}
+.table-cta{text-align:center;margin-top:32px;color:var(--text2);font-size:0.95rem}
+.table-cta strong{color:#fff}
+
+/* ===== APPS ===== */
+.apps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.app-card{padding:32px 22px;text-align:center;cursor:pointer;position:relative}
+.app-card:hover{transform:translateY(-6px);border-color:rgba(0,180,216,0.2);box-shadow:var(--shadow)}
+.app-card .ac-icon{width:60px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.7rem;background:rgba(0,180,216,0.08);color:var(--accent);transition:all var(--transition-fast)}
+.app-card:hover .ac-icon{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 10px 30px rgba(0,180,216,0.2);transform:scale(1.05)}
+.app-card h4{font-weight:700;font-size:0.93rem;color:#fff;margin-bottom:6px}
+.app-card p{font-size:0.78rem;color:var(--text3);line-height:1.6}
+.app-card .tag{position:absolute;top:14px;right:14px;padding:3px 12px;border-radius:60px;font-size:0.64rem;font-weight:600;background:rgba(0,180,216,0.08);color:var(--accent);border:1px solid rgba(0,180,216,0.15)}
+
+/* ===== TESTIMONIALS ===== */
+.testi-section{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.testi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+.testi-card{padding:36px 30px}
+.testi-card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+.testi-stars{color:var(--gold);font-size:0.9rem;margin-bottom:16px;letter-spacing:3px}
+.testi-text{color:var(--text2);font-size:0.92rem;line-height:1.8;margin-bottom:22px;font-style:italic}
+.testi-text::before{content:'\201C';font-size:2.4rem;color:var(--accent);line-height:0;vertical-align:-8px;margin-right:6px;font-weight:700;font-family:Georgia,serif}
+.testi-author{display:flex;align-items:center;gap:14px}
+.testi-avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0}
+.testi-name{font-weight:700;font-size:0.9rem;color:#fff}
+.testi-role{font-size:0.78rem;color:var(--text3);margin-top:2px}
+
+/* ===== PRICING ===== */
+.pricing-section{background:linear-gradient(180deg,var(--bg2),var(--bg))}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:20px;align-items:start}
+.pricing-card{padding:44px 36px;position:relative}
+.pricing-card:hover{transform:translateY(-6px);box-shadow:var(--shadow)}
+.pricing-card.popular{border-color:var(--accent);background:rgba(17,34,64,0.7);box-shadow:0 0 60px rgba(0,180,216,0.08)}
+.pricing-card.popular::before{content:'Самый популярный';position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:5px 24px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-radius:60px;font-size:0.72rem;font-weight:700;white-space:nowrap;box-shadow:0 4px 15px rgba(0,180,216,0.3)}
+.pricing-card .p-name{font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:4px}
+.pricing-card .p-desc{font-size:0.84rem;color:var(--text3);margin-bottom:22px}
+.pricing-card .p-price{font-size:3rem;font-weight:900;color:#fff;letter-spacing:-2.5px;margin-bottom:2px;line-height:1.1}
+.pricing-card .p-price span{font-size:1rem;font-weight:500;color:var(--text3);letter-spacing:0}
+.pricing-card .p-period{font-size:0.84rem;color:var(--text3);margin-bottom:24px}
+.pricing-card .p-features{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.pricing-card .p-features li{display:flex;align-items:center;gap:10px;font-size:0.86rem;color:var(--text2)}
+.pricing-card .p-features li svg{width:18px;height:18px;color:var(--success);flex-shrink:0}
+.pricing-card .btn{width:100%;justify-content:center}
+.pricing-note{text-align:center;color:var(--text3);font-size:0.86rem;margin-top:28px}
+
+/* ===== FAQ ===== */
+.faq-section{background:linear-gradient(180deg,var(--bg),var(--bg2))}
+.faq-list{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.faq-item{border-radius:var(--radius-sm);background:var(--card);border:1px solid var(--card-border);overflow:hidden;transition:all var(--transition-fast)}
+.faq-item:hover{border-color:rgba(0,180,216,0.1)}
+.faq-q{width:100%;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:0.95rem;font-weight:600;color:#fff;gap:16px;transition:color var(--transition-fast);cursor:pointer}
+.faq-q:hover{color:var(--accent)}
+.faq-q .faq-icon{width:28px;height:28px;border-radius:50%;background:rgba(0,180,216,0.06);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.35s;font-size:0.8rem;color:var(--accent)}
+.faq-item.open .faq-q .faq-icon{background:var(--accent);color:#fff;transform:rotate(45deg)}
+.faq-a{padding:0 26px;max-height:0;overflow:hidden;transition:all 0.45s cubic-bezier(0.16,1,0.3,1)}
+.faq-item.open .faq-a{max-height:400px;padding:0 26px 22px}
+.faq-a p{color:var(--text2);font-size:0.9rem;line-height:1.8}
+
+/* ===== FOOTER ===== */
+.footer{background:var(--bg3);border-top:1px solid rgba(255,255,255,0.04);padding:64px 24px 32px}
+.footer-inner{max-width:var(--max-w);margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px}
+.footer-brand .logo{margin-bottom:14px}
+.footer-brand p{color:var(--text3);font-size:0.85rem;line-height:1.7;max-width:320px}
+.footer h4{font-weight:700;font-size:0.88rem;color:#fff;margin-bottom:18px;letter-spacing:0.3px}
+.footer ul{display:flex;flex-direction:column;gap:10px}
+.footer ul a{color:var(--text3);font-size:0.85rem;transition:color var(--transition-fast)}
+.footer ul a:hover{color:var(--accent)}
+.footer-bottom{border-top:1px solid rgba(255,255,255,0.04);margin-top:44px;padding-top:24px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;max-width:var(--max-w);margin-left:auto;margin-right:auto}
+.footer-bottom p{color:var(--text3);font-size:0.8rem}
+.footer-socials{display:flex;gap:10px}
+.footer-socials a{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all var(--transition-fast);font-size:0.85rem;border:1px solid rgba(255,255,255,0.04)}
+.footer-socials a:hover{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;transform:translateY(-3px);border-color:transparent}
+.footer-links-bottom{display:flex;gap:24px}
+.footer-links-bottom a{color:var(--text3);font-size:0.8rem;transition:color var(--transition-fast)}
+.footer-links-bottom a:hover{color:var(--accent)}
+
+/* ===== MODAL ===== */
+.modal-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;visibility:hidden;transition:all 0.4s}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal{background:var(--bg3);border-radius:var(--radius);max-width:580px;width:100%;padding:44px;position:relative;transform:scale(0.92) translateY(30px);transition:all 0.5s cubic-bezier(0.16,1,0.3,1);max-height:90vh;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);box-shadow:var(--shadow)}
+.modal-overlay.open .modal{transform:scale(1) translateY(0)}
+.modal-close{position:absolute;top:18px;right:18px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all var(--transition-fast);font-size:1rem}
+.modal-close:hover{background:rgba(255,255,255,0.1);color:#fff}
+.modal h3{font-size:1.35rem;font-weight:800;color:#fff;margin-bottom:14px;letter-spacing:-0.5px}
+.modal p{color:var(--text2);font-size:0.92rem;line-height:1.8;margin-bottom:18px}
+.modal .modal-screenshots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+.modal .modal-screenshot{aspect-ratio:9/16;background:rgba(255,255,255,0.03);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:0.8rem;border:1px solid rgba(255,255,255,0.04)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:992px){
+.footer-inner{grid-template-columns:1fr 1fr}
+.pricing-grid{grid-template-columns:1fr;max-width:440px;margin:0 auto}
+}
+@media(max-width:768px){
+.nav{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,25,47,0.97);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);flex-direction:column;align-items:center;justify-content:center;gap:32px;z-index:999}
+.nav.open{display:flex}
+.nav a{font-size:1.2rem;color:#fff}
+.mobile-toggle{display:flex}
+.mobile-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.mobile-toggle.open span:nth-child(2){opacity:0}
+.mobile-toggle.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.header-actions .btn-outline{display:none}
+.hero-trust{flex-direction:column;gap:16px}
+.section{padding:70px 20px}
+.section-header{margin-bottom:44px}
+.comparison-table{font-size:0.78rem}
+.comparison-table th,.comparison-table td{padding:10px 14px}
+.testi-grid{grid-template-columns:1fr}
+.why-grid{grid-template-columns:1fr}
+.f17-grid{grid-template-columns:1fr}
+.chats-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+.hero h1{letter-spacing:-1.5px;font-size:clamp(2rem,10vw,2.5rem)}
+.btn-lg{padding:14px 30px;font-size:0.95rem}
+.modules-grid{grid-template-columns:repeat(2,1fr)}
+.apps-grid{grid-template-columns:repeat(2,1fr)}
+.footer-inner{grid-template-columns:1fr}
+.pricing-card{padding:36px 24px}
+.modal{padding:28px 20px}
+}
+
+/* ===== COUNTER ANIMATION ===== */
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== PARALLAX SHIMMER ===== */
+.hero-shimmer{position:absolute;inset:0;z-index:1;background:linear-gradient(110deg,transparent 30%,rgba(0,180,216,0.03) 50%,transparent 70%);background-size:300% 100%;animation:shimmer 8s ease infinite}
+@keyframes shimmer{0%{background-position:-300% 0}100%{background-position:300% 0}}
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<!-- ===== HEADER ===== -->
+<header class="header" id="header">
+<div class="header-inner">
+<a href="#" class="logo">
+<div class="logo-icon">F</div>
+Food<span style="color:var(--accent)">Chain</span>
+</a>
+<nav class="nav" id="nav">
+<a href="#features">Возможности</a>
+<a href="#pricing">Цены</a>
+<a href="#about">О нас</a>
+<a href="#contacts">Контакты</a>
+</nav>
+<div class="header-actions">
+<a href="#" class="btn btn-outline">Вход</a>
+<a href="#hero" class="btn btn-accent btn-shine">Попробовать бесплатно</a>
+<button class="mobile-toggle" id="mobileToggle" aria-label="Меню">
+<span></span><span></span><span></span>
+</button>
+</div>
+</div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+<div class="hero-bg">
+<img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=85" alt="Интерьер ресторана" loading="eager">
+<div class="hero-overlay"></div>
+<div class="hero-shimmer"></div>
+</div>
+<div class="hero-shape hero-shape-1"></div>
+<div class="hero-shape hero-shape-2"></div>
+<div class="hero-particles" id="particles"></div>
+<div class="hero-content">
+<div class="hero-badge">✦ Платформа №1 для управления рестораном</div>
+<h1>Управляйте рестораном<br><span class="gradient-text">нового поколения</span></h1>
+<p class="hero-sub">FoodChain — единая SaaS‑платформа для зала, кухни, доставки, склада и финансов. <strong style="color:#fff">100% функций</strong> без скрытых платежей.</p>
+<div class="hero-actions">
+<a href="#" class="btn btn-accent btn-lg btn-shine">Начать 14‑дневный бесплатный период</a>
+<a href="#compare" class="btn btn-outline btn-lg">Сравнить с конкурентами</a>
+</div>
+<div class="hero-trust">
+<div class="trust-item">
+<div class="trust-icon teal">✓</div>
+<div class="info"><span class="num teal">100%</span><span class="label">функций включено</span></div>
+</div>
+<div class="trust-item">
+<div class="trust-icon gold">✦</div>
+<div class="info"><span class="num gold">17</span><span class="label">уникальных фич</span></div>
+</div>
+<div class="trust-item">
+<div class="trust-icon teal">0</div>
+<div class="info"><span class="num teal">0%</span><span class="label">скрытых платежей</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== WHY US ===== -->
+<section class="section why-section" id="about">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Почему FoodChain</div>
+<h2>Мы создали <span class="gradient-text">лучшую систему</span> для ресторанов</h2>
+<p>Всё, что нужно для управления заведением — в одной платформе. Без лишних интеграций и скрытых платежей.</p>
+</div>
+<div class="why-grid">
+<div class="why-card glass-card reveal r1">
+<div class="why-icon">🌐</div>
+<h3>Единая экосистема</h3>
+<p>Одно приложение для всего: зал, кухня, доставка, склад, финансы. Никаких зоопарков из 5 разных систем.</p>
+</div>
+<div class="why-card glass-card reveal r2">
+<div class="why-icon">💎</div>
+<h3>100% функций без доплат</h3>
+<p>Всё включено в подписку. Никаких скрытых платежей, никаких «купите ещё модуль». Честная цена с первого дня.</p>
+</div>
+<div class="why-card glass-card reveal r3">
+<div class="why-icon">⚡</div>
+<h3>17 уникальных фич</h3>
+<p>Чаты, геймификация, офлайн-режим, 2FA, прогнозирование спроса и другие возможности, которых нет у конкурентов.</p>
+</div>
+<div class="why-card glass-card reveal r4">
+<div class="why-icon">🎁</div>
+<h3>Бесплатный демо-доступ</h3>
+<p>14 дней полного доступа ко всем функциям. Без привязки карты, без обязательств. Просто попробуйте.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== 17 FEATURES ===== -->
+<section class="section f17-section" id="features17">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">17 уникальных функций</div>
+<h2>17 функций, которых нет<br>в <span class="gradient-text">iiko, YUMA, Poster и R‑Keeper</span></h2>
+<p>Только в FoodChain — уникальные возможности, которые выделяют вас среди конкурентов и повышают эффективность бизнеса.</p>
+</div>
+<div class="f17-grid">
+<div class="f17-item reveal r1"><span class="f17-icon">💬</span><div class="f17-body"><h4>Встроенные чаты</h4><p>Гость ↔ официант, гость ↔ курьер, курьер ↔ официант. Реальное время без звонков и SMS. Ни у кого из конкурентов этого нет.</p></div><span class="f17-num">01</span></div>
+<div class="f17-item reveal r1"><span class="f17-icon">🎮</span><div class="f17-body"><h4>Геймификация</h4><p>Колесо удачи, викторины, челленджи для вовлечения гостей и мотивации персонала. Повышает лояльность и средний чек.</p></div><span class="f17-num">02</span></div>
+<div class="f17-item reveal r2"><span class="f17-icon">💱</span><div class="f17-body"><h4>Мультивалютность</h4><p>Поддержка нескольких валют для международных сетей ресторанов. Цены, отчёты и финансы в любой валюте.</p></div><span class="f17-num">03</span></div>
+<div class="f17-item reveal r2"><span class="f17-icon">🔧</span><div class="f17-body"><h4>SDK для разработчиков</h4><p>Открытый SDK для создания собственных плагинов и расширений. Кастомизируйте систему под свой бизнес.</p></div><span class="f17-num">04</span></div>
+<div class="f17-item reveal r3"><span class="f17-icon">📞</span><div class="f17-body"><h4>Оператор колл-центра</h4><p>Интерфейс для приёма заказов по телефону. Работает вместе с IP-телефонией — все звонки внутри системы.</p></div><span class="f17-num">05</span></div>
+<div class="f17-item reveal r3"><span class="f17-icon">📡</span><div class="f17-body"><h4>Полный офлайн-режим</h4><p>Работа без интернета с автосинхронизацией при восстановлении связи. Ни минуты простоя — даже при сбоях сети.</p></div><span class="f17-num">06</span></div>
+<div class="f17-item reveal r4"><span class="f17-icon">🤖</span><div class="f17-body"><h4>Прогнозирование спроса (AI)</h4><p>ML-модель прогнозирует продажи и закупки на основе исторических данных. Меньше списаний, больше прибыли.</p></div><span class="f17-num">07</span></div>
+<div class="f17-item reveal r4"><span class="f17-icon">👨‍🍳</span><div class="f17-body"><h4>Sous Chef (умная очередь)</h4><p>Приоритизация заказов на кухне. Система сама определяет, какие блюда готовить в первую очередь.</p></div><span class="f17-num">08</span></div>
+<div class="f17-item reveal r1"><span class="f17-icon">💳</span><div class="f17-body"><h4>Разделение счёта (split bill)</h4><p>Деление чека между гостями за 2 клика. Каждый платит только за своё — никаких споров и лишних расчётов.</p></div><span class="f17-num">09</span></div>
+<div class="f17-item reveal r1"><span class="f17-icon">📱</span><div class="f17-body"><h4>QR-самозаказ</h4><p>Гость сканирует QR-код на столе и делает заказ сам со своего телефона. Сокращает время обслуживания.</p></div><span class="f17-num">10</span></div>
+<div class="f17-item reveal r2"><span class="f17-icon">🖥️</span><div class="f17-body"><h4>Экран раздачи (FOH display)</h4><p>Отображение готовых блюд для выдачи. Официанты видят, какие заказы готовы, и забирают их без очереди.</p></div><span class="f17-num">11</span></div>
+<div class="f17-item reveal r2"><span class="f17-icon">🏷️</span><div class="f17-body"><h4>Честный знак (маркировка)</h4><p>Учёт маркированных товаров: вода, молочная продукция, табак. Встроенная интеграция с системой «Честный знак».</p></div><span class="f17-num">12</span></div>
+<div class="f17-item reveal r3"><span class="f17-icon">📞</span><div class="f17-body"><h4>IP-телефония</h4><p>Интеграция с АТС для приёма звонков через систему. Все разговоры записываются и сохраняются в истории.</p></div><span class="f17-num">13</span></div>
+<div class="f17-item reveal r3"><span class="f17-icon">🧩</span><div class="f17-body"><h4>Extensions (магазин приложений)</h4><p>Подключайте сторонние расширения и интеграции через встроенный магазин. Расширяйте функционал в один клик.</p></div><span class="f17-num">14</span></div>
+<div class="f17-item reveal r4"><span class="f17-icon">🔐</span><div class="f17-body"><h4>2FA (двухфакторная)</h4><p>Защита аккаунтов администраторов. Дополнительный уровень безопасности для вашего бизнеса и данных гостей.</p></div><span class="f17-num">15</span></div>
+<div class="f17-item reveal r4"><span class="f17-icon">📋</span><div class="f17-body"><h4>Аудит действий (Audit log)</h4><p>Логирование всех действий пользователей. Полная прозрачность — вы всегда знаете, кто и что делал в системе.</p></div><span class="f17-num">16</span></div>
+<div class="f17-item reveal r1"><span class="f17-icon">🌐</span><div class="f17-body"><h4>PWA (Progressive Web App)</h4><p>Сайт работает как полноценное приложение на телефоне. Не требует установки из магазина — просто добавьте на экран.</p></div><span class="f17-num">17</span></div>
+</div>
+<div class="f17-cta reveal">
+<p>Эти <strong>17 функций</strong> — ваш ключ к эффективности, безопасности и лояльности гостей. Их нет у конкурентов. Только в <strong>FoodChain</strong>.</p>
+</div>
+</div>
+</section>
+
+<!-- ===== CHATS ===== -->
+<section class="section chats-section" id="chats">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Уникальные чаты</div>
+<h2>Единственная система, где <span class="gradient-text">все говорят друг с другом</span></h2>
+<p>В FoodChain встроены чаты между гостем, официантом и курьером. Ваши сотрудники и клиенты всегда на связи — в реальном времени, без звонков и лишних действий. Этого нет в iiko, YUMA, Poster и R-Keeper.</p>
+</div>
+<div class="chats-grid">
+<div class="chat-card glass-card reveal r1">
+<div class="chat-flow">
+<span class="arrow">👤</span>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+<span class="arrow">👨‍🍳</span>
+</div>
+<div class="chat-icon">💬</div>
+<h3>Гость ↔ Официант</h3>
+<p>Гость может написать официанту из приложения — уточнить заказ, сообщить о проблеме, попросить счёт. Официант отвечает мгновенно. Никаких очередей и криков через зал.</p>
+<div class="chat-badge">Повышает лояльность на 40%</div>
+</div>
+<div class="chat-card glass-card reveal r2">
+<div class="chat-flow">
+<span class="arrow">🏍️</span>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+<span class="arrow">👨‍🍳</span>
+</div>
+<div class="chat-icon">📦</div>
+<h3>Курьер ↔ Официант</h3>
+<p>Курьер уточняет адрес, время или особые пожелания. Официант видит всё в своём приложении и мгновенно реагирует. Доставка становится быстрее и без ошибок.</p>
+<div class="chat-badge">Ускоряет доставку на 25%</div>
+</div>
+<div class="chat-card glass-card reveal r3">
+<div class="chat-flow">
+<span class="arrow">👤</span>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+<span class="arrow">🏍️</span>
+</div>
+<div class="chat-icon">🗺️</div>
+<h3>Гость ↔ Курьер</h3>
+<p>Гость видит, где находится курьер, и может написать ему: «Поднимитесь на 5-й этаж». Курьер отвечает — доставка становится быстрее и удобнее для всех.</p>
+<div class="chat-badge">Снижает количество звонков на 60%</div>
+</div>
+</div>
+<div class="chat-note reveal">
+Все чаты сохраняются в истории — никаких лишних звонков и SMS. Всё внутри системы. FoodChain — единственная система, которая объединяет всех участников в едином информационном поле. Это не просто функция — это <strong style="color:#fff">новый уровень сервиса</strong>.
+</div>
+</div>
+</section>
+
+<!-- ===== MODULES ===== -->
+<section class="section" id="features">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Возможности</div>
+<h2>Всё для управления <span class="gradient-text">рестораном</span></h2>
+<p>8 модулей, которые покрывают все потребности современного заведения. Нажмите на иконку, чтобы узнать подробнее.</p>
+</div>
+<div class="modules-grid">
+<div class="module-item glass-card reveal r1" onclick="toggleModule(this)">
+<div class="mi-icon">📋</div>
+<div class="mi-name">Управление заказами</div>
+<div class="mi-desc">Принимайте заказы из зала, с доставки и самовывоза в одном окне. Автоматическое распределение на кухню.</div>
+</div>
+<div class="module-item glass-card reveal r2" onclick="toggleModule(this)">
+<div class="mi-icon">📦</div>
+<div class="mi-name">Склад и техкарты</div>
+<div class="mi-desc">Полный контроль остатков, автозаказ продуктов, калькуляция блюд и технические карты с расчётом себестоимости.</div>
+</div>
+<div class="module-item glass-card reveal r3" onclick="toggleModule(this)">
+<div class="mi-icon">💰</div>
+<div class="mi-name">Финансы и отчёты</div>
+<div class="mi-desc">Выручка, прибыль, средний чек, популярные блюда — вся аналитика в реальном времени. Экспорт в Excel и 1С.</div>
+</div>
+<div class="module-item glass-card reveal r4" onclick="toggleModule(this)">
+<div class="mi-icon">👥</div>
+<div class="mi-name">Персонал</div>
+<div class="mi-desc">Управление сменами, учёт рабочего времени, чаевые, KPI и мотивация сотрудников. Всё в одном месте.</div>
+</div>
+<div class="module-item glass-card reveal r1" onclick="toggleModule(this)">
+<div class="mi-icon">📢</div>
+<div class="mi-name">Маркетинг</div>
+<div class="mi-desc">Акции, скидки, программы лояльности, push-уведомления и e-mail рассылки для ваших гостей.</div>
+</div>
+<div class="module-item glass-card reveal r2" onclick="toggleModule(this)">
+<div class="mi-icon">📱</div>
+<div class="mi-name">Мобильные приложения</div>
+<div class="mi-desc">Отдельные приложения для гостя, официанта, курьера и кухни. Каждый получает именно то, что нужно для работы.</div>
+</div>
+<div class="module-item glass-card reveal r3" onclick="toggleModule(this)">
+<div class="mi-icon">💬</div>
+<div class="mi-name">Чаты и уведомления</div>
+<div class="mi-desc">Встроенные чаты между гостем, официантом и курьером. Мгновенные уведомления о статусе заказа.</div>
+</div>
+<div class="module-item glass-card reveal r4" onclick="toggleModule(this)">
+<div class="mi-icon">🔗</div>
+<div class="mi-name">Интеграции</div>
+<div class="mi-desc">Эквайринг, фискализация, Telegram, соцсети, сайт, Google Maps — подключайте всё, что нужно вашему бизнесу.</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== COMPARISON ===== -->
+<section class="section compare-section" id="compare">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Сравнение</div>
+<h2>Сравните сами.<br>Мы <span class="gradient-text">обгоняем конкурентов</span> по функциональности и цене</h2>
+</div>
+<div class="table-wrap reveal">
+<table class="comparison-table">
+<thead>
+<tr>
+<th>Функция</th>
+<th><span class="fc-brand">✦ FoodChain</span></th>
+<th>iiko</th>
+<th>YUMA</th>
+<th>Poster</th>
+<th>R-Keeper</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="fn">Единая база данных и архитектура</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">✗ — модульная</td></tr>
+<tr><td class="fn">Встроенные чаты гость-официант-курьер</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+<tr><td class="fn">Офлайн-режим работы</td><td class="check">✓</td><td class="limited">Ограниченно</td><td class="cross">✗</td><td class="limited">Ограниченно</td><td class="limited">Ограниченно</td></tr>
+<tr><td class="fn">Геймификация персонала</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+<tr><td class="fn">Стоимость входа</td><td class="check">Доступная подписка</td><td class="limited">От 35 000 ₽/мес</td><td class="limited">От 25 000 ₽/мес</td><td class="limited">От 15 000 ₽/мес</td><td class="cross">от 107 000 ₽</td></tr>
+<tr><td class="fn">Современный интерфейс</td><td class="check">✓</td><td class="limited">Средний</td><td class="check">✓</td><td class="check">✓</td><td class="cross">Устаревший</td></tr>
+<tr><td class="fn">Облачная версия</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+<tr><td class="fn">100% функций без доплат</td><td class="check">✓</td><td class="cross">✗ — доплата за модули</td><td class="cross">✗ — доплата</td><td class="cross">✗ — доплата</td><td class="cross">✗ — доплата</td></tr>
+</tbody>
+</table>
+</div>
+<div class="table-cta reveal">
+Мы обгоняем конкурентов по функциональности и цене. <strong>Попробуйте сами →</strong>
+</div>
+</div>
+</section>
+
+<!-- ===== MOBILE APPS ===== -->
+<section class="section" id="apps">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Мобильные приложения</div>
+<h2>6 приложений — <span class="gradient-text">единая экосистема</span></h2>
+<p>Каждый участник вашего ресторанного бизнеса получает своё приложение с нужным набором функций.</p>
+</div>
+<div class="apps-grid">
+<div class="app-card glass-card reveal r1" onclick="openModal('guest')">
+<div class="tag">Гость</div>
+<div class="ac-icon">👤</div>
+<h4>Гость</h4>
+<p>Меню, заказ, оплата, чат с официантом и курьером, история заказов, программа лояльности.</p>
+</div>
+<div class="app-card glass-card reveal r2" onclick="openModal('courier')">
+<div class="tag">Курьер</div>
+<div class="ac-icon">🏍️</div>
+<h4>Курьер</h4>
+<p>Приём заказов, навигатор, чат с гостем и официантом, статусы доставки, отчётность.</p>
+</div>
+<div class="app-card glass-card reveal r3" onclick="openModal('waiter')">
+<div class="tag">Официант</div>
+<div class="ac-icon">👨‍🍳</div>
+<h4>Официант</h4>
+<p>Приём заказов, отправка на кухню, чат с гостем и курьером, закрытие счёта, чаевые.</p>
+</div>
+<div class="app-card glass-card reveal r4" onclick="openModal('kitchen')">
+<div class="tag">Кухня</div>
+<div class="ac-icon">🍳</div>
+<h4>Кухня</h4>
+<p>Экран заказов, статусы готовности, таймеры, сплит-система по зонам кухни.</p>
+</div>
+<div class="app-card glass-card reveal r1" onclick="openModal('website')">
+<div class="tag">Веб</div>
+<div class="ac-icon">🌐</div>
+<h4>Сайт</h4>
+<p>Готовый сайт ресторана с меню, корзиной и онлайн-оплатой. Настраивается за 5 минут.</p>
+</div>
+<div class="app-card glass-card reveal r2" onclick="openModal('kiosk')">
+<div class="tag">Киоск</div>
+<div class="ac-icon">🖥️</div>
+<h4>Киоск</h4>
+<p>Терминал самообслуживания для залов быстрого питания. Увеличивает средний чек на 20%.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== TESTIMONIALS ===== -->
+<section class="section testi-section" id="reviews">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Отзывы</div>
+<h2>Нам доверяют <span class="gradient-text">владельцы ресторанов</span></h2>
+<p>Узнайте, что говорят о FoodChain те, кто уже работает в системе.</p>
+</div>
+<div class="testi-grid">
+<div class="testi-card glass-card reveal r1">
+<div class="testi-stars">★★★★★</div>
+<div class="testi-text">Перешли на FoodChain с iiko — разница колоссальная. Интерфейс современный, всё интуитивно понятно. А встроенные чаты — это просто бомба. Гости в восторге, персоналу удобно.</div>
+<div class="testi-author">
+<div class="testi-avatar" style="background:linear-gradient(135deg,var(--accent),var(--accent2))">А</div>
+<div><div class="testi-name">Алексей Кузнецов</div><div class="testi-role">Владелец сети ресторанов «La Maison», Казань</div></div>
+</div>
+</div>
+<div class="testi-card glass-card reveal r2">
+<div class="testi-stars">★★★★★</div>
+<div class="testi-text">Раньше пользовались Poster — не хватало функционала для доставки. FoodChain решил все проблемы: и зал, и доставка, и склад в одной системе. Плюс техподдержка отвечает за 2 минуты.</div>
+<div class="testi-author">
+<div class="testi-avatar" style="background:linear-gradient(135deg,var(--gold),#f59e0b);color:#0a192f">М</div>
+<div><div class="testi-name">Мария Соколова</div><div class="testi-role">CEO «СушиМастер», Екатеринбург</div></div>
+</div>
+</div>
+<div class="testi-card glass-card reveal r3">
+<div class="testi-stars">★★★★★</div>
+<div class="testi-text">Оценили офлайн-режим — интернет иногда падает, но работа не останавливается ни на минуту. Геймификация реально мотивирует персонал. Лучшее решение для ресторанного бизнеса.</div>
+<div class="testi-author">
+<div class="testi-avatar" style="background:linear-gradient(135deg,#22c55e,#16a34a)">Д</div>
+<div><div class="testi-name">Дмитрий Волков</div><div class="testi-role">Управляющий «Biergarten», Москва</div></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== PRICING ===== -->
+<section class="section pricing-section" id="pricing">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">Тарифы</div>
+<h2>Прозрачные цены <span class="gradient-text">без скрытых платежей</span></h2>
+<p>Все тарифы включают 14-дневный бесплатный период. Никаких комиссий за транзакции.</p>
+</div>
+<div class="pricing-grid">
+<div class="pricing-card glass-card reveal r1">
+<div class="p-name">Базовый</div>
+<div class="p-desc">Для небольших кафе и кофеен</div>
+<div class="p-price">9 900 ₽ <span>/мес</span></div>
+<div class="p-period">При оплате за месяц</div>
+<ul class="p-features">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Управление заказами</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Склад и техкарты</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Финансы и отчёты</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Мобильное приложение официанта</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> До 3 кассовых мест</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Техподдержка в чате</li>
+</ul>
+<a href="#" class="btn btn-outline">Выбрать тариф</a>
+</div>
+<div class="pricing-card glass-card popular reveal r2">
+<div class="p-name">Бизнес</div>
+<div class="p-desc">Для ресторанов и служб доставки</div>
+<div class="p-price">19 900 ₽ <span>/мес</span></div>
+<div class="p-period">При оплате за месяц</div>
+<ul class="p-features">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Всё из тарифа «Базовый»</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Встроенные чаты (гость-официант-курьер)</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Мобильное приложение гостя и курьера</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Маркетинг и программа лояльности</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Интеграции и эквайринг</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> До 10 кассовых мест</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Приоритетная техподдержка 24/7</li>
+</ul>
+<a href="#" class="btn btn-accent">Выбрать тариф</a>
+</div>
+<div class="pricing-card glass-card reveal r3">
+<div class="p-name">Корпоративный</div>
+<div class="p-desc">Для сетей ресторанов и франшиз</div>
+<div class="p-price">39 900 ₽ <span>/мес</span></div>
+<div class="p-period">При оплате за месяц</div>
+<ul class="p-features">
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Всё из тарифа «Бизнес»</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Неограниченное количество касс</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Централизованное управление сетью</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Собственный выделенный сервер</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Геймификация и 2FA</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Персональный менеджер</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Индивидуальная доработка</li>
+</ul>
+<a href="#" class="btn btn-outline">Связаться с нами</a>
+</div>
+</div>
+<p class="pricing-note reveal">Все тарифы включают 14-дневный бесплатный период. Без привязки карты и без обязательств.</p>
+</div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="section faq-section" id="faq">
+<div class="section-inner">
+<div class="section-header reveal">
+<div class="badge">FAQ</div>
+<h2>Часто задаваемые <span class="gradient-text">вопросы</span></h2>
+<p>Ответы на самые популярные вопросы о FoodChain.</p>
+</div>
+<div class="faq-list">
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Что входит в тариф?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>В каждый тариф входит полный набор функций, указанных в карточке тарифа. В «Базовый» — управление заказами, склад, финансы. В «Бизнес» — дополнительно чаты, мобильные приложения, маркетинг. В «Корпоративный» — все функции без ограничений. Никаких скрытых модулей и доплат.</p></div>
+</div>
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Нужен ли сервер для установки?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>Нет. FoodChain — полностью облачное решение. Вам нужен только ноутбук или планшет с доступом в интернет. Мы берём на себя хостинг, безопасность и резервное копирование. Для корпоративных клиентов возможна установка на выделенный сервер.</p></div>
+</div>
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Можно ли перенести данные из другой системы?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>Да. Мы предоставляем бесплатный перенос данных из любых популярных систем: iiko, R-Keeper, Poster, YUMA, 1С. Наши специалисты помогут перенести меню, складские остатки, базу клиентов и историю заказов. Обычно миграция занимает 1-3 дня.</p></div>
+</div>
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Есть ли техподдержка?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>Да, мы гордимся своей поддержкой. На всех тарифах — поддержка в чате с ответом до 5 минут в рабочее время. На тарифе «Бизнес» — круглосуточная поддержка 24/7. На «Корпоративном» — персональный менеджер и выделенная линия.</p></div>
+</div>
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Как работает демо-период?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>Вы получаете 14 дней полного доступа ко всем функциям выбранного тарифа. Никакой привязки карты, никаких обязательств. Если система вам подходит — просто выберите тариф и продолжайте работать. Если нет — доступ отключится, вы ничего не потеряете.</p></div>
+</div>
+<div class="faq-item reveal">
+<button class="faq-q" onclick="toggleFaq(this)">
+<span>Можно подключить эквайринг и фискализацию?</span>
+<span class="faq-icon">+</span>
+</button>
+<div class="faq-a"><p>Да, FoodChain поддерживает все популярные платёжные системы и эквайринг. Также мы интегрированы с 54-ФЗ — автоматическая фискализация через облачную кассу. Работаем с Сбербанк, Тинькофф, ЮKassa, CloudPayments и другими.</p></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer" id="contacts">
+<div class="footer-inner">
+<div class="footer-brand">
+<a href="#" class="logo" style="margin-bottom:16px">
+<div class="logo-icon">F</div>
+Food<span style="color:var(--accent)">Chain</span>
+</a>
+<p>FoodChain — SaaS-платформа для управления рестораном нового поколения. Объединяем зал, кухню, доставку, склад и финансы в единой экосистеме.</p>
+</div>
+<div>
+<h4>Продукт</h4>
+<ul>
+<li><a href="#features">Возможности</a></li>
+<li><a href="#pricing">Цены</a></li>
+<li><a href="#compare">Сравнение</a></li>
+<li><a href="#apps">Мобильные приложения</a></li>
+<li><a href="#faq">FAQ</a></li>
+</ul>
+</div>
+<div>
+<h4>Компания</h4>
+<ul>
+<li><a href="#about">О нас</a></li>
+<li><a href="#">Блог</a></li>
+<li><a href="#">Вакансии</a></li>
+<li><a href="#">Партнёрам</a></li>
+<li><a href="#contacts">Контакты</a></li>
+</ul>
+</div>
+<div>
+<h4>Контакты</h4>
+<ul>
+<li><a href="tel:+74951234567">+7 (495) 123-45-67</a></li>
+<li><a href="mailto:hello@foodchain.ru">hello@foodchain.ru</a></li>
+<li><a href="#">г. Москва, ул. Тверская, 15</a></li>
+<li><a href="#">Telegram-канал</a></li>
+<li><a href="#">YouTube</a></li>
+</ul>
+</div>
+</div>
+<div class="footer-bottom">
+<p>© 2026 FoodChain / MIRUZ. Все права защищены.</p>
+<div class="footer-links-bottom">
+<a href="#">Политика конфиденциальности</a>
+<a href="#">Публичная оферта</a>
+</div>
+<div class="footer-socials">
+<a href="#" aria-label="Telegram">✈</a>
+<a href="#" aria-label="YouTube">▶</a>
+<a href="#" aria-label="VK">VK</a>
+<a href="#" aria-label="Instagram">📷</a>
+</div>
+</div>
+</footer>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modal">
+<div class="modal">
+<button class="modal-close" onclick="closeModal()">✕</button>
+<h3 id="modalTitle">Приложение</h3>
+<p id="modalDesc">Описание приложения.</p>
+<div class="modal-screenshots">
+<div class="modal-screenshot">Скриншот 1</div>
+<div class="modal-screenshot">Скриншот 2</div>
+</div>
+</div>
+</div>
+
+<script>
+const mobileToggle = document.getElementById('mobileToggle');
+const nav = document.getElementById('nav');
+mobileToggle.addEventListener('click', () => {
+mobileToggle.classList.toggle('open');
+nav.classList.toggle('open');
+});
+document.querySelectorAll('.nav a').forEach(a => {
+a.addEventListener('click', () => {
+mobileToggle.classList.remove('open');
+nav.classList.remove('open');
+});
+});
+
+const header = document.getElementById('header');
+window.addEventListener('scroll', () => {
+header.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+const container = document.getElementById('particles');
+for (let i = 0; i < 40; i++) {
+const p = document.createElement('div');
+p.className = 'hero-particle';
+p.style.left = Math.random() * 100 + '%';
+p.style.animationDuration = (18 + Math.random() * 25) + 's';
+p.style.animationDelay = Math.random() * 25 + 's';
+p.style.width = p.style.height = (2 + Math.random() * 4) + 'px';
+p.style.background = ['var(--accent)', 'var(--gold)', 'rgba(255,255,255,0.3)'][Math.floor(Math.random() * 3)];
+container.appendChild(p);
+}
+
+const observer = new IntersectionObserver((entries) => {
+entries.forEach(entry => {
+if (entry.isIntersecting) {
+entry.target.classList.add('visible');
+}
+});
+}, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+function toggleFaq(btn) {
+btn.parentElement.classList.toggle('open');
+}
+
+function toggleModule(el) {
+el.classList.toggle('expanded');
+}
+
+const modalOverlay = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalDesc = document.getElementById('modalDesc');
+
+const appData = {
+guest: { title: 'Приложение «Гость»', desc: 'Полноценное мобильное приложение для ваших гостей. Меню с фотографиями и описаниями блюд, корзина, онлайн-оплата, чат с официантом и курьером, история заказов, программа лояльности с бонусами, избранные блюда и отзывы. Ваши гости смогут сделать заказ в 2 клика, не выходя из дома.' },
+courier: { title: 'Приложение «Курьер»', desc: 'Профессиональное приложение для курьеров: приём новых заказов с автоматическим назначением, построение оптимального маршрута, чат с гостем и официантом, отметка статусов доставки, фотоотчёт, история выплат и рейтинг.' },
+waiter: { title: 'Приложение «Официант»', desc: 'Принимайте заказы гостей прямо за столиком через планшет — без бумажных блокнотов. Отправляйте заказы на кухню мгновенно, общайтесь с гостями и курьерами через встроенный чат, принимайте оплату и закрывайте счёт. Всё в одном приложении.' },
+kitchen: { title: 'Экран «Кухня»', desc: 'Кухонный дисплей, который показывает все входящие заказы в реальном времени. Сплит-система по зонам (горячее, холодное, гриль), таймеры готовности, цветовая индикация просроченных блюд, статусы «Готовится» и «Готово». Никаких бумажек и крика.' },
+website: { title: 'Веб-сайт ресторана', desc: 'Готовый адаптивный сайт для вашего ресторана с меню, корзиной, онлайн-оплатой и интеграцией с доставкой. Настраивается за 5 минут — достаточно загрузить фото и описание блюд. Работает на домене ресторана. Все заказы синхронизируются с системой автоматически.' },
+kiosk: { title: 'Терминал «Киоск»', desc: 'Терминал самообслуживания для залов быстрого питания. Гость самостоятельно выбирает блюда, оплачивает и получает номер заказа. Сокращает очереди, увеличивает средний чек на 20% за счёт кросс-продаж и визуального меню.' }
+};
+
+function openModal(app) {
+const data = appData[app];
+if (!data) return;
+modalTitle.textContent = data.title;
+modalDesc.textContent = data.desc;
+modalOverlay.classList.add('open');
+document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+modalOverlay.classList.remove('open');
+document.body.style.overflow = '';
+}
+modalOverlay.addEventListener('click', (e) => {
+if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+if (e.key === 'Escape') closeModal();
+});
+
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+a.addEventListener('click', (e) => {
+const target = document.querySelector(a.getAttribute('href'));
+if (target) {
+e.preventDefault();
+target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+});
+</script>
+</body>
+</html>
