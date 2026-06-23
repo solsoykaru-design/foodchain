@@ -32,16 +32,16 @@ export function Footer() {
             <div className="space-y-3 text-sm">
               <Link to="/about" className="block text-slate-500 hover:text-cyan-400 transition">О нас</Link>
               <Link to="/contact" className="block text-slate-500 hover:text-cyan-400 transition">Контакты</Link>
-              <a href="#" className="block text-slate-500 hover:text-cyan-400 transition">Блог</a>
-              <a href="#" className="block text-slate-500 hover:text-cyan-400 transition">Партнёрам</a>
+              <Link to="/blog" className="block text-slate-500 hover:text-cyan-400 transition">Блог</Link>
+              <Link to="/apps" className="block text-slate-500 hover:text-cyan-400 transition">Приложения</Link>
             </div>
           </div>
 
           <div>
             <h4 className="font-semibold text-white text-sm mb-4">Поддержка</h4>
             <div className="space-y-3 text-sm">
-              <a href="#" className="block text-slate-500 hover:text-cyan-400 transition">Документация</a>
-              <a href="#" className="block text-slate-500 hover:text-cyan-400 transition">API</a>
+              <Link to="/support" className="block text-slate-500 hover:text-cyan-400 transition">Центр поддержки</Link>
+              <Link to="/support" className="block text-slate-500 hover:text-cyan-400 transition">FAQ</Link>
               <a href="mailto:support@foodchain.ru" className="block text-slate-500 hover:text-cyan-400 transition">support@foodchain.ru</a>
               <a href="tel:+78001234567" className="block text-slate-500 hover:text-cyan-400 transition">8 (800) 123-45-67</a>
             </div>

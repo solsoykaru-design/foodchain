@@ -33,12 +33,16 @@ import { Contact } from './pages/Contact';
 import { Apps } from './pages/Apps';
 import { Integrations } from './pages/Integrations';
 import { Finance } from './pages/Finance';
+import { Blog } from './pages/Blog';
+import { Support } from './pages/Support';
+import { Portal } from './pages/Portal';
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/portal" element={<Portal />} />
         <Route path="/features" element={<Layout><Features /></Layout>} />
         <Route path="/apps" element={<Layout><Apps /></Layout>} />
         <Route path="/integrations" element={<Layout><Integrations /></Layout>} />
@@ -46,6 +50,8 @@ export default function App() {
         <Route path="/pricing" element={<Layout><Pricing /></Layout>} />
         <Route path="/about" element={<Layout><About /></Layout>} />
         <Route path="/contact" element={<Layout><Contact /></Layout>} />
+        <Route path="/blog" element={<Layout><Blog /></Layout>} />
+        <Route path="/support" element={<Layout><Support /></Layout>} />
         <Route path="/tariffs" element={<Layout><Tariffs /></Layout>} />
         <Route path="/login" element={<Layout><Login /></Layout>} />
         <Route path="/register" element={<Layout><Register /></Layout>} />

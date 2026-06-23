@@ -23,6 +23,7 @@ export function Header() {
     { to: '/finance', label: 'Финансы' },
     { to: '/pricing', label: 'Цены' },
     { to: '/about', label: 'О нас' },
+    { to: '/blog', label: 'Блог' },
     { to: '/contact', label: 'Контакты' },
   ];
 
