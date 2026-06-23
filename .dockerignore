@@ -11,5 +11,4 @@ dist-*/
 !dist-admin
 !dist-waiter
 !dist-kitchen
-!portal/frontend/node_modules
 !portal/frontend/dist
