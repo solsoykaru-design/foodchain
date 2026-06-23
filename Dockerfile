@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Install system deps for native modules
@@ -11,9 +11,9 @@ COPY portal/backend/package.json portal/backend/
 COPY portal/frontend/package.json portal/frontend/
 
 # Install all dependencies
-RUN npm ci
-RUN cd portal/frontend && npm ci
-RUN cd portal/backend && npm ci
+RUN npm install
+RUN cd portal/frontend && npm install
+RUN cd portal/backend && npm install
 
 # Copy source code for SPAs
 COPY vite.config.ts tsconfig*.json ./
@@ -33,7 +33,7 @@ RUN npm run build:kitchen
 COPY portal/frontend/ portal/frontend/
 RUN cd portal/frontend && npm run build
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
 
