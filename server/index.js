@@ -3957,6 +3957,10 @@ const returnRecalcInterval = setInterval(recalculateReturningRoutes, 15000);
 
 
 // ─── Portal SPA catch-all ────────────────────────────────────────
+// Serve portal frontend static files BEFORE the portal handler
+if (fs.existsSync(portalDist)) {
+  app.use('/portal', express.static(portalDist));
+}
 app.use('/portal', (req, res, next) => {
   if (portalHandler) {
     portalHandler(req, res, next);
