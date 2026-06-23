@@ -270,7 +270,7 @@ app.get('/api/journal/entries', (req, res) => {
     if (offset) sql += ' OFFSET ?'; params.push(parseInt(offset));
     const entries = db.prepare(sql).all(...params);
     const result = entries.map(e => {
-      const lines = db.prepare('SELECT l.*, a.code, a.name as account_name FROM journal_entry_lines l LEFT JOIN chart_of_accounts a ON l.account_id = a.id WHERE l.entry_id = ?').all(e.id);
+      const lines = db.prepare('SELECT l.*, a.code, a.name as account_name FROM journal_entry_lines l LEFT JOIN chart_of_accounts a ON l.account_id = a.id WHERE l.entry_id = ? AND l.tenant_id = current_tenant_id()').all(e.id);
       return { ...e, lines };
     });
     res.json(result);
@@ -280,7 +280,7 @@ app.get('/api/journal/entries/:id', (req, res) => {
   try {
     const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(req.params.id);
     if (!entry) return res.status(404).json({ error: 'Запись не найдена' });
-    const lines = db.prepare('SELECT l.*, a.code, a.name as account_name FROM journal_entry_lines l LEFT JOIN chart_of_accounts a ON l.account_id = a.id WHERE l.entry_id = ?').all(entry.id);
+    const lines = db.prepare('SELECT l.*, a.code, a.name as account_name FROM journal_entry_lines l LEFT JOIN chart_of_accounts a ON l.account_id = a.id WHERE l.entry_id = ? AND l.tenant_id = current_tenant_id()').all(entry.id);
     res.json({ ...entry, lines });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -296,7 +296,7 @@ app.get('/api/reports/trial-balance', (req, res) => {
       FROM chart_of_accounts a
       LEFT JOIN journal_entry_lines l ON l.account_id = a.id
       LEFT JOIN journal_entries j ON j.id = l.entry_id
-      WHERE a.is_active = 1${dateFilter}
+      WHERE a.is_active = 1 AND a.tenant_id = current_tenant_id()${dateFilter}
       GROUP BY a.id
       ORDER BY a.code
     `).all();
@@ -316,7 +316,7 @@ app.get('/api/reports/balance-sheet', (req, res) => {
       FROM chart_of_accounts a
       LEFT JOIN journal_entry_lines l ON l.account_id = a.id
       LEFT JOIN journal_entries j ON j.id = l.entry_id
-      WHERE a.is_active = 1${dateFilter}
+      WHERE a.is_active = 1 AND a.tenant_id = current_tenant_id()${dateFilter}
       GROUP BY a.id
       ORDER BY a.code
     `).all();

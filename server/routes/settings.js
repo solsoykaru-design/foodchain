@@ -84,14 +84,14 @@ app.post('/api/settings/change-password', (req, res) => {
     const newHash = bcrypt.hashSync(newPassword, 12);
     db.prepare('UPDATE staff SET password = ? WHERE id = ?').run(newHash, staff.id);
 
-    res.json({ ok: true, password_hash: newHash });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
 app.get('/api/tenant-mode', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
 
     const pt = db.prepare('SELECT access_mode, demo_data_created_at, demo_auto_cleanup_days FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     res.json({
@@ -104,7 +104,7 @@ app.get('/api/tenant-mode', (req, res) => {
 });
 app.get('/api/tenant-limits', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
 
     const pt = db.prepare('SELECT app_settings FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     let settings = {};

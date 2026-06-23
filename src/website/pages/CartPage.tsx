@@ -1,5 +1,6 @@
 import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
+import { usePrice } from '../../PriceContext';
 
 export default function CartPage() {
   const ctx = useWebsite();
@@ -50,7 +51,7 @@ export default function CartPage() {
                   {Object.values(item.selectedOptions).flat().join(', ')}
                 </p>
               )}
-              <p className="text-sm font-bold text-[var(--color-primary)] mt-1">{item.totalPrice} ₽</p>
+              <p className="text-sm font-bold text-[var(--color-primary)] mt-1">{usePrice()(item.totalPrice)}</p>
             </div>
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
               <button onClick={() => ctx.updateCartQty(item.dish.id, item.quantity - 1)} className="p-1.5 hover:bg-gray-50 transition-colors"><Minus size={14} /></button>
@@ -72,19 +73,19 @@ export default function CartPage() {
           <button onClick={applyPromo} className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors">Применить</button>
         </div>
         {ctx.promoDiscount > 0 && (
-          <p className="text-sm text-green-600 mt-2">Скидка по промокоду: -{ctx.promoDiscount} ₽</p>
+          <p className="text-sm text-green-600 mt-2">Скидка по промокоду: -{usePrice()(ctx.promoDiscount)}</p>
         )}
       </div>
 
       {/* Totals */}
       <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-[var(--color-text-secondary)]">Сумма</span><span>{ctx.cartTotal} ₽</span></div>
+          <div className="flex justify-between"><span className="text-[var(--color-text-secondary)]">Сумма</span><span>{usePrice()(ctx.cartTotal)}</span></div>
           {ctx.promoDiscount > 0 && (
-            <div className="flex justify-between"><span className="text-[var(--color-text-secondary)]">Скидка</span><span className="text-green-600">-{ctx.promoDiscount} ₽</span></div>
+            <div className="flex justify-between"><span className="text-[var(--color-text-secondary)]">Скидка</span><span className="text-green-600">-{usePrice()(ctx.promoDiscount)}</span></div>
           )}
           <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-lg">
-            <span>Итого</span><span className="text-[var(--color-primary)]">{Math.max(0, total)} ₽</span>
+            <span>Итого</span><span className="text-[var(--color-primary)]">{usePrice()(Math.max(0, total))}</span>
           </div>
         </div>
         <button onClick={() => ctx.setPage('checkout')} className="w-full mt-4 py-3 bg-[var(--color-primary)] text-white rounded-xl font-bold text-sm hover:brightness-110 transition-all shadow-sm">

@@ -6,14 +6,14 @@ module.exports = function(app, db, config) {
 
 app.get('/api/branding', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
     const row = db.prepare('SELECT branding FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     res.json({ branding: parseBranding(row?.branding) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/branding', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
     const branding = req.body.branding;
     if (!branding || typeof branding !== 'object') return res.status(400).json({ error: 'branding object required' });
     const merged = parseBranding(branding);
@@ -29,7 +29,7 @@ app.put('/api/branding', (req, res) => {
 });
 app.post('/api/branding/reset', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
     const defaults = JSON.parse(DEFAULT_BRANDING);
     const str = JSON.stringify(defaults);
     const existing = db.prepare('SELECT id FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);

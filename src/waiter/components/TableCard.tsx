@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, UserPlus, SplitSquareHorizontal, ArrowRightFromLine, Wallet, Clock } from 'lucide-react';
 import * as api from '../../api';
 import type { Table, DineInCheck } from '../../types';
+import { usePrice } from '../../PriceContext';
 
 export default function TableCard({
   table, checks, onClose, onAddOrder, onRefresh,
@@ -104,7 +105,7 @@ export default function TableCard({
                 <div key={check.id} className="bg-zinc-800/50 rounded-xl p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-zinc-400">Чек #{check.id}</span>
-                    <span className="text-sm font-extrabold text-orange-500">{check.total}₽</span>
+                    <span className="text-sm font-extrabold text-orange-500">{usePrice()(check.total)}</span>
                   </div>
                   {check.orders?.map(order => (
                     <div key={order.id} className="flex items-center justify-between py-0.5 text-sm">

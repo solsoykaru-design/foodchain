@@ -12,7 +12,7 @@ app.get('/api/tech-cards', (req, res) => {
     if (search) { where += ' AND (tc.dish_name LIKE ? OR d.name LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
     if (is_active !== undefined && is_active !== '') { where += ' AND tc.is_active = ?'; params.push(parseInt(is_active)); }
 
-    const countRow = db.prepare(`SELECT COUNT(*) as total FROM dish_tech_cards tc LEFT JOIN dishes d ON d.id = tc.dish_id WHERE tc.tenant_id = current_tenant_id() ${where}`).get(...params);
+    const countRow = db.prepare(`SELECT COUNT(*) as total FROM dish_tech_cards tc LEFT JOIN dishes d ON d.id = tc.dish_id ${where}`).get(...params);
     const total = countRow ? countRow.total : 0;
 
     const items = db.prepare(`

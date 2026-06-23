@@ -1,0 +1,15 @@
+node_modules
+.git
+.gitignore
+*.md
+*.log
+tmp
+dist-*/
+!dist-website
+!dist-guest
+!dist-courier
+!dist-admin
+!dist-waiter
+!dist-kitchen
+!portal/frontend/node_modules
+!portal/frontend/dist

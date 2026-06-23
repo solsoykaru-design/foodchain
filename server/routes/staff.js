@@ -290,7 +290,7 @@ app.get('/api/staff-schedule', (req, res) => {
     const { staff_id } = req.query;
     let sql = 'SELECT ss.*, s.first_name || \' \' || COALESCE(s.last_name, \'\') as staff_name FROM staff_schedule ss LEFT JOIN staff s ON ss.staff_id = s.id WHERE ss.tenant_id = current_tenant_id()';
     const params = [];
-    if (staff_id) { sql += ' WHERE ss.staff_id = ?'; params.push(staff_id); }
+    if (staff_id) { sql += ' AND ss.staff_id = ?'; params.push(staff_id); }
     sql += ' ORDER BY ss.day, ss.shift_start';
     const rows = db.prepare(sql).all(...params);
     res.json(rows);
@@ -322,7 +322,7 @@ app.get('/api/staff-chats', (req, res) => {
     if (courier_id && courier_id !== '0') { conditions.push('sc.courier_id = ?'); params.push(courier_id); }
     if (waiter_id && waiter_id !== '0') { conditions.push('sc.waiter_id = ?'); params.push(waiter_id); }
     if (search) { conditions.push('(sc.last_message LIKE ? OR sc.courier_name LIKE ? OR sc.waiter_name LIKE ?)'); const q = '%' + search + '%'; params.push(q, q, q); }
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY sc.updated_at DESC';
     const rows = db.prepare(sql).all(...params);
     res.json(rows.map(chatToCamel));

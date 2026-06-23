@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context';
 import * as api from '../api';
 import { ShoppingCart, Plus, Minus, X, Check, Printer, CreditCard, Banknote, ChevronLeft, Clock, AlertCircle } from 'lucide-react';
+import { usePrice } from '../PriceContext';
 
 type KioskStep = 'menu' | 'checkout' | 'payment' | 'complete';
 
@@ -167,7 +168,7 @@ export default function KioskApp() {
                   )}
                   <div className="p-3">
                     <h3 className="font-bold text-lg truncate">{dish.name}</h3>
-                    <p className="text-blue-400 font-bold text-xl mt-1">{dish.price} ₽</p>
+                    <p className="text-blue-400 font-bold text-xl mt-1">{usePrice()(dish.price)}</p>
                     {dish.weight && <p className="text-zinc-500 text-sm">{dish.weight} {dish.unit || 'г'}</p>}
                   </div>
                 </button>
@@ -187,7 +188,7 @@ export default function KioskApp() {
                     <div key={item.dishId} className="flex items-center gap-3 bg-zinc-800 rounded-xl p-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{item.name}</p>
-                        <p className="text-blue-400 font-bold">{item.price * item.quantity} ₽</p>
+                        <p className="text-blue-400 font-bold">{usePrice()(item.price * item.quantity)}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => removeItem(item.dishId)} className="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center active:scale-90"><Minus size={18} /></button>
@@ -201,7 +202,7 @@ export default function KioskApp() {
               <div className="p-4 border-t border-zinc-800 space-y-3">
                 <div className="flex justify-between text-xl font-bold">
                   <span>Итого:</span>
-                  <span className="text-blue-400">{cartSum} ₽</span>
+                  <span className="text-blue-400">{usePrice()(cartSum)}</span>
                 </div>
                 <button onClick={() => setCartItems([])}
                   className="w-full py-3 rounded-xl bg-zinc-800 text-zinc-400 font-bold text-lg active:scale-95">
@@ -258,7 +259,7 @@ export default function KioskApp() {
             <div className="border-t border-zinc-800 pt-4">
               <div className="flex justify-between text-2xl font-bold mb-4">
                 <span>Сумма:</span>
-                <span className="text-blue-400">{cartSum} ₽</span>
+                <span className="text-blue-400">{usePrice()(cartSum)}</span>
               </div>
               {error && <div className="text-red-400 text-lg mb-3 flex items-center gap-2"><AlertCircle size={20} /> {error}</div>}
               <button onClick={placeOrder}
@@ -286,12 +287,12 @@ export default function KioskApp() {
                 {cartItems.map((item, i) => (
                   <p key={i} className="flex justify-between text-lg">
                     <span>{item.name} × {item.quantity}</span>
-                    <span>{item.price * item.quantity} ₽</span>
+                    <span>{usePrice()(item.price * item.quantity)}</span>
                   </p>
                 ))}
                 <div className="flex justify-between text-xl font-bold mt-2 pt-2 border-t border-zinc-700">
                   <span>Итого</span>
-                  <span className="text-blue-400">{cartSum} ₽</span>
+                  <span className="text-blue-400">{usePrice()(cartSum)}</span>
                 </div>
               </div>
             </div>

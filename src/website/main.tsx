@@ -4,13 +4,16 @@ import "../index.css";
 import WebsiteShell from "./WebsiteShell";
 import { OfflineProvider } from "../OfflineProvider";
 import { registerServiceWorker } from "../register-sw";
+import { PriceProvider } from "../PriceContext";
 
 registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <OfflineProvider>
-      <WebsiteShell />
+      <PriceProvider>
+        <WebsiteShell />
+      </PriceProvider>
     </OfflineProvider>
   </StrictMode>
 );

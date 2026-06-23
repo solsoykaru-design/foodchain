@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { History, Calendar, ChevronDown } from 'lucide-react';
 import * as api from '../../api';
 import type { Order } from '../../types';
+import { usePrice } from '../../PriceContext';
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -38,7 +39,7 @@ export default function OrderHistory() {
         </div>
         <div className="bg-zinc-900 rounded-2xl p-4 ring-1 ring-zinc-800">
           <p className="text-xs text-zinc-500">Выручка</p>
-          <p className="text-2xl font-extrabold text-orange-500">{totalRevenue}₽</p>
+          <p className="text-2xl font-extrabold text-orange-500">{usePrice()(totalRevenue)}</p>
         </div>
       </div>
 
@@ -62,7 +63,7 @@ export default function OrderHistory() {
             <div key={order.id} className="bg-zinc-900 rounded-xl p-3 ring-1 ring-zinc-800">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-semibold text-sm text-white">Заказ #{order.id}</span>
-                <span className="text-sm font-extrabold text-orange-500">{order.total}₽</span>
+                <span className="text-sm font-extrabold text-orange-500">{usePrice()(order.total)}</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-zinc-500">
                 <span>{order.tableNumber ? `Стол ${order.tableNumber}` : order.type === 'delivery' ? 'Доставка' : 'Самовывоз'}</span>

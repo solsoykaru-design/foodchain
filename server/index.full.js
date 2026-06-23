@@ -67,21 +67,32 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 const app = express();
 const server = http.createServer(app);
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000').split(',').map(s => s.trim());
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000,https://portal.foodchain.uz,https://admin.foodchain.uz').split(',').map(s => s.trim());
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || process.env.NODE_ENV !== 'production') return callback(null, true);
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 };
 const io = new Server(server, { cors: corsOptions });
 
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, message: { error: 'Слишком много запросов, попробуйте позже' } });
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { error: 'Слишком много запросов, попробуйте позже' } });
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+});
 
 app.use(cors(corsOptions));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
 app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/staff/login', authLimiter);
+app.use('/api/courier/login', authLimiter);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -141,33 +152,26 @@ app.get('/login', (req, res) => {
   res.redirect('/portal/login');
 });
 
-// Proxy /portal/api to the portal backend
-app.use('/portal/api', (req, res) => {
-  const options = {
-    hostname: '127.0.0.1',
-    port: 80,
-    path: '/api' + req.url,
-    method: req.method,
-    headers: { ...req.headers, host: 'localhost' },
-  };
-  const proxyReq = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
-  });
-  proxyReq.on('error', (err) => {
-    console.error('Portal proxy error:', err.message);
-    res.status(502).json({ error: 'Portal backend unavailable' });
-  });
-  if (req.rawBody) proxyReq.write(req.rawBody);
-  else req.pipe(proxyReq);
-});
-
-const portalDist = path.join(__dirname, '..', 'portal', 'frontend', 'dist');
-if (fs.existsSync(portalDist)) {
-  app.use('/portal', express.static(portalDist));
-  app.use('/portal', (req, res) => {
-    res.sendFile(path.join(portalDist, 'index.html'));
-  });
+// ─── Portal backend (loaded async, mounted sync) ─────────────────
+let portalHandler;
+const portalPath = path.join(__dirname, '..', 'portal', 'backend', 'src', 'index.js');
+if (fs.existsSync(portalPath)) {
+  process.env.PORTAL_MOUNTED = 'true';
+  const { pathToFileURL } = require('url');
+  import(pathToFileURL(portalPath).href)
+    .then(m => {
+      portalHandler = (req, res, next) => {
+        if (req.url.startsWith('/portal')) {
+          req.url = req.url.slice(7) || '/';
+        }
+        req.baseUrl = '/portal';
+        m.default.handle(req, res, next);
+      };
+      console.log('Portal backend mounted at /portal');
+    })
+    .catch(e => {
+      console.error('Failed to load portal backend:', e.message);
+    });
 }
 
 const db = new Database(path.join(__dirname, 'foodchain.db'));
@@ -272,6 +276,7 @@ function authenticateToken(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     req.tenant_id = decoded.tenantId || decoded.tenant_id;
+    tenantStorage.enterWith(req.tenant_id);
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Недействительный токен' });
@@ -281,13 +286,20 @@ function authenticateToken(req, res, next) {
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
 function ensureTenantId(req, res, next) {
   if (req.tenant_id) return next();
-  // In production, derive tenant_id from subdomain/domain:
-  //   const host = req.hostname.split('.')[0];
-  //   req.tenant_id = tenantDomainMap[host] || 1;
-  // Fallback for dev: from query param or default to 1
-  req.tenant_id = req.query?.tenant_id || 1;
-  if (typeof req.tenant_id === 'string') req.tenant_id = parseInt(req.tenant_id, 10);
-  if (!req.tenant_id || isNaN(req.tenant_id)) req.tenant_id = 1;
+  // Try to extract tenant_id from JWT if present
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    try {
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.tenant_id = decoded.tenantId || decoded.tenant_id;
+    } catch {}
+  }
+  if (!req.tenant_id) {
+    req.tenant_id = req.query?.tenant_id || 1;
+    if (typeof req.tenant_id === 'string') req.tenant_id = parseInt(req.tenant_id, 10);
+    if (!req.tenant_id || isNaN(req.tenant_id)) req.tenant_id = 1;
+  }
   next();
 }
 
@@ -379,6 +391,7 @@ function toCamelCase(row) {
   if (!row) return null;
   const map = {};
   for (const key of Object.keys(row)) {
+    if (key === 'password' || key === 'password_hash') continue;
     const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
     map[camel] = row[key];
   }
@@ -412,6 +425,7 @@ function cgChatToCamel(row) {
   if (!row) return null;
   const map = {};
   for (const key of Object.keys(row)) {
+    if (key === 'password' || key === 'password_hash') continue;
     const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
     map[camel] = row[key];
   }
@@ -1504,6 +1518,8 @@ try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN heat_loss_percent RE
 try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN yield REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_instructions TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_mode INTEGER DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN is_active INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN version INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`CREATE TABLE IF NOT EXISTS dish_step_completions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER NOT NULL,
@@ -3510,7 +3526,7 @@ app.get('/api/tech-cards', (req, res) => {
     if (search) { where += ' AND (tc.dish_name LIKE ? OR d.name LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
     if (is_active !== undefined && is_active !== '') { where += ' AND tc.is_active = ?'; params.push(parseInt(is_active)); }
 
-    const countRow = db.prepare(`SELECT COUNT(*) as total FROM dish_tech_cards tc LEFT JOIN dishes d ON d.id = tc.dish_id WHERE tc.tenant_id = current_tenant_id() ${where}`).get(...params);
+    const countRow = db.prepare(`SELECT COUNT(*) as total FROM dish_tech_cards tc LEFT JOIN dishes d ON d.id = tc.dish_id ${where}`).get(...params);
     const total = countRow ? countRow.total : 0;
 
     const items = db.prepare(`
@@ -5464,7 +5480,7 @@ app.get('/api/admin/supplier-portal/users', (req, res) => {
     const { supplier_id } = req.query;
     let sql = 'SELECT spu.*, s.name as supplier_name FROM supplier_portal_users spu LEFT JOIN suppliers s ON s.id = spu.supplier_id WHERE spu.tenant_id = current_tenant_id()';
     const params = [];
-    if (supplier_id) { sql += ' WHERE spu.supplier_id = ?'; params.push(supplier_id); }
+    if (supplier_id) { sql += ' AND spu.supplier_id = ?'; params.push(supplier_id); }
     sql += ' ORDER BY spu.created_at DESC';
     const users = db.prepare(sql).all(...params);
     res.json(users.map(u => ({ ...u, permissions: JSON.parse(u.permissions || '{}') })));
@@ -7600,7 +7616,7 @@ app.post('/api/settings/change-password', (req, res) => {
     const newHash = bcrypt.hashSync(newPassword, 12);
     db.prepare('UPDATE staff SET password = ? WHERE id = ?').run(newHash, staff.id);
 
-    res.json({ ok: true, password_hash: newHash });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: safeError(e.message) });
   }
@@ -8300,9 +8316,9 @@ app.get('/api/internal/tenant-stats', (req, res) => {
     if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
     if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
 
-    // Count orders for this tenant (assuming tenant_id maps to branch or staff)
-    const ordersCount = 0; // Simplified — actual order counting depends on mapping
-    const monthlyRevenue = 0;
+    const row = db.prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(CASE WHEN status = 'delivered' THEN total ELSE 0 END), 0) as revenue FROM orders WHERE tenant_id = ?").get(tenant_id);
+    const ordersCount = row.cnt || 0;
+    const monthlyRevenue = db.prepare("SELECT COALESCE(SUM(total), 0) as t FROM orders WHERE tenant_id = ? AND status = 'delivered' AND created_at >= datetime('now', '-30 days')").get(tenant_id).t || 0;
 
     res.json({ orders_count: ordersCount, monthly_revenue: monthlyRevenue, tenant_id: parseInt(tenant_id) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -9004,7 +9020,7 @@ app.get('/api/staff-schedule', (req, res) => {
     const { staff_id } = req.query;
     let sql = 'SELECT ss.*, s.first_name || \' \' || COALESCE(s.last_name, \'\') as staff_name FROM staff_schedule ss LEFT JOIN staff s ON ss.staff_id = s.id WHERE ss.tenant_id = current_tenant_id()';
     const params = [];
-    if (staff_id) { sql += ' WHERE ss.staff_id = ?'; params.push(staff_id); }
+    if (staff_id) { sql += ' AND ss.staff_id = ?'; params.push(staff_id); }
     sql += ' ORDER BY ss.day, ss.shift_start';
     const rows = db.prepare(sql).all(...params);
     res.json(rows);
@@ -9239,7 +9255,7 @@ app.get('/api/staff-chats', (req, res) => {
     if (courier_id && courier_id !== '0') { conditions.push('sc.courier_id = ?'); params.push(courier_id); }
     if (waiter_id && waiter_id !== '0') { conditions.push('sc.waiter_id = ?'); params.push(waiter_id); }
     if (search) { conditions.push('(sc.last_message LIKE ? OR sc.courier_name LIKE ? OR sc.waiter_name LIKE ?)'); const q = '%' + search + '%'; params.push(q, q, q); }
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY sc.updated_at DESC';
     const rows = db.prepare(sql).all(...params);
     res.json(rows.map(chatToCamel));
@@ -9362,7 +9378,7 @@ app.get('/api/courier-guest-chats', (req, res) => {
     if (guest_phone) { conditions.push('cgc.guest_phone = ?'); params.push(guest_phone); }
     if (guest_id && guest_id !== '0') { conditions.push('cgc.guest_id = ?'); params.push(guest_id); }
     if (search) { conditions.push('(cgc.last_message LIKE ? OR cgc.courier_name LIKE ? OR cgc.guest_name LIKE ? OR cgc.guest_phone LIKE ?)'); const q = '%' + search + '%'; params.push(q, q, q, q); }
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY cgc.updated_at DESC';
     const rows = db.prepare(sql).all(...params);
     res.json(rows.map(cgChatToCamel));
@@ -10125,7 +10141,7 @@ try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_courier_locations_courier_i
 
 app.get('/api/couriers', (req, res) => {
   try {
-    const couriers = db.prepare(`SELECT s.id, s.first_name, s.last_name, s.phone, s.role, s.isOnline, s.photo, cl.latitude, cl.longitude, cl.updated_at as location_updated_at FROM staff s LEFT JOIN courier_locations cl ON cl.courier_id = s.id WHERE s.role = 'courier' AND s.tenant_id = current_tenant_id()`).all();
+    const couriers = db.prepare(`SELECT s.id, s.first_name, s.last_name, s.phone, s.role, s.is_online, s.photo_url, cl.lat as latitude, cl.lng as longitude, cl.recorded_at as location_updated_at FROM staff s LEFT JOIN courier_locations cl ON cl.staff_id = s.id WHERE s.role = 'courier' AND s.tenant_id = current_tenant_id()`).all();
     res.json(couriers);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -12118,6 +12134,15 @@ app.post('/api/admin/franchise/royalty/:id/pay', (req, res) => {
     db.prepare("UPDATE royalty_invoices SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(req.params.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Portal SPA catch-all ────────────────────────────────────────
+app.use('/portal', (req, res, next) => {
+  if (portalHandler) {
+    portalHandler(req, res, next);
+  } else {
+    res.status(503).json({ error: 'Portal is initializing' });
+  }
 });
 
 // ─── Website SPA catch-all ─────────────────────────────────────

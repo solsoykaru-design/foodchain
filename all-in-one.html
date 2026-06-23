@@ -25,15 +25,27 @@
     <button class="active" onclick="switchTab('guest', this)">👤 Гость</button>
     <button onclick="switchTab('admin', this)">🛠 Админ</button>
     <button onclick="switchTab('courier', this)">🚚 Курьер</button>
+    <button onclick="switchTab('waiter', this)">🍽 Официант</button>
+    <button onclick="switchTab('kitchen', this)">👨‍🍳 Кухня</button>
+    <button onclick="switchTab('website', this)">🌐 Сайт</button>
   </div>
   <div id="guest" class="tab-content active">
-    <iframe src="http://localhost:5173" height="900"></iframe>
+    <iframe src="guest.html" height="900"></iframe>
   </div>
   <div id="admin" class="tab-content">
-    <iframe src="http://localhost:5174" height="900"></iframe>
+    <iframe src="admin.html" height="900"></iframe>
   </div>
   <div id="courier" class="tab-content">
-    <iframe src="http://localhost:5175" height="900"></iframe>
+    <iframe src="courier.html" height="900"></iframe>
+  </div>
+  <div id="waiter" class="tab-content">
+    <iframe src="waiter.html" height="900"></iframe>
+  </div>
+  <div id="kitchen" class="tab-content">
+    <iframe src="kitchen.html" height="900"></iframe>
+  </div>
+  <div id="website" class="tab-content">
+    <iframe src="website.html" height="900"></iframe>
   </div>
 
   <script>

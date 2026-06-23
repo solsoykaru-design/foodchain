@@ -38,6 +38,7 @@ repositories {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
     mavenCentral()
+    google()
 }
 
 dependencies {

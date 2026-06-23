@@ -46,6 +46,13 @@ if (process.env.NODE_ENV === 'production') {
 function safeError(msg) { return process.env.NODE_ENV === 'production' ? 'Internal server error' : msg; }
 globalThis.safeError = safeError;
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[UnhandledRejection]', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[UncaughtException]', err?.message || err);
+});
+
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -67,21 +74,35 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 const app = express();
 const server = http.createServer(app);
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000').split(',').map(s => s.trim());
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000,https://portal.foodchain.uz,https://admin.foodchain.uz').split(',').map(s => s.trim());
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || process.env.NODE_ENV !== 'production') return callback(null, true);
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 };
 const io = new Server(server, { cors: corsOptions });
 
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, message: { error: 'Слишком много запросов, попробуйте позже' } });
+
+
+
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { error: 'Слишком много запросов, попробуйте позже' } });
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+});
 
 app.use(cors(corsOptions));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
 app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/staff/login', authLimiter);
+app.use('/api/courier/login', authLimiter);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -137,33 +158,27 @@ if (fs.existsSync(kioskDist)) {
 
 
 
-// Proxy /portal/api to the portal backend
-app.use('/portal/api', (req, res) => {
-  const options = {
-    hostname: '127.0.0.1',
-    port: 80,
-    path: '/api' + req.url,
-    method: req.method,
-    headers: { ...req.headers, host: 'localhost' },
-  };
-  const proxyReq = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
-  });
-  proxyReq.on('error', (err) => {
-    console.error('Portal proxy error:', err.message);
-    res.status(502).json({ error: 'Portal backend unavailable' });
-  });
-  if (req.rawBody) proxyReq.write(req.rawBody);
-  else req.pipe(proxyReq);
-});
-
+// ─── Portal backend (loaded async, mounted sync) ─────────────────
+let portalHandler;
+const portalPath = path.join(__dirname, '..', 'portal', 'backend', 'src', 'index.js');
 const portalDist = path.join(__dirname, '..', 'portal', 'frontend', 'dist');
-if (fs.existsSync(portalDist)) {
-  app.use('/portal', express.static(portalDist));
-  app.use('/portal', (req, res) => {
-    res.sendFile(path.join(portalDist, 'index.html'));
-  });
+if (fs.existsSync(portalPath)) {
+  process.env.PORTAL_MOUNTED = 'true';
+  const { pathToFileURL } = require('url');
+  import(pathToFileURL(portalPath).href)
+    .then(m => {
+      portalHandler = (req, res, next) => {
+        if (req.url.startsWith('/portal')) {
+          req.url = req.url.slice(7) || '/';
+        }
+        req.baseUrl = '/portal';
+        m.default.handle(req, res, next);
+      };
+      console.log('Portal backend mounted at /portal');
+    })
+    .catch(e => {
+      console.error('Failed to load portal backend:', e.message);
+    });
 }
 
 const db = new Database(path.join(__dirname, 'foodchain.db'));
@@ -268,22 +283,41 @@ function authenticateToken(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     req.tenant_id = decoded.tenantId || decoded.tenant_id;
+    // Update AsyncLocalStorage so current_tenant_id() returns the real tenant_id from JWT
+    tenantStorage.enterWith(req.tenant_id);
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Недействительный токен' });
   }
 }
 
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Требуется авторизация' });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    next();
+  };
+}
+
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
 function ensureTenantId(req, res, next) {
   if (req.tenant_id) return next();
-  // In production, derive tenant_id from subdomain/domain:
-  //   const host = req.hostname.split('.')[0];
-  //   req.tenant_id = tenantDomainMap[host] || 1;
-  // Fallback for dev: from query param or default to 1
-  req.tenant_id = req.query?.tenant_id || 1;
-  if (typeof req.tenant_id === 'string') req.tenant_id = parseInt(req.tenant_id, 10);
-  if (!req.tenant_id || isNaN(req.tenant_id)) req.tenant_id = 1;
+  // Try to extract tenant_id from JWT if present
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    try {
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.tenant_id = decoded.tenantId || decoded.tenant_id;
+    } catch {}
+  }
+  if (!req.tenant_id) {
+    req.tenant_id = req.query?.tenant_id || 1;
+    if (typeof req.tenant_id === 'string') req.tenant_id = parseInt(req.tenant_id, 10);
+    if (!req.tenant_id || isNaN(req.tenant_id)) req.tenant_id = 1;
+  }
   next();
 }
 
@@ -375,6 +409,7 @@ function toCamelCase(row) {
   if (!row) return null;
   const map = {};
   for (const key of Object.keys(row)) {
+    if (key === 'password' || key === 'password_hash') continue;
     const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
     map[camel] = row[key];
   }
@@ -408,6 +443,7 @@ function cgChatToCamel(row) {
   if (!row) return null;
   const map = {};
   for (const key of Object.keys(row)) {
+    if (key === 'password' || key === 'password_hash') continue;
     const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
     map[camel] = row[key];
   }
@@ -882,7 +918,8 @@ db.exec(`
   try { db.exec("INSERT OR IGNORE INTO email_templates (tenant_id, name, subject, body_html, variables, is_system) VALUES (1, 'Приветствие', 'Добро пожаловать в FoodChain!', '<h1>Добро пожаловать!</h1><p>Рады видеть вас.</p>', '[]', 1)"); } catch(e) {}
   try { db.exec("INSERT OR IGNORE INTO email_templates (tenant_id, name, subject, body_html, variables, is_system) VALUES (1, 'Бонусы начислены', 'Вам начислены бонусы!', '<h1>Бонусы начислены</h1><p>Баланс: {balance} баллов</p>', '[]', 1)"); } catch(e) {}
   try { db.exec("INSERT OR IGNORE INTO email_templates (tenant_id, name, subject, body_html, variables, is_system) VALUES (1, 'status_changed', 'Статус заказа #{order_id} изменён', '<h1>Статус заказа #{order_id} обновлён</h1><p>Текущий статус: {status}</p><p>Спасибо, {user_name}!</p>', '[]', 1)"); } catch(e) {}
-  try { db.exec("CREATE TABLE IF NOT EXISTS telegram_bot_users (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER DEFAULT 1, chat_id INTEGER UNIQUE NOT NULL, first_name TEXT DEFAULT '', username TEXT DEFAULT '', interaction_count INTEGER DEFAULT 1, last_interaction TEXT DEFAULT (datetime('now')), created_at TEXT DEFAULT (datetime('now')))"); } catch(e) {}
+  try { db.exec("CREATE TABLE IF NOT EXISTS telegram_bot_users (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER DEFAULT 1, chat_id INTEGER UNIQUE NOT NULL, phone TEXT DEFAULT '', first_name TEXT DEFAULT '', username TEXT DEFAULT '', interaction_count INTEGER DEFAULT 1, last_interaction TEXT DEFAULT (datetime('now')), created_at TEXT DEFAULT (datetime('now')))"); } catch(e) {}
+  try { db.exec("ALTER TABLE telegram_bot_users ADD COLUMN phone TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec(`CREATE TABLE IF NOT EXISTS telegram_order_subscriptions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER DEFAULT 1,
@@ -1500,6 +1537,8 @@ try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN heat_loss_percent RE
 try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN yield REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_instructions TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_mode INTEGER DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN is_active INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN version INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`CREATE TABLE IF NOT EXISTS dish_step_completions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER NOT NULL,
@@ -3917,6 +3956,15 @@ const returnRecalcInterval = setInterval(recalculateReturningRoutes, 15000);
 
 
 
+// ─── Portal SPA catch-all ────────────────────────────────────────
+app.use('/portal', (req, res, next) => {
+  if (portalHandler) {
+    portalHandler(req, res, next);
+  } else {
+    res.status(503).json({ error: 'Portal is initializing' });
+  }
+});
+
 // ─── Website SPA catch-all ─────────────────────────────────────
 if (fs.existsSync(websiteDist)) {
   app.use(express.static(websiteDist));
@@ -4140,6 +4188,7 @@ const config = {
   csvUpload,
   broadcast,
   aggregatorIntegration, supplierPortal, emailService,
+  authenticateToken, requireRole,
 };
 
 require('./routes/misc.js')(app, db, config);
@@ -4160,6 +4209,7 @@ require('./routes/settings.js')(app, db, config);
 require('./routes/payments.js')(app, db, config);
 require('./routes/branding.js')(app, db, config);
 require('./routes/telegram.js')(app, db, config);
+require('./routes/yuma-import.js')(app, db, config);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);

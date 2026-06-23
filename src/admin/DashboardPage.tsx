@@ -51,9 +51,9 @@ export default function DashboardPage() {
       const [ordersData, usersData, staffData, invData] = await Promise.all([
         api.getOrders(), api.getUsers(), api.getStaff(), api.getInventory({ limit: 999 })
       ]);
-      setOrders(ordersData);
-      setUsers(usersData);
-      setStaff(staffData);
+      setOrders(ordersData || []);
+      setUsers(usersData || []);
+      setStaff(staffData || []);
       const alerts = (invData || []).filter((i: any) => i.minStock && i.currentStock < i.minStock);
       setStockAlerts(alerts.slice(0, 10));
     } catch (e) {

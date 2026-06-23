@@ -5,6 +5,7 @@ import { AppProvider } from "../context";
 import GuestShell from "./GuestShell";
 import { OfflineProvider } from "../OfflineProvider";
 import { registerServiceWorker } from "../register-sw";
+import { PriceProvider } from "../PriceContext";
 
 registerServiceWorker();
 
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppProvider>
       <OfflineProvider>
-        <GuestShell />
+        <PriceProvider>
+          <GuestShell />
+        </PriceProvider>
       </OfflineProvider>
     </AppProvider>
   </StrictMode>

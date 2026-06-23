@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Truck, Store, CreditCard, Banknote, ArrowLeft } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
 import * as api from '../../api';
+import { usePrice } from '../../PriceContext';
 
 export default function CheckoutPage() {
   const ctx = useWebsite();
@@ -139,8 +140,8 @@ export default function CheckoutPage() {
         <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-sm">Бонусы ({bonusBalance} ₽)</p>
-              <p className="text-xs text-gray-400">Можно списать до {Math.floor(maxBonusWriteOff)} ₽</p>
+              <p className="font-semibold text-sm">Бонусы ({usePrice()(bonusBalance)})</p>
+              <p className="text-xs text-gray-400">Можно списать до {usePrice()(Math.floor(maxBonusWriteOff))}</p>
             </div>
             <button onClick={() => setUseBonuses(!useBonuses)}
               className={`relative w-12 h-6 rounded-full transition-colors ${useBonuses ? 'bg-[var(--color-primary)]' : 'bg-gray-300'}`}>
@@ -174,17 +175,17 @@ export default function CheckoutPage() {
           {ctx.cart.map(item => (
             <div key={item.dish.id} className="flex justify-between text-[var(--color-text-secondary)]">
               <span>{item.dish.name} × {item.quantity}</span>
-              <span>{item.totalPrice} ₽</span>
+              <span>{usePrice()(item.totalPrice)}</span>
             </div>
           ))}
         </div>
         <div className="border-t border-gray-100 pt-3 space-y-1.5 text-sm">
-          <div className="flex justify-between"><span>Сумма</span><span>{ctx.cartTotal} ₽</span></div>
-          {ctx.promoDiscount > 0 && <div className="flex justify-between text-green-600"><span>Промокод</span><span>-{ctx.promoDiscount} ₽</span></div>}
-          {effectiveBonusDiscount > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span>Бонусы</span><span>-{effectiveBonusDiscount} ₽</span></div>}
+          <div className="flex justify-between"><span>Сумма</span><span>{usePrice()(ctx.cartTotal)}</span></div>
+          {ctx.promoDiscount > 0 && <div className="flex justify-between text-green-600"><span>Промокод</span><span>-{usePrice()(ctx.promoDiscount)}</span></div>}
+          {effectiveBonusDiscount > 0 && <div className="flex justify-between text-[var(--color-primary)]"><span>Бонусы</span><span>-{usePrice()(effectiveBonusDiscount)}</span></div>}
           <div className="flex justify-between font-bold text-lg pt-1">
             <span>К оплате</span>
-            <span className="text-[var(--color-primary)]">{Math.max(0, total - effectiveBonusDiscount)} ₽</span>
+            <span className="text-[var(--color-primary)]">{usePrice()(Math.max(0, total - effectiveBonusDiscount))}</span>
           </div>
         </div>
         <button onClick={handleSubmit} disabled={submitting}

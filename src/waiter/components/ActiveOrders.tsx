@@ -5,6 +5,7 @@ import type { DineInCheck, Order } from '../../types';
 import { useOrderTimer } from '../hooks/useOrderTimer';
 import StaffChatPopup from './StaffChatPopup';
 import BarcodeScanner from '../../admin/BarcodeScanner';
+import { usePrice } from '../../PriceContext';
 
 interface Props {
   checks: DineInCheck[];
@@ -272,7 +273,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
                   <p className="text-xs text-zinc-500">{check.guestCount} гостя</p>
                 </div>
               </div>
-              <span className="text-sm font-extrabold text-orange-500">{check.total}₽</span>
+              <span className="text-sm font-extrabold text-orange-500">{usePrice()(check.total)}</span>
             </div>
 
             <div className="space-y-2">
@@ -297,7 +298,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
                           <span className="text-[10px] text-zinc-600 truncate">{item.options.join(', ')}</span>
                         )}
                       </div>
-                      <span className="text-zinc-400 ml-2">{item.price * item.quantity}₽</span>
+                      <span className="text-zinc-400 ml-2">{usePrice()(item.price * item.quantity)}</span>
                     </div>
                   ))}
 

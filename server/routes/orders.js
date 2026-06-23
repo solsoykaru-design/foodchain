@@ -1,6 +1,6 @@
 
 module.exports = function(app, db, config) {
-  const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, aggregatorIntegration } = config;
+  const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, aggregatorIntegration, authenticateToken, requireRole } = config;
 
 app.get('/api/orders', (req, res) => {
   const { status, courier_id, user_id } = req.query;
@@ -83,7 +83,7 @@ app.get('/api/orders/:id/tracking', (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.put('/api/orders/:id/items', (req, res) => {
+app.put('/api/orders/:id/items', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { items } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Состав заказа обязателен' });
@@ -114,7 +114,7 @@ app.put('/api/orders/:id/items', (req, res) => {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
-app.put('/api/orders/:id/assign-courier', (req, res) => {
+app.put('/api/orders/:id/assign-courier', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { courier_id, courier_name } = req.body;
     if (!courier_id || !courier_name) return res.status(400).json({ error: 'ID и имя курьера обязательны' });
@@ -152,7 +152,7 @@ app.get('/api/orders/:id/chat', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/orders', (req, res) => {
-  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used } = req.body;
+  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code } = req.body;
   if (!user_id || !user_name || !user_phone) return res.status(400).json({ error: 'Данные пользователя обязательны' });
   
   let finalTotal = total || 0;
@@ -176,8 +176,8 @@ app.post('/api/orders', (req, res) => {
 
   const itemsJson = JSON.stringify(items || []);
   const subtotal = total || 0;
-  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, status, bonus_used, tenant_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', appliedBonus, req.tenant_id);
+  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id);
   const orderId = info.lastInsertRowid;
   db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)').run(orderId, 'new', 'Заказ создан', req.tenant_id);
 
@@ -208,7 +208,7 @@ app.get('/api/orders/:id/splits', (req, res) => {
     res.json(toCamelCaseArray(splits));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.patch('/api/orders/:id/split', (req, res) => {
+app.patch('/api/orders/:id/split', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { splits } = req.body;
     if (!splits || !Array.isArray(splits) || splits.length === 0) return res.status(400).json({ error: 'splits required' });
@@ -224,7 +224,7 @@ app.patch('/api/orders/:id/split', (req, res) => {
     res.json({ splits: created });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/order-splits/:id/pay', (req, res) => {
+app.post('/api/order-splits/:id/pay', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { payment_method } = req.body;
     const split = db.prepare('SELECT * FROM order_splits WHERE id = ?').get(req.params.id);
@@ -242,7 +242,7 @@ app.post('/api/orders/self-order', (req, res) => {
     res.json({ id: result.lastInsertRowid });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.patch('/api/orders/:id/status', async (req, res) => {
+app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'courier'), async (req, res) => {
   const { status, note } = req.body;
   if (!status) return res.status(400).json({ error: 'Статус обязателен' });
   if (!STATUS_CHAIN[status]) return res.status(400).json({ error: `Неизвестный статус: ${status}` });
@@ -417,7 +417,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 
   res.json(updated);
 });
-app.put('/api/orders/:id/assign', (req, res) => {
+app.put('/api/orders/:id/assign', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { courier_id, courier_name, assigned_by } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -442,7 +442,7 @@ app.put('/api/orders/:id/assign', (req, res) => {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
-app.post('/api/orders/:id/returning', async (req, res) => {
+app.post('/api/orders/:id/returning', authenticateToken, requireRole('courier'), async (req, res) => {
   try {
     const { lat, lng } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -461,7 +461,7 @@ app.post('/api/orders/:id/returning', async (req, res) => {
     res.json({ ok: true, distanceKm: route.distanceKm, durationMin: route.durationMin, eta, polyline: route.polyline });
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.delete('/api/orders/:id/returning', (req, res) => {
+app.delete('/api/orders/:id/returning', authenticateToken, requireRole('courier'), (req, res) => {
   try {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
@@ -474,7 +474,7 @@ app.delete('/api/orders/:id/returning', (req, res) => {
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/:id/returning/arrived', (req, res) => {
+app.post('/api/orders/:id/returning/arrived', authenticateToken, requireRole('courier'), (req, res) => {
   try {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
@@ -567,7 +567,7 @@ app.post('/api/orders/multi-status', (req, res) => {
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/bulk-status', (req, res) => {
+app.post('/api/orders/bulk-status', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { ids, status, note } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0 || !status) return res.status(400).json({ error: 'ids и status обязательны' });
@@ -632,7 +632,7 @@ app.post('/api/orders/bulk-status', (req, res) => {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
-app.post('/api/orders/:id/serve', (req, res) => {
+app.post('/api/orders/:id/serve', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
@@ -645,7 +645,7 @@ app.post('/api/orders/:id/serve', (req, res) => {
     res.json(getOrderFull(req.params.id));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/:id/split', (req, res) => {
+app.post('/api/orders/:id/split', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { items: splitItemIds } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -680,7 +680,7 @@ app.post('/api/orders/:id/split', (req, res) => {
     res.json({ original: getOrderFull(req.params.id), split: newOrder });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/merge', (req, res) => {
+app.post('/api/orders/merge', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { orderIds } = req.body;
     if (!orderIds || orderIds.length < 2) return res.status(400).json({ error: 'Need at least 2 order IDs' });
@@ -713,7 +713,7 @@ app.post('/api/orders/merge', (req, res) => {
     res.json(getOrderFull(keep.id));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/:id/payment', (req, res) => {
+app.post('/api/orders/:id/payment', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
     const { paymentMethod, amount, isPaid, bonusUsed } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -758,7 +758,7 @@ app.post('/api/orders/:id/payment', (req, res) => {
     res.json(getOrderFull(req.params.id));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.patch('/api/orders/:id/items/:dishId/status', (req, res) => {
+app.patch('/api/orders/:id/items/:dishId/status', authenticateToken, requireRole('waiter', 'kitchen'), (req, res) => {
   try {
     const { status, chefId } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });

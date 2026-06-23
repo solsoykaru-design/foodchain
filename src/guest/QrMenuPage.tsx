@@ -3,6 +3,7 @@ import { useApp } from '../context';
 import { useMenuData, useBranding } from './GuestApp';
 import { ShoppingCart, Plus, Minus, Users, Star, UtensilsCrossed, CheckCircle2 } from 'lucide-react';
 import * as api from '../api';
+import { usePrice } from '../PriceContext';
 
 export default function QrMenuPage() {
   const { addToCart, cart, cartTotal, clearCart, setGuestPage, removeFromCart, updateCartQty } = useApp();
@@ -124,7 +125,7 @@ export default function QrMenuPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
                         <h4 className="font-semibold text-sm text-white truncate">{dish.name}</h4>
-                        <span className="font-bold text-sm text-orange-500 flex-shrink-0">{dish.price}₽</span>
+                        <span className="font-bold text-sm text-orange-500 flex-shrink-0">{usePrice()(dish.price)}</span>
                       </div>
                       <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{dish.description}</p>
                       <div className="flex items-center justify-between mt-2">
@@ -170,7 +171,7 @@ export default function QrMenuPage() {
               <span className="text-sm text-zinc-400">
                 {cart.reduce((s, i) => s + i.quantity, 0)} позиций
               </span>
-              <span className="text-xl font-extrabold text-white">{cartTotal}₽</span>
+              <span className="text-xl font-extrabold text-white">{usePrice()(cartTotal)}</span>
             </div>
             <button
               onClick={handlePlaceOrder}

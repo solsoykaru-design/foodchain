@@ -26,8 +26,13 @@
     "preview": "vite preview",
     "electron:start": "electron .",
     "electron:build": "npm run build:admin && electron-builder",
+    "build:exe": "npm run build:admin && electron-builder --win --x64",
     "cap:guest:add": "cd dist-guest && npx cap add android",
-    "cap:courier:add": "cd dist-courier && npx cap add android"
+    "cap:courier:add": "cd dist-courier && npx cap add android",
+    "start": "cd server && node index.js",
+    "start:dev": "cd server && node --watch index.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
   },
   "dependencies": {
     "@capacitor/android": "^5.7.0",
@@ -35,7 +40,7 @@
     "@capacitor/ios": "^5.7.0",
     "@tanstack/react-table": "^8.21.3",
     "clsx": "^2.1.1",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
     "i18next": "^26.3.1",
@@ -59,19 +64,19 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^5.7.0",
+    "@capacitor/cli": "^8.4.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^29.1.0",
-    "electron-builder": "^24.12.0",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
     "supertest": "^7.2.2",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.3.3",
-    "vite": "^5.1.4",
+    "vite": "^6.3.5",
     "vite-plugin-singlefile": "^2.0.1",
     "vitest": "^4.1.9"
   },
@@ -85,6 +90,7 @@
       "dist-admin/**/*",
       "main.cjs"
     ],
+    "asar": false,
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false
@@ -94,5 +100,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     }
+  },
+  "overrides": {
+    "cacheable-request": "^10.2.14",
+    "uuid": "^11.1.1"
   }
 }

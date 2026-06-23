@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context';
-import GuestApp from './guest/GuestApp';
+import GuestShell from './guest/GuestShell';
 import AdminApp, { AdminAppWrapper } from './admin/AdminApp';
 import CourierApp from './courier/CourierApp';
 import { PhoneFrame, WindowsFrame } from './frames';
+import { PriceProvider } from './PriceContext';
 
 type AppMode = "guest" | "admin" | "courier";
 
@@ -26,9 +27,10 @@ function AppContent() {
 
   if (!isDesktop) {
     return (
+      <PriceProvider>
       <div className={`${theme === 'dark' ? 'dark' : ''}`}>
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white transition-colors">
-          {mode === 'guest' && <GuestApp />}
+          {mode === 'guest' && <GuestShell />}
           {mode === 'admin' && <AdminAppWrapper />}
           {mode === 'courier' && <CourierApp />}
 
@@ -39,11 +41,13 @@ function AppContent() {
           </div>
         </div>
       </div>
+      </PriceProvider>
     );
   }
 
   if (mode === 'admin') {
     return (
+      <PriceProvider>
       <div className={`${theme === 'dark' ? 'dark' : ''}`}>
         <WindowsFrame
           title="FoodChain Admin — панель управления сетью ресторанов"
@@ -56,10 +60,12 @@ function AppContent() {
           </div>
         </WindowsFrame>
       </div>
+      </PriceProvider>
     );
   }
 
   return (
+    <PriceProvider>
     <div className={`${theme === 'dark' ? 'dark' : ''}`}>
       <div className="fixed inset-0 overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-black">
         <div className={`absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] transition-colors ${mode === 'guest' ? 'bg-orange-600/10' : 'bg-green-600/10'}`} />
@@ -69,7 +75,7 @@ function AppContent() {
           <div style={{ transform: `scale(${phoneScale})`, transformOrigin: 'center' }}>
             <PhoneFrame platform={platform}>
               <div className="min-h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
-                {mode === 'guest' ? <GuestApp /> : <CourierApp />}
+                {mode === 'guest' ? <GuestShell /> : <CourierApp />}
               </div>
             </PhoneFrame>
           </div>
@@ -121,6 +127,7 @@ function AppContent() {
         </div>
       </div>
     </div>
+    </PriceProvider>
   );
 }
 

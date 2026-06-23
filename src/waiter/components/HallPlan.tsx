@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { AlertTriangle, LayoutDashboard, Search } from 'lucide-react';
 import type { Table, DineInCheck, WaiterCall } from '../../types';
+import { usePrice } from '../../PriceContext';
+
 
 interface Props {
   tables: Table[];
@@ -133,7 +135,7 @@ export default function HallPlan({ tables, checks, waiterCalls, onTableClick, on
               <span className="text-3xl font-extrabold">{table.name.replace(/[^0-9]/g, '')}</span>
               <span className="text-[10px] font-semibold mt-1 opacity-70">{statusLabel[exStatus]}</span>
               {tableChecks.length > 0 && (
-                <span className="text-[9px] mt-0.5 text-orange-400">{tableChecks.reduce((s, c) => s + c.total, 0)}₽</span>
+                <span className="text-[9px] mt-0.5 text-orange-400">{usePrice()(tableChecks.reduce((s, c) => s + c.total, 0))}</span>
               )}
             </button>
           );

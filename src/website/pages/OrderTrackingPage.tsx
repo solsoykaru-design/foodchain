@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, Circle, Phone, MessageCircle, MapPin, Package } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
 import * as api from '../../api';
+import { usePrice } from '../../PriceContext';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Заказ создан', confirmed: 'Подтверждён', preparing: 'Готовится',
@@ -113,7 +114,7 @@ export default function OrderTrackingPage() {
       <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4 shadow-sm">
         <h3 className="font-semibold mb-3">Детали заказа</h3>
         <div className="text-sm space-y-1.5 text-[var(--color-text-secondary)]">
-          <p><strong>Сумма:</strong> {order.total} ₽</p>
+          <p><strong>Сумма:</strong> {usePrice()(order.total)}</p>
           {order.address && <p><strong>Адрес:</strong> {order.address}</p>}
           {order.comment && <p><strong>Комментарий:</strong> {order.comment}</p>}
           <p><strong>Создан:</strong> {new Date(order.createdAt).toLocaleString('ru-RU')}</p>
@@ -122,7 +123,7 @@ export default function OrderTrackingPage() {
           {(order.items || []).map((item: any, i: number) => (
             <div key={i} className="flex justify-between text-sm">
               <span>{item.name} × {item.quantity}</span>
-              <span className="font-medium">{item.price * item.quantity} ₽</span>
+              <span className="font-medium">{usePrice()(item.price * item.quantity)}</span>
             </div>
           ))}
         </div>

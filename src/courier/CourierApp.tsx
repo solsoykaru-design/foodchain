@@ -5,6 +5,7 @@ import { onEvent } from '../api';
 import { Truck, MapPin, Clock, LogOut, Check, X, Navigation, Phone, UserCircle, Wifi, WifiOff, DollarSign, TrendingUp, ArrowLeft, RefreshCw, MessageSquare, Send, Image as ImageIcon, Loader, Star, MessageCircle, Settings, Trash2, Plus, Camera } from 'lucide-react';
 import CourierAuth from './CourierAuth';
 import BarcodeScanner from '../admin/BarcodeScanner';
+import { usePrice } from '../PriceContext';
 
 const CACHE_KEY = 'foodchain_courier_orders';
 const NOTIFIED_KEY = 'foodchain_courier_notified';
@@ -577,7 +578,7 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-zinc-500">Сумма</span>
-                <span className="font-bold text-green-500">{order.total}₽</span>
+                <span className="font-bold text-green-500">{usePrice()(order.total)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Оплата</span>
@@ -605,12 +606,12 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
               {order.items?.map((item: any, i: number) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span>{item.name} × {item.quantity}</span>
-                  <span className="font-medium">{item.price * item.quantity}₽</span>
+                  <span className="font-medium">{usePrice()(item.price * item.quantity)}</span>
                 </div>
               ))}
               <div className="border-t border-zinc-100 dark:border-zinc-700 pt-2 flex justify-between font-bold">
                 <span>Итого</span>
-                <span className="text-green-500">{order.total}₽</span>
+                <span className="text-green-500">{usePrice()(order.total)}</span>
               </div>
             </div>
           </div>
@@ -994,7 +995,7 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
                 <div className="text-xs text-zinc-400">{order.userName} • {order.userPhone}</div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-bold text-green-500">{order.total}₽</div>
+                <div className="text-lg font-bold text-green-500">{usePrice()(order.total)}</div>
                 <div className="text-[10px] text-zinc-400">оплата: {order.isPaid ? '✅' : '⏳'}</div>
               </div>
             </div>
@@ -1041,7 +1042,7 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-1">{order.address}</p>
-                <p className="text-xs text-zinc-400 mt-1">{order.total}₽ • {new Date(order.createdAt).toLocaleString('ru')}</p>
+                <p className="text-xs text-zinc-400 mt-1">{usePrice()(order.total)} • {new Date(order.createdAt).toLocaleString('ru')}</p>
               </div>
             ))}
           </div>
@@ -1072,7 +1073,7 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
                     </div>
                     <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 text-center">
                       <DollarSign size={20} className="mx-auto text-yellow-500 mb-1" />
-                      <div className="text-lg font-bold">{profile.earningsToday || 0}₽</div>
+                      <div className="text-lg font-bold">{usePrice()(profile.earningsToday || 0)}</div>
                       <div className="text-[10px] text-zinc-500">Заработано</div>
                     </div>
                     <div className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 text-center">
@@ -1107,7 +1108,7 @@ export default function CourierApp({ onLogout }: { onLogout?: () => void }) {
                         return (
                           <div key={t} className="flex justify-between">
                             <span className="text-zinc-500">{labels[t] || t}</span>
-                            <span className="font-semibold">{val.toLocaleString()}₽</span>
+                            <span className="font-semibold">{usePrice()(val)}</span>
                           </div>
                         );
                       })}

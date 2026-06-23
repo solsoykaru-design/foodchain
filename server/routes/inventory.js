@@ -4,7 +4,7 @@ module.exports = function(app, db, config) {
 
 app.get('/api/inventory-items', (req, res) => {
   try {
-    let baseSql = 'SELECT ii.*, COALESCE(ii.current_balance, ii.current_stock, 0) as currentBalance, COALESCE(ii.last_price, ii.price_per_unit, 0) as lastPrice, (SELECT COUNT(*) FROM tech_cards WHERE item_id = ii.id) > 0 as hasTechCard FROM inventory_items ii WHERE 1=1';
+    let baseSql = 'SELECT ii.*, COALESCE(ii.current_balance, ii.current_stock, 0) as currentBalance, COALESCE(ii.last_price, ii.price_per_unit, 0) as lastPrice, (SELECT COUNT(*) FROM tech_cards WHERE item_id = ii.id) > 0 as hasTechCard FROM inventory_items ii WHERE ii.tenant_id = current_tenant_id()';
     const params = [];
     const { warehouse, category, category_id, include_subcategories, tech_card, contragent, page = 1, limit = 20 } = req.query;
 
@@ -32,8 +32,8 @@ app.get('/api/inventory-items', (req, res) => {
       if (contragent) { baseSql += ' AND ii.contragent_name LIKE ?'; params.push(`%${contragent}%`); }
     }
 
-    const whereClause = baseSql.split('WHERE 1=1')[1] || '';
-    const countSql = `SELECT COUNT(*) as total FROM inventory_items ii WHERE 1=1${whereClause}`;
+    const whereClause = baseSql.split(/WHERE\s+ii\.tenant_id\s*=\s*current_tenant_id\(\)/)[1] || '';
+    const countSql = `SELECT COUNT(*) as total FROM inventory_items ii WHERE ii.tenant_id = current_tenant_id()${whereClause}`;
     const total = db.prepare(countSql).get(...params)?.total || 0;
     const totalPages = Math.max(1, Math.ceil(total / Number(limit)));
 
@@ -252,7 +252,7 @@ app.get('/api/stock-item/:id/tech-cards', (req, res) => {
       (SELECT COUNT(*) FROM tech_card_ingredients WHERE tech_card_id = tc.id) as ingredient_count,
       (SELECT SUM(cost) FROM tech_card_ingredients WHERE tech_card_id = tc.id) as total_cost,
       (SELECT SUM(yield) FROM tech_card_ingredients WHERE tech_card_id = tc.id) as total_ing_yield
-      FROM tech_cards tc WHERE tc.item_id = ?`;
+      FROM tech_cards tc WHERE tc.item_id = ? AND tc.tenant_id = current_tenant_id()`;
     const params = [req.params.id];
     if (req.query.store) { sql += ' AND tc.store LIKE ?'; params.push(`%${req.query.store}%`); }
     if (req.query.current_only) { sql += " AND (tc.valid_from IS NULL OR tc.valid_from <= date('now')) AND (tc.expiry_date IS NULL OR tc.expiry_date >= date('now'))"; }
@@ -284,7 +284,7 @@ app.get('/api/stock-item/:id/tech-cards-as-ingredient', (req, res) => {
       (SELECT SUM(yield) FROM tech_card_ingredients WHERE tech_card_id = tc.id) as total_ing_yield
       FROM tech_cards tc
       JOIN tech_card_ingredients tci ON tc.id = tci.tech_card_id
-      WHERE tci.item_id = ?
+      WHERE tci.item_id = ? AND tc.tenant_id = current_tenant_id()
       ORDER BY tc.created_at DESC`;
     const items = db.prepare(sql).all(req.params.id);
     res.json({ items: toCamelCaseArray(items) });

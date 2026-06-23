@@ -43,9 +43,9 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api/messages': { target: 'http://localhost:4001', changeOrigin: true },
-      '/api/notifications': { target: 'http://localhost:4001', changeOrigin: true },
-      '/api/push-settings': { target: 'http://localhost:4001', changeOrigin: true },
+      '/api/messages': { target: 'http://localhost:4000', changeOrigin: true },
+      '/api/notifications': { target: 'http://localhost:4000', changeOrigin: true },
+      '/api/push-settings': { target: 'http://localhost:4000', changeOrigin: true },
       '/uploads': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },

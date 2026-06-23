@@ -19,8 +19,8 @@ app.post('/api/internal/sync-staff', (req, res) => {
       return res.status(400).json({ error: 'tenant_id, username, password_hash required' });
     }
 
-    // Enforce app limits for new staff creation
-    const existing = db.prepare('SELECT id, role FROM staff WHERE username = ?').get(username);
+    // Look up by username + tenant_id to prevent cross-tenant overwrites
+    const existing = db.prepare('SELECT id, role FROM staff WHERE username = ? AND tenant_id = ?').get(username, tenant_id);
     if (!existing) {
       const limitCheck = checkRoleLimit(db, tenant_id, role || 'waiter', true);
       if (limitCheck && !limitCheck.allowed) {
@@ -34,8 +34,8 @@ app.post('/api/internal/sync-staff', (req, res) => {
     }
 
     if (existing) {
-      db.prepare(`UPDATE staff SET password=?, role=?, first_name=?, last_name=?, phone=?, email=?, tenant_id=? WHERE id=?`)
-        .run(password_hash, role || 'waiter', first_name || username, last_name || null, phone || null, email || null, tenant_id, existing.id);
+      db.prepare(`UPDATE staff SET password=?, role=?, first_name=?, last_name=?, phone=?, email=? WHERE id=?`)
+        .run(password_hash, role || 'waiter', first_name || username, last_name || null, phone || null, email || null, existing.id);
     } else {
       db.prepare(`INSERT INTO staff (username, password, role, first_name, last_name, phone, email, tenant_id, is_active) VALUES (?,?,?,?,?,?,?,?,1)`)
         .run(username, password_hash, role || 'waiter', first_name || username, last_name || null, phone || null, email || null, tenant_id);
@@ -153,7 +153,7 @@ app.post('/api/offline/sync', (req, res) => {
     syncData.orders = db.prepare("SELECT id, status, updated_at FROM orders WHERE updated_at > ? OR created_at > ?").all(since, since);
     syncData.menu_categories = db.prepare("SELECT id, name, sort_order, is_active, icon, parent_id, created_at, updated_at FROM menu_categories WHERE updated_at > ? OR created_at > ?").all(since, since);
     syncData.dishes = db.prepare("SELECT id, name, price, is_active as status, category_id, barcode, article, is_available, updated_at, created_at FROM dishes WHERE updated_at > ? OR created_at > ?").all(since, since);
-    syncData.inventory_items = db.prepare("SELECT id, name, article, unit, COALESCE(current_stock, current_balance, 0) as current_stock, barcode FROM inventory_items WHERE id IN (SELECT id FROM inventory_items)").all();
+    syncData.inventory_items = db.prepare("SELECT id, name, article, unit, COALESCE(current_stock, current_balance, 0) as current_stock, barcode FROM inventory_items WHERE tenant_id = current_tenant_id()").all();
     syncData.settings = db.prepare("SELECT key, value FROM settings WHERE tenant_id = 1").all();
 
     res.json({ synced: results, syncData });
@@ -620,7 +620,7 @@ app.post('/api/internal/sync-tenant', (req, res) => {
     if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
     if (!tenant || !tenant.id) return res.status(400).json({ error: 'tenant.id required' });
 
-    const existing = db.prepare('SELECT id, access_mode, app_settings FROM foodchain_portal_tenants WHERE id = ?').get(tenant.id);
+    const existing = db.prepare('SELECT id, access_mode, app_settings, base_currency FROM foodchain_portal_tenants WHERE id = ?').get(tenant.id);
     const mode = tenant.access_mode || 'production';
     let appSettings = tenant.app_settings || existing?.app_settings || null;
     // Normalize old format ({"courier":{"enabled":true,"limit":5}}) to new format ({"courier":5})
@@ -644,11 +644,11 @@ app.post('/api/internal/sync-tenant', (req, res) => {
       } catch {}
     }
     if (existing) {
-      db.prepare('UPDATE foodchain_portal_tenants SET name = ?, allow_create_branches = ?, access_mode = ?, app_settings = ? WHERE id = ?')
-        .run(tenant.name || '', tenant.allow_create_branches ? 1 : 0, mode, appSettings, tenant.id);
+      db.prepare('UPDATE foodchain_portal_tenants SET name = ?, nickname = ?, allow_create_branches = ?, access_mode = ?, app_settings = ?, base_currency = ? WHERE id = ?')
+        .run(tenant.name || '', tenant.nickname || '', tenant.allow_create_branches ? 1 : 0, mode, appSettings, tenant.base_currency || existing?.base_currency || 'RUB', tenant.id);
     } else {
-      db.prepare('INSERT INTO foodchain_portal_tenants (id, name, allow_create_branches, access_mode, app_settings) VALUES (?, ?, ?, ?, ?)')
-        .run(tenant.id, tenant.name || '', tenant.allow_create_branches ? 1 : 0, mode, appSettings);
+      db.prepare('INSERT INTO foodchain_portal_tenants (id, name, nickname, allow_create_branches, access_mode, app_settings, base_currency) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(tenant.id, tenant.name || '', tenant.nickname || '', tenant.allow_create_branches ? 1 : 0, mode, appSettings, tenant.base_currency || 'RUB');
       // Seed demo data only when explicitly requested
       if (tenant.with_demo_data) {
         seedDemoData(db, bcrypt, tenant.id);
@@ -664,13 +664,23 @@ app.get('/api/internal/tenant-stats', (req, res) => {
     if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
     if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
 
-    // Count orders for this tenant (assuming tenant_id maps to branch or staff)
-    const ordersCount = 0; // Simplified — actual order counting depends on mapping
-    const monthlyRevenue = 0;
+    const row = db.prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(CASE WHEN status = 'delivered' THEN total ELSE 0 END), 0) as revenue FROM orders WHERE tenant_id = ?").get(tenant_id);
+    const ordersCount = row.cnt || 0;
+    const monthlyRevenue = db.prepare("SELECT COALESCE(SUM(total), 0) as t FROM orders WHERE tenant_id = ? AND status = 'delivered' AND created_at >= datetime('now', '-30 days')").get(tenant_id).t || 0;
 
     res.json({ orders_count: ordersCount, monthly_revenue: monthlyRevenue, tenant_id: parseInt(tenant_id) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+app.post('/api/internal/delete-tenant', (req, res) => {
+  try {
+    const { key, tenant_id } = req.body;
+    if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
+    if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
+    db.prepare('DELETE FROM foodchain_portal_tenants WHERE id = ?').run(tenant_id);
+    res.json({ deleted: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.post('/api/internal/reset-demo-data', (req, res) => {
   try {
     const { key, tenant_id } = req.body;
@@ -1169,7 +1179,7 @@ app.get('/api/search', (req, res) => {
 });
 app.get('/api/couriers', (req, res) => {
   try {
-    const couriers = db.prepare(`SELECT s.id, s.first_name, s.last_name, s.phone, s.role, s.isOnline, s.photo, cl.latitude, cl.longitude, cl.updated_at as location_updated_at FROM staff s LEFT JOIN courier_locations cl ON cl.courier_id = s.id WHERE s.role = 'courier' AND s.tenant_id = current_tenant_id()`).all();
+    const couriers = db.prepare(`SELECT s.id, s.first_name, s.last_name, s.phone, s.role, s.is_online, s.photo_url, cl.lat as latitude, cl.lng as longitude, cl.recorded_at as location_updated_at FROM staff s LEFT JOIN courier_locations cl ON cl.staff_id = s.id WHERE s.role = 'courier' AND s.tenant_id = current_tenant_id()`).all();
     res.json(couriers);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1745,14 +1755,14 @@ app.post('/api/internal/import-tech-cards', (req, res) => {
 });
 app.get('/api/app/settings', (req, res) => {
   try {
-    const tenantId = extractTenant(req) || 1;
+    const tenantId = req.tenant_id || 1 || 1;
     const row = db.prepare('SELECT settings FROM app_general_settings WHERE tenant_id = ?').get(tenantId);
     res.json({ settings: parseAppSettings(row?.settings) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/app/settings', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) tenantId = 1;
     const { settings } = req.body;
     if (!settings || typeof settings !== 'object') return res.status(400).json({ error: 'settings object required' });
@@ -1771,7 +1781,7 @@ app.put('/api/app/settings', (req, res) => {
 });
 app.post('/api/app/settings/reset', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const defaults = JSON.parse(DEFAULT_APP_SETTINGS);
     const str = JSON.stringify(defaults);
@@ -1786,7 +1796,7 @@ app.post('/api/app/settings/reset', (req, res) => {
 });
 app.get('/api/app/banners', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const banners = db.prepare('SELECT * FROM app_banners WHERE tenant_id = ? ORDER BY sort_order ASC, created_at DESC').all(tenantId);
     res.json(toCamelCaseArray(banners));
@@ -1794,7 +1804,7 @@ app.get('/api/app/banners', (req, res) => {
 });
 app.post('/api/app/banners', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { image_url, title, subtitle, link_type, link_value, date_from, date_to, is_active, sort_order } = req.body;
     if (!image_url) return res.status(400).json({ error: 'image_url is required' });
@@ -1807,7 +1817,7 @@ app.post('/api/app/banners', (req, res) => {
 });
 app.put('/api/app/banners/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_banners WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Баннер не найден' });
@@ -1832,7 +1842,7 @@ app.put('/api/app/banners/:id', (req, res) => {
 });
 app.delete('/api/app/banners/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_banners WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Баннер не найден' });
@@ -1842,7 +1852,7 @@ app.delete('/api/app/banners/:id', (req, res) => {
 });
 app.put('/api/app/banners/reorder', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { order } = req.body;
     if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array of {id, sort_order}' });
@@ -1855,7 +1865,7 @@ app.put('/api/app/banners/reorder', (req, res) => {
 });
 app.get('/api/app/promotions', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const promotions = db.prepare('SELECT * FROM app_promotions WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
     res.json(toCamelCaseArray(promotions));
@@ -1863,7 +1873,7 @@ app.get('/api/app/promotions', (req, res) => {
 });
 app.post('/api/app/promotions', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { name, description, type, discount_percent, discount_amount, dish_id, category_id, combo_dishes, combo_price, promo_code, min_order_amount, max_uses, date_from, date_to, is_active, show_on_dish, show_as_banner, show_on_page } = req.body;
     if (!name || !type) return res.status(400).json({ error: 'name and type are required' });
@@ -1876,7 +1886,7 @@ app.post('/api/app/promotions', (req, res) => {
 });
 app.put('/api/app/promotions/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_promotions WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Акция не найдена' });
@@ -1900,7 +1910,7 @@ app.put('/api/app/promotions/:id', (req, res) => {
 });
 app.delete('/api/app/promotions/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_promotions WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Акция не найдена' });
@@ -1910,7 +1920,7 @@ app.delete('/api/app/promotions/:id', (req, res) => {
 });
 app.get('/api/app/working-hours', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const hours = db.prepare('SELECT * FROM app_working_hours WHERE tenant_id = ? ORDER BY day_of_week ASC').all(tenantId);
     const specialDays = db.prepare('SELECT * FROM app_special_days WHERE tenant_id = ? ORDER BY date ASC').all(tenantId);
@@ -1919,7 +1929,7 @@ app.get('/api/app/working-hours', (req, res) => {
 });
 app.post('/api/app/working-hours', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { hours } = req.body;
     if (!Array.isArray(hours)) return res.status(400).json({ error: 'hours must be an array' });
@@ -1934,7 +1944,7 @@ app.post('/api/app/working-hours', (req, res) => {
 });
 app.post('/api/app/special-days', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { date, is_closed, message } = req.body;
     if (!date) return res.status(400).json({ error: 'date is required' });
@@ -1950,7 +1960,7 @@ app.post('/api/app/special-days', (req, res) => {
 });
 app.delete('/api/app/special-days/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     db.prepare('DELETE FROM app_special_days WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
     res.json({ ok: true });
@@ -1958,7 +1968,7 @@ app.delete('/api/app/special-days/:id', (req, res) => {
 });
 app.get('/api/app/modifiers', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const groups = db.prepare('SELECT * FROM app_modifier_groups WHERE tenant_id = ? ORDER BY sort_order ASC').all(tenantId);
     const modifiers = db.prepare('SELECT am.*, amg.name as group_name FROM app_modifiers am LEFT JOIN app_modifier_groups amg ON am.group_id = amg.id WHERE am.tenant_id = ? ORDER BY am.sort_order ASC').all(tenantId);
@@ -1967,7 +1977,7 @@ app.get('/api/app/modifiers', (req, res) => {
 });
 app.post('/api/app/modifier-groups', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { name, sort_order } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
@@ -1978,7 +1988,7 @@ app.post('/api/app/modifier-groups', (req, res) => {
 });
 app.put('/api/app/modifier-groups/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_modifier_groups WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Группа не найдена' });
@@ -1991,7 +2001,7 @@ app.put('/api/app/modifier-groups/:id', (req, res) => {
 });
 app.delete('/api/app/modifier-groups/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     db.prepare('UPDATE app_modifiers SET group_id = NULL WHERE group_id = ? AND tenant_id = ?').run(req.params.id, tenantId);
     db.prepare('DELETE FROM app_modifier_groups WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
@@ -2000,20 +2010,20 @@ app.delete('/api/app/modifier-groups/:id', (req, res) => {
 });
 app.post('/api/app/modifiers', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { group_id, name, price, description, sort_order, is_active } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
     const info = db.prepare('INSERT INTO app_modifiers (tenant_id, group_id, name, price, description, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       tenantId, group_id || null, name, price || 0, description || '', sort_order || 0, is_active !== false ? 1 : 0
     );
-    const modifier = db.prepare('SELECT am.*, amg.name as group_name FROM app_modifiers am LEFT JOIN app_modifier_groups amg ON am.group_id = amg.id WHERE am.id = ?').get(info.lastInsertRowid);
+    const modifier = db.prepare('SELECT am.*, amg.name as group_name FROM app_modifiers am LEFT JOIN app_modifier_groups amg ON am.group_id = amg.id WHERE am.id = ? AND am.tenant_id = current_tenant_id()').get(info.lastInsertRowid);
     res.status(201).json(toCamelCase(modifier));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/app/modifiers/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const existing = db.prepare('SELECT * FROM app_modifiers WHERE id = ? AND tenant_id = ?').get(req.params.id, tenantId);
     if (!existing) return res.status(404).json({ error: 'Модификатор не найден' });
@@ -2028,13 +2038,13 @@ app.put('/api/app/modifiers/:id', (req, res) => {
     if (sets.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
     params.push(req.params.id, tenantId);
     db.prepare(`UPDATE app_modifiers SET ${sets.join(', ')} WHERE id = ? AND tenant_id = ?`).run(...params);
-    const modifier = db.prepare('SELECT am.*, amg.name as group_name FROM app_modifiers am LEFT JOIN app_modifier_groups amg ON am.group_id = amg.id WHERE am.id = ?').get(req.params.id);
+    const modifier = db.prepare('SELECT am.*, amg.name as group_name FROM app_modifiers am LEFT JOIN app_modifier_groups amg ON am.group_id = amg.id WHERE am.id = ? AND am.tenant_id = current_tenant_id()').get(req.params.id);
     res.json(toCamelCase(modifier));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.delete('/api/app/modifiers/:id', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     db.prepare('DELETE FROM app_modifiers WHERE id = ? AND tenant_id = ?').run(req.params.id, tenantId);
     res.json({ ok: true });
@@ -2042,7 +2052,7 @@ app.delete('/api/app/modifiers/:id', (req, res) => {
 });
 app.get('/api/app/visibility', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const categories = db.prepare('SELECT id, name, icon, parent_id, sort_order, show_on_site, show_on_app, show_on_kiosk, show_on_waiter, show_on_aggregators FROM menu_categories WHERE tenant_id = ? OR tenant_id IS NULL ORDER BY sort_order ASC').all(tenantId);
     res.json(toCamelCaseArray(categories));
@@ -2050,7 +2060,7 @@ app.get('/api/app/visibility', (req, res) => {
 });
 app.put('/api/app/visibility/batch', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const { updates } = req.body;
     if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates must be an array' });
@@ -2106,7 +2116,7 @@ app.get('/api/public/app-config/:tenantId', (req, res) => {
 });
 app.get('/api/app/audit-log', (req, res) => {
   try {
-    const tenantId = extractTenant(req);
+    const tenantId = req.tenant_id || 1;
     if (!tenantId) return res.status(401).json({ error: 'Auth required' });
     const logs = db.prepare('SELECT * FROM app_audit_log WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 200').all(tenantId);
     res.json(toCamelCaseArray(logs));

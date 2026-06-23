@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Clock, Truck, Award, Sparkles } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
+import { usePrice } from '../../PriceContext';
 
 const GRADIENTS = ['from-orange-500 to-red-500', 'from-red-500 to-yellow-500', 'from-blue-500 to-cyan-500', 'from-green-500 to-emerald-500', 'from-purple-500 to-pink-500'];
 
@@ -123,7 +124,7 @@ export default function HomePage() {
                     <h3 className="font-semibold text-sm mb-1 line-clamp-1">{dish.name}</h3>
                     {dish.description && <p className="text-xs text-gray-500 line-clamp-2 mb-2">{dish.description}</p>}
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[var(--color-primary)]">{dish.price} ₽</span>
+                      <span className="font-bold text-[var(--color-primary)]">{usePrice()(dish.price)}</span>
                       {dish.rating > 0 && (
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Star size={12} className="text-amber-400 fill-amber-400" /> {dish.rating.toFixed(1)}

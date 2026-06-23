@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Minus, Plus, ShoppingCart, Star, ChevronLeft, Flame } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
+import { usePrice } from '../../PriceContext';
 
 export default function DishPage() {
   const ctx = useWebsite();
@@ -90,9 +91,9 @@ export default function DishPage() {
 
           {/* Price */}
           <div className="flex items-baseline gap-2 mb-6">
-            <span className="text-2xl font-bold text-[var(--color-primary)]">{dish.price} ₽</span>
+            <span className="text-2xl font-bold text-[var(--color-primary)]">{usePrice()(dish.price)}</span>
             {dish.oldPrice && dish.oldPrice > dish.price && (
-              <span className="text-sm text-gray-400 line-through">{dish.oldPrice} ₽</span>
+              <span className="text-sm text-gray-400 line-through">{usePrice()(dish.oldPrice)}</span>
             )}
           </div>
 
@@ -108,7 +109,7 @@ export default function DishPage() {
                   return (
                     <button key={opt.id} onClick={() => toggleOption(cust.id, opt.id, cust.multiple)}
                       className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-all ${selected ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>
-                      {opt.name} {opt.price > 0 && `+${opt.price}₽`}
+                      {opt.name} {opt.price > 0 && `+${usePrice()(opt.price)}`}
                     </button>
                   );
                 })}
@@ -128,7 +129,7 @@ export default function DishPage() {
               {added ? (
                 <>Добавлено ✓</>
               ) : (
-                <><ShoppingCart size={18} /> {itemTotal} ₽</>
+                <><ShoppingCart size={18} /> {usePrice()(itemTotal)}</>
               )}
             </button>
           </div>

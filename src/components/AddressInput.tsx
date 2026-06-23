@@ -34,7 +34,23 @@ export default function AddressInput({ value, onChange, placeholder = 'Введ�
     const saved = getSavedAddresses().filter(s => s.address.toLowerCase().includes(q)).map(s => ({ address: s.address, label: s.label }));
     const orderAddrs = getOrderAddresses().filter(a => a.toLowerCase().includes(q)).map(a => ({ address: a }));
     const combined = [...saved, ...orderAddrs].filter((item, idx, self) => self.findIndex(s => s.address === item.address) === idx);
-    setSuggestions(combined);
+
+    if (value.length >= 5) {
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value)}&format=json&limit=5&countrycodes=ru,kz,by`)
+        .then(res => res.json())
+        .then((results: any[]) => {
+          if (results && results.length > 0) {
+            const geo = results.map((r: any) => ({ address: r.display_name, label: '📍', lat: r.lat, lng: r.lon }));
+            const merged = [...geo, ...combined].filter((item, idx, self) => self.findIndex(s => s.address === item.address) === idx);
+            setSuggestions(merged);
+          } else {
+            setSuggestions(combined);
+          }
+        })
+        .catch(() => setSuggestions(combined));
+    } else {
+      setSuggestions(combined);
+    }
   }, [value, focused]);
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Star, Plus } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
 import { Dish } from '../../types';
+import { usePrice } from '../../PriceContext';
 
 const GRADIENTS = ['from-orange-500 to-red-500', 'from-red-500 to-yellow-500', 'from-blue-500 to-cyan-500', 'from-green-500 to-emerald-500', 'from-purple-500 to-pink-500'];
 
@@ -127,9 +128,9 @@ function DishCard({ dish }: { dish: Dish }) {
           {dish.description && <p className="text-xs text-gray-500 line-clamp-2 mb-2">{dish.description}</p>}
           <div className="flex items-center justify-between">
             <div>
-              <span className="font-bold text-[var(--color-primary)]">{dish.price} ₽</span>
+              <span className="font-bold text-[var(--color-primary)]">{usePrice()(dish.price)}</span>
               {dish.oldPrice && dish.oldPrice > dish.price && (
-                <span className="text-xs text-gray-400 line-through ml-1.5">{dish.oldPrice} ₽</span>
+                <span className="text-xs text-gray-400 line-through ml-1.5">{usePrice()(dish.oldPrice)}</span>
               )}
             </div>
             {dish.rating > 0 && (

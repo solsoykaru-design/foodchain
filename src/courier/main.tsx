@@ -5,6 +5,7 @@ import { AppProvider } from "../context";
 import CourierShell from "./CourierShell";
 import { OfflineProvider } from "../OfflineProvider";
 import { registerServiceWorker } from "../register-sw";
+import { PriceProvider } from "../PriceContext";
 
 registerServiceWorker();
 
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppProvider>
       <OfflineProvider>
-        <CourierShell />
+        <PriceProvider>
+          <CourierShell />
+        </PriceProvider>
       </OfflineProvider>
     </AppProvider>
   </StrictMode>

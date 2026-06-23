@@ -5,8 +5,10 @@ import "./i18n";
 import App from "./App";
 import { OfflineProvider } from "./OfflineProvider";
 import { registerServiceWorker } from "./register-sw";
+import { initCurrencyRates } from "./currency";
 
 registerServiceWorker();
+initCurrencyRates();
 
 const hash = window.location.hash;
 if (hash && hash.startsWith('#r=')) {

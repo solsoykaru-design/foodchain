@@ -81,6 +81,7 @@ import TelephonyOperatorPage from './TelephonyOperatorPage';
 import ExtensionsSdkPage from './ExtensionsSdkPage';
 import GamificationPage from './GamificationPage';
 import CurrencySettingsPage from './CurrencySettingsPage';
+import YumaImportPage from './YumaImportPage';
 import { setDocType, getDocType } from './docStore';
 import * as api from '../api';
 import { onEvent } from '../api';
@@ -217,7 +218,8 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'currency_settings' && <CurrencySettingsPage key={refreshKey} />}
           {adminPage === 'foh_display' && <FohDisplayPage key={refreshKey} />}
           {adminPage === 'honest_sign' && <HonestSignPage key={refreshKey} />}
-          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings'].includes(adminPage) && (
+          {adminPage === 'yuma_import' && <YumaImportPage key={refreshKey} />}
+          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import'].includes(adminPage) && (
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 text-center shadow-sm">
               <p className="text-zinc-500 dark:text-zinc-400">{t('page_developing')}: {adminPage}</p>
             </div>
@@ -253,7 +255,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const orders = await api.getOrders();
+        const orders = (await api.getOrders()) || [];
         const active = orders.filter((o: any) => ['new','confirmed','preparing','ready','assigned','en_route'].includes(o.status)).length;
         const late = orders.filter((o: any) => (o.status === 'new' || o.status === 'confirmed') && (Date.now() - new Date(o.createdAt).getTime()) > 30 * 60 * 1000).length;
         setOrderCount(active);
@@ -445,6 +447,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       items: [
         { id: 'categories', icon: FolderTree, label: t('sidebar_categories') },
         { id: 'inventory', icon: PackageSearch, label: t('sidebar_inventory') },
+        { id: 'yuma_import', icon: FileSpreadsheet, label: 'Импорт из YUMA' },
       ]
     },
   ];

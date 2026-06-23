@@ -135,7 +135,7 @@ app.get('/api/courier-guest-chats', (req, res) => {
     if (guest_phone) { conditions.push('cgc.guest_phone = ?'); params.push(guest_phone); }
     if (guest_id && guest_id !== '0') { conditions.push('cgc.guest_id = ?'); params.push(guest_id); }
     if (search) { conditions.push('(cgc.last_message LIKE ? OR cgc.courier_name LIKE ? OR cgc.guest_name LIKE ? OR cgc.guest_phone LIKE ?)'); const q = '%' + search + '%'; params.push(q, q, q, q); }
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY cgc.updated_at DESC';
     const rows = db.prepare(sql).all(...params);
     res.json(rows.map(cgChatToCamel));

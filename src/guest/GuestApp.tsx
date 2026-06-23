@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { useApp } from '../context';
 import { Dish, SavedAddress, SupportMessage, Coupon, GameScore, UserSettings, OrderStatus } from '../types';
-import AuthPage from './AuthPage';
 import QrMenuPage from './QrMenuPage';
 import AddressInput from '../components/AddressInput';
 import PickupPointSelector from './PickupPointSelector';
@@ -32,13 +31,15 @@ const MenuDataContext = createContext<MenuData>({ dishes: [], categories: [], br
 export function useMenuData() { return useContext(MenuDataContext); }
 
 const GRADIENTS = ['from-orange-500 to-red-500', 'from-red-500 to-yellow-500', 'from-blue-500 to-cyan-500', 'from-green-500 to-emerald-500', 'from-purple-500 to-pink-500', 'from-yellow-500 to-amber-500', 'from-teal-500 to-cyan-500', 'from-pink-500 to-rose-500'];
+import { usePrice } from '../PriceContext';
+
 import {
   Search, ShoppingCart, Heart, Star, MapPin, ChevronLeft, ChevronRight,
   Plus, Minus, X, Trash2, Award, MessageCircle, Truck, Store, UtensilsCrossed,
   Users, Calendar, Flame, Clock, Percent, Package, Phone, Mail, LogOut,
   Gift, Zap, Gamepad2, Settings, BookHeart, MapPinned, Ticket, RotateCcw,
   CheckCircle2, Circle, Send, Reply, Image as ImageIcon, ThumbsUp, Edit3, Bell,
-  Smartphone, Sun, Moon, ChevronDown, Sparkles, ShoppingBag, BadgePercent, Loader
+  Smartphone, Sun, Moon, ChevronDown, Sparkles, ShoppingBag, BadgePercent, Loader, LogIn, AlertTriangle
 } from 'lucide-react';
 
 const DEFAULT_BRANDING = {
@@ -64,13 +65,13 @@ const DEFAULT_BRANDING = {
 const BrandingContext = createContext<any>(DEFAULT_BRANDING);
 export function useBranding() { return useContext(BrandingContext); }
 
-export default function GuestApp({ onLogout: _onLogout }: { onLogout?: () => void }) {
+export default function GuestApp({ onLogout: _onLogout, onLogin, isLoggedIn: _isLoggedIn, onShowTenantPicker }: { onLogout?: () => void; onLogin?: () => void; isLoggedIn?: boolean; onShowTenantPicker?: () => void }) {
   const { guestPage, setGuestPage } = useApp();
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('foodchain_guest_user'));
   const [publicSettings, setPublicSettings] = useState<Record<string, any>>({});
   const [branding, setBranding] = useState<any>(DEFAULT_BRANDING);
   const [menuData, setMenuData] = useState<MenuData>({ dishes: [], categories: [], branches: [], categoryColors: {} });
   const [menuLoading, setMenuLoading] = useState(true);
+  const isLoggedIn = _isLoggedIn;
 
   useEffect(() => {
     Promise.all([
@@ -117,11 +118,10 @@ export default function GuestApp({ onLogout: _onLogout }: { onLogout?: () => voi
     '--brand-font': c.fontFamily,
   } as React.CSSProperties;
 
-  const handleLogin = () => setIsLoggedIn(true);
   const handleLogout = () => {
-    localStorage.removeItem('foodchain_guest_user');
-    setIsLoggedIn(false);
+    sessionStorage.removeItem('foodchain_guest_user');
     setGuestPage('home');
+    _onLogout?.();
   };
 
   return (
@@ -129,43 +129,37 @@ export default function GuestApp({ onLogout: _onLogout }: { onLogout?: () => voi
     <PublicSettingsContext.Provider value={publicSettings}>
     <MenuDataContext.Provider value={menuData}>
     <div style={{ ...rootStyle, fontFamily: c.fontFamily !== 'Inter' ? c.fontFamily : undefined }} className="min-h-screen bg-zinc-950 text-white">
-      {!isLoggedIn ? (
-        <AuthPage onLogin={handleLogin} branding={branding} />
-      ) : (
-        <>
-          {!menuLoading && guestPage === 'home' && <HomePage />}
-          {guestPage === 'menu' && <MenuPage />}
-          {guestPage === 'dish' && <DishPage />}
-          {guestPage === 'cart' && <CartPage />}
-          {guestPage === 'checkout' && <CheckoutPage />}
-          {guestPage === 'payment' && <PaymentProcessingPage />}
-          {guestPage === 'qr-payment' && <QrPaymentPage />}
-          {guestPage === 'qr-menu' && <QrMenuPage />}
-          {guestPage === 'games' && <GamesPage />}
-          {guestPage === 'payment-success' && <PaymentSuccessPage />}
-          {guestPage === 'booking' && <BookingPage />}
-          {guestPage === 'profile' && <ErrorBoundary><ProfilePage onLogout={handleLogout} /></ErrorBoundary>}
-          {guestPage === 'orders' && <OrdersPage />}
-          {guestPage === 'loyalty' && <LoyaltyPage />}
-          {guestPage === 'reviews' && <ReviewsPage />}
-          {guestPage === 'support' && <SupportPage />}
-          {guestPage === 'order-tracking' && <OrderTrackingPage />}
-          {guestPage === 'favorites' && <FavoritesPage />}
-          {guestPage === 'addresses' && <AddressesPage />}
-          {guestPage === 'support-chat' && <SupportChatPage />}
-          {guestPage === 'courier-chat' && <CourierChatPage />}
-          {guestPage === 'mini-game' && <MiniGamePage />}
-          {guestPage === 'coupons' && <CouponsPage />}
-          {guestPage === 'settings' && <SettingsPage />}
-          {guestPage === 'order-checklist' && <OrderChecklistPage />}
-          {guestPage === 'repeat-order' && <RepeatOrderPage />}
-          <BottomNav />
-          {publicSettings.access_mode === 'demo' && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-black text-[10px] font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur-sm">
-              ДЕМО-ВЕРСИЯ
-            </div>
-          )}
-        </>
+      {!menuLoading && guestPage === 'home' && <HomePage onShowLogin={onLogin} onShowTenantPicker={onShowTenantPicker} isLoggedIn={isLoggedIn} />}
+      {guestPage === 'menu' && <MenuPage />}
+      {guestPage === 'dish' && <DishPage />}
+      {guestPage === 'cart' && <CartPage />}
+      {guestPage === 'checkout' && <CheckoutPage />}
+      {guestPage === 'payment' && <PaymentProcessingPage />}
+      {guestPage === 'qr-payment' && <QrPaymentPage />}
+      {guestPage === 'qr-menu' && <QrMenuPage />}
+      {guestPage === 'games' && <GamesPage />}
+      {guestPage === 'payment-success' && <PaymentSuccessPage />}
+      {guestPage === 'booking' && <BookingPage />}
+      {guestPage === 'profile' && <ErrorBoundary><ProfilePage onLogout={handleLogout} /></ErrorBoundary>}
+      {guestPage === 'orders' && <OrdersPage />}
+      {guestPage === 'loyalty' && <LoyaltyPage />}
+      {guestPage === 'reviews' && <ReviewsPage />}
+      {guestPage === 'support' && <SupportPage />}
+      {guestPage === 'order-tracking' && <OrderTrackingPage />}
+      {guestPage === 'favorites' && <FavoritesPage />}
+      {guestPage === 'addresses' && <AddressesPage />}
+      {guestPage === 'support-chat' && <SupportChatPage />}
+      {guestPage === 'courier-chat' && <CourierChatPage />}
+      {guestPage === 'mini-game' && <MiniGamePage />}
+      {guestPage === 'coupons' && <CouponsPage />}
+      {guestPage === 'settings' && <SettingsPage />}
+      {guestPage === 'order-checklist' && <OrderChecklistPage />}
+      {guestPage === 'repeat-order' && <RepeatOrderPage />}
+      <BottomNav />
+      {publicSettings.access_mode === 'demo' && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-black text-[10px] font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur-sm">
+          ДЕМО-ВЕРСИЯ
+        </div>
       )}
       </div>
     </MenuDataContext.Provider>
@@ -251,6 +245,17 @@ function PaymentProcessingPage() {
 
 function PaymentSuccessPage() {
   const appCtx = useApp();
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    if (countdown <= 0) {
+      appCtx?.setGuestPage('order-tracking');
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, appCtx]);
+
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center pb-24 px-4">
       <div className="text-center max-w-sm">
@@ -264,7 +269,7 @@ function PaymentSuccessPage() {
             Отследить заказ
           </button>
           <button onClick={() => appCtx?.setGuestPage('home')} className="text-zinc-400 text-sm font-medium hover:text-white transition-colors">
-            На главную
+            На главную {countdown > 0 && `(${countdown}с)`}
           </button>
         </div>
       </div>
@@ -480,7 +485,7 @@ function DishCard({ dish, onPress, size = 'normal' }: { dish: Dish; onPress: () 
           </div>
           <p className="text-xs text-zinc-500 mt-1 line-clamp-1">{dish.description}</p>
           <div className="flex items-center justify-between mt-3">
-            <span className="font-extrabold text-lg text-white">от {dish.price}₽</span>
+            <span className="font-extrabold text-lg text-white">от {usePrice()(dish.price)}</span>
             <button onClick={e => { e.stopPropagation(); addToCart(dish, 1); }} className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-orange-500/20"><Plus size={20} /></button>
           </div>
         </div>
@@ -505,7 +510,7 @@ function DishCard({ dish, onPress, size = 'normal' }: { dish: Dish; onPress: () 
           <span className="text-xs text-zinc-600 ml-auto">{dish.weight}г</span>
         </div>
         <div className="flex items-center justify-between mt-2">
-          <span className="font-bold text-base text-white">{dish.price}₽</span>
+          <span className="font-bold text-base text-white">{usePrice()(dish.price)}</span>
           <button onClick={e => { e.stopPropagation(); addToCart(dish, 1); }} className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white active:scale-90 transition-transform"><Plus size={18} /></button>
         </div>
       </div>
@@ -513,7 +518,7 @@ function DishCard({ dish, onPress, size = 'normal' }: { dish: Dish; onPress: () 
   );
 }
 
-function HomePage() {
+function HomePage({ onShowLogin, onShowTenantPicker, isLoggedIn }: { onShowLogin?: () => void; onShowTenantPicker?: () => void; isLoggedIn?: boolean }) {
   const { setGuestPage, setSelectedDish, selectedBranch, setSelectedBranch, setMenuCategoryId, setGuestPage: navigate } = useApp();
   const settings = usePublicSettings();
   const branding = useBranding();
@@ -521,48 +526,71 @@ function HomePage() {
   const branch = branches.find((b: any) => b.id === selectedBranch) || branches[0] || { id: 0, name: 'Не выбран', address: '' };
   const popular = dishes.filter((d: any) => d.isPopular).slice(0, 4);
   const freeDelivFrom = settings.free_delivery_from || 1500;
-  const promos: any[] = [];
+  const [promos, setPromos] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/api/campaigns').then((data: any) => {
+      if (Array.isArray(data)) {
+        setPromos(data.filter((c: any) => c.status === 'active').slice(0, 5));
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="pb-20">
       <div className="px-4 pt-4 pb-2 max-w-lg mx-auto">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            {branding.common?.logoUrl && <img src={branding.common.logoUrl} className="w-10 h-10 rounded-xl object-contain" />}
+            {branding.common?.logoUrl && <img src={branding.common.logoUrl} onClick={onShowTenantPicker} className="w-10 h-10 rounded-xl object-contain cursor-pointer" />}
             <div>
               <div className="flex items-center gap-2 text-xs text-zinc-500 mb-0.5">
                 <Clock size={12} />
                 <span>{settings.working_time_start && settings.working_time_end ? `${settings.working_time_start} — ${settings.working_time_end}` : 'Доставка 35-60 мин'}</span>
               </div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">{branding.common?.restaurantName || 'FoodChain'}</h1>
+              <h1 onClick={onShowTenantPicker} className="text-2xl font-extrabold text-white tracking-tight cursor-pointer hover:opacity-80">{branding.common?.restaurantName || 'FoodChain'}</h1>
             </div>
           </div>
-          <button onClick={() => navigate('support')} className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-400">
-            <MessageCircle size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('support')} className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-400">
+              <MessageCircle size={20} />
+            </button>
+            {!isLoggedIn && (
+              <button onClick={onShowLogin} className="px-4 h-10 bg-orange-500 rounded-xl flex items-center gap-2 text-white text-sm font-bold">
+                <LogIn size={16} />
+                Войти
+              </button>
+            )}
+          </div>
         </div>
-        <button onClick={() => branches.length > 0 && setSelectedBranch(branches[(branches.findIndex((b: any) => b.id === selectedBranch) + 1) % branches.length]?.id || branches[0].id)} className="w-full flex items-center gap-3 bg-zinc-900 rounded-2xl px-4 py-3.5 active:scale-[0.99] transition-transform">
+        <button onClick={onShowTenantPicker} className="w-full flex items-center gap-3 bg-zinc-900 rounded-2xl px-4 py-3.5 active:scale-[0.99] transition-transform">
           <div className="w-9 h-9 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-            <MapPin size={18} className="text-orange-500" />
+            <Store size={18} className="text-orange-500" />
           </div>
           <div className="flex-1 text-left">
-            <div className="text-sm font-semibold text-white">{branch.name}</div>
-            <div className="text-xs text-zinc-500">{branch.address}</div>
+            <div className="text-sm font-semibold text-white">{branding.common?.restaurantName || 'Выберите ресторан'}</div>
+            <div className="text-xs text-zinc-500">{branch.name && branch.name !== 'Не выбран' ? branch.address || branch.name : 'Нажмите, чтобы выбрать ресторан'}</div>
           </div>
           <ChevronRight size={18} className="text-zinc-600" />
         </button>
       </div>
 
       <div className="max-w-lg mx-auto px-4 space-y-6">
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-          {promos.map((p, i) => (
-            <div key={i} className={`flex-shrink-0 w-56 bg-gradient-to-br ${p.color} rounded-2xl p-4 relative overflow-hidden`}>
-              <div className="absolute top-2 right-3 text-3xl opacity-30">{p.emoji}</div>
-              <p className="text-white font-bold text-sm">{p.title}</p>
-              <p className="text-white/70 text-xs mt-1">{p.subtitle}</p>
-            </div>
-          ))}
-        </div>
+        {promos.length > 0 && (
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+            {promos.map((p, i) => (
+              <div key={p.id || i} className="flex-shrink-0 w-64 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-4 relative overflow-hidden shadow-lg">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mt-6 -mr-6" />
+                <p className="text-white font-extrabold text-sm">{p.name || p.title}</p>
+                <p className="text-white/70 text-xs mt-1 line-clamp-2">{p.message || p.description}</p>
+                {p.button_text && (
+                  <button onClick={() => navigate('menu')} className="mt-2 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur">
+                    {p.button_text}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <button onClick={() => navigate('menu')} className="w-full flex items-center gap-3 bg-zinc-900 rounded-2xl px-4 py-3.5 active:scale-[0.99] transition-transform">
           <Search size={18} className="text-zinc-500" />
@@ -771,7 +799,7 @@ function DishPage() {
             <button onClick={() => setQty(qty + 1)} className="p-3 text-zinc-400 active:text-white transition-colors"><Plus size={18} /></button>
           </div>
           <button onClick={() => { addToCart(dish, qty); setGuestPage('menu'); }} className="flex-1 bg-orange-500 text-white font-extrabold rounded-xl py-3 active:scale-[0.98] transition-transform shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
-            В корзину <span className="text-white/80">·</span> {dish.price * qty}₽
+            В корзину <span className="text-white/80">·</span> {usePrice()(dish.price * qty)}
           </button>
         </div>
       </div>
@@ -780,11 +808,13 @@ function DishPage() {
 }
 
 function CartPage() {
-  const { cart, updateCartQty, removeFromCart, cartTotal, setGuestPage } = useApp();
+  const { cart, updateCartQty, removeFromCart, cartTotal, setGuestPage, clearCart, promoCode, setPromoCode, promoDiscount, applyPromo } = useApp();
   const settings = usePublicSettings();
   const { categories } = useMenuData();
   const freeDelivFrom = settings.free_delivery_from || 0;
   const remaining = freeDelivFrom > 0 ? Math.max(0, freeDelivFrom - cartTotal) : 0;
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [promoApplied, setPromoApplied] = useState(false);
   if (cart.length === 0) return (
     <div className="pb-20 text-center pt-32">
       <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-4">
@@ -818,11 +848,22 @@ function CartPage() {
                   <span className="text-sm font-bold text-white w-6 text-center">{item.quantity}</span>
                   <button onClick={() => updateCartQty(item.dish.id, item.quantity + 1)} className="p-1.5 text-zinc-400 active:text-white"><Plus size={14} /></button>
                 </div>
-                <span className="font-extrabold text-white">{item.totalPrice}₽</span>
+                <span className="font-extrabold text-white">{usePrice()(item.totalPrice)}</span>
               </div>
             </div>
           </div>
         ))}
+
+        <div className="bg-zinc-900 rounded-2xl p-3 ring-1 ring-zinc-800 flex items-center gap-2">
+          <input value={promoCode} onChange={e => { setPromoCode(e.target.value); setPromoApplied(false); }} placeholder="Промокод" className="flex-1 bg-zinc-800 text-white rounded-xl px-3 py-2.5 text-sm outline-none ring-1 ring-zinc-700 placeholder-zinc-600" />
+          <button onClick={async () => { await applyPromo(); setPromoApplied(true); }} className="px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-bold hover:bg-orange-600">Применить</button>
+        </div>
+        {promoApplied && promoDiscount > 0 && (
+          <div className="text-xs text-green-400 font-semibold text-center">Скидка по промокоду: {usePrice()(promoDiscount)}</div>
+        )}
+        {promoApplied && promoDiscount === 0 && promoCode && (
+          <div className="text-xs text-red-400 font-semibold text-center">Промокод недействителен</div>
+        )}
       </div>
       <div className="fixed bottom-16 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl p-4 border-t border-zinc-800">
         <div className="max-w-lg mx-auto w-full">
@@ -830,7 +871,7 @@ function CartPage() {
             <div className="mb-3 px-1">
               <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
                 <span>До бесплатной доставки осталось</span>
-                <span className="text-orange-400 font-semibold">{remaining}₽</span>
+                <span className="text-orange-400 font-semibold">{usePrice()(remaining)}</span>
               </div>
               <div className="bg-zinc-800 rounded-full h-1.5 overflow-hidden">
                 <div className="bg-orange-500 rounded-full h-full transition-all" style={{ width: `${Math.min(100, (cartTotal / freeDelivFrom) * 100)}%` }} />
@@ -840,24 +881,52 @@ function CartPage() {
           {freeDelivFrom > 0 && remaining <= 0 && cartTotal > 0 && (
             <div className="mb-3 px-1 text-xs text-green-400 font-semibold">Бесплатная доставка!</div>
           )}
+          {promoDiscount > 0 && (
+            <div className="flex items-center justify-between mb-1 px-1">
+              <span className="text-xs text-zinc-500">Скидка</span>
+              <span className="text-xs text-green-400">-{usePrice()(promoDiscount)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-3 px-1">
             <span className="text-sm text-zinc-400">Итого</span>
-            <span className="text-xl font-extrabold text-white">{cartTotal}₽</span>
+            <span className="text-xl font-extrabold text-white">{usePrice()(Math.max(0, cartTotal - promoDiscount))}</span>
           </div>
-          <button onClick={() => setGuestPage('checkout')} className="w-full bg-orange-500 text-white font-extrabold py-3.5 rounded-xl active:scale-[0.99] transition-transform shadow-lg shadow-orange-500/20">
-            Оформить заказ
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowClearConfirm(true)} className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-red-500 active:scale-90 transition-all flex-shrink-0" title="Очистить корзину">
+              <Trash2 size={20} />
+            </button>
+            <button onClick={() => setGuestPage('checkout')} className="flex-1 bg-orange-500 text-white font-extrabold py-3.5 rounded-xl active:scale-[0.99] transition-transform shadow-lg shadow-orange-500/20">
+              Оформить заказ
+            </button>
+          </div>
         </div>
       </div>
+
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4" onClick={() => setShowClearConfirm(false)}>
+          <div className="bg-zinc-900 rounded-3xl p-6 max-w-sm w-full ring-1 ring-zinc-800" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={28} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-white text-center mb-2">Очистить корзину?</h3>
+            <p className="text-sm text-zinc-400 text-center mb-6">Все выбранные блюда будут удалены из корзины</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowClearConfirm(false)} className="flex-1 bg-zinc-800 text-white font-bold py-3 rounded-xl text-sm">Отмена</button>
+              <button onClick={() => { clearCart(); setShowClearConfirm(false); }} className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm">Очистить</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function CheckoutPage() {
-  const { cartTotal, clearCart, setGuestPage, registeredUsers, cart, bonusBalance } = useApp();
+  const { cartTotal, clearCart, setGuestPage, registeredUsers, cart, bonusBalance, promoDiscount, promoCode } = useApp();
   const settings = usePublicSettings();
-  const storedUser = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
-  const currentUser = registeredUsers.find(u => u.phone === storedUser.phone) || registeredUsers[0];
+  const storedUser = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+  const found = registeredUsers.find(u => u && u.phone === storedUser.phone);
+  const currentUser = found ? { ...found, name: storedUser.name || found.name, phone: storedUser.phone || found.phone } : (storedUser.phone ? { name: storedUser.name || 'Гость', phone: storedUser.phone, id: storedUser.id || storedUser.userId } : undefined);
   const userId = currentUser?.id || storedUser.userId || storedUser.id;
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [address, setAddress] = useState('');
@@ -882,7 +951,8 @@ function CheckoutPage() {
   const isFreeDelivery = orderType === 'delivery' && freeDelivFrom > 0 && cartTotal >= freeDelivFrom;
   const actualDeliveryCost = isFreeDelivery ? 0 : deliveryCost;
   const bonusDiscount = useBonuses && bonusInfo ? Math.floor(Math.min(bonusInfo.maxDiscount, bonusInfo.availableBonus)) : 0;
-  const totalWithDelivery = cartTotal + actualDeliveryCost - bonusDiscount;
+  const cartAfterPromo = Math.max(0, cartTotal - promoDiscount);
+  const totalWithDelivery = cartAfterPromo + actualDeliveryCost - bonusDiscount;
 
   useEffect(() => {
     api.getActivePaymentMethods().then(methods => {
@@ -902,6 +972,10 @@ function CheckoutPage() {
   }, [userId, cartTotal, bonusBalance]);
 
   const handlePlaceOrder = async () => {
+    if (cart.length === 0) {
+      setError('Корзина пуста. Добавьте блюда в корзину');
+      return;
+    }
     if (orderType === 'delivery' && !address) {
       setError('Укажите адрес доставки');
       return;
@@ -937,10 +1011,11 @@ function CheckoutPage() {
         user_phone: userPhone,
         address: fullAddress,
         items,
-        total: cartTotal,
+        total: cartAfterPromo,
         payment_method: selectedMethod?.key || 'cash',
         type: orderType,
         bonus_used: Math.round(bonusToUse),
+        promo_code: promoCode || undefined,
       });
       setLastOrderId(order.id);
 
@@ -1020,7 +1095,10 @@ function CheckoutPage() {
   };
 
   useEffect(() => {
-    if (placed) setGuestPage('home');
+    if (placed) {
+      const timer = setTimeout(() => setGuestPage('order-tracking'), 3000);
+      return () => clearTimeout(timer);
+    }
   }, [placed]);
 
   if (placed) return (
@@ -1030,6 +1108,9 @@ function CheckoutPage() {
       </div>
       <h2 className="text-xl font-extrabold text-white">Заказ #{lastOrderId} оформлен!</h2>
       <p className="text-zinc-500 text-sm mt-1">Скоро с вами свяжется оператор</p>
+      {lastOrderId && (
+        <p className="text-xs text-zinc-600 mt-2">Номер заказа: #{lastOrderId}</p>
+      )}
       <div className="flex flex-col gap-3 mt-6 max-w-xs mx-auto">
         <button onClick={() => { setGuestPage('order-tracking'); }} className="bg-orange-500 text-white font-bold px-8 py-3 rounded-xl">Отследить заказ</button>
       </div>
@@ -1086,7 +1167,7 @@ function CheckoutPage() {
                 <p className="text-sm font-semibold text-white">Списать бонусы</p>
                 <p className="text-xs text-zinc-500">{bonusInfo.availableBonus} баллов доступно</p>
               </div>
-              {useBonuses && <span className="text-sm font-bold text-orange-500">-{bonusDiscount}₽</span>}
+              {useBonuses && <span className="text-sm font-bold text-orange-500">-{usePrice()(bonusDiscount)}</span>}
             </label>
           </div>
         )}
@@ -1126,7 +1207,7 @@ function CheckoutPage() {
           {submitting ? (
             <><span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Оформление...</>
           ) : (
-            <>{useBonuses && bonusDiscount > 0 ? `Оплатить ${totalWithDelivery}₽ (скидка ${bonusDiscount}₽)` : `Оплатить ${totalWithDelivery}₽`}</>
+            <>{useBonuses && bonusDiscount > 0 ? `Оплатить ${usePrice()(totalWithDelivery)} (скидка ${usePrice()(bonusDiscount)})` : `Оплатить ${usePrice()(totalWithDelivery)}`}</>
           )}
         </button>
       </div>
@@ -1139,18 +1220,37 @@ function ProfilePage({ onLogout }: { onLogout: () => void }) {
   if (!ctx) return <div className="p-4 text-red-500">Context error</div>;
   const { setGuestPage, registeredUsers, favorites, orders, bonusBalance, setBonusBalance } = ctx;
   const settings = usePublicSettings();
-  if (!Array.isArray(registeredUsers)) return <div className="p-4 text-red-500">registeredUsers не массив: {JSON.stringify(registeredUsers)}</div>;
-  const storedUser = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
-  const user = registeredUsers.find(u => u && u.phone === storedUser.phone) || (storedUser.phone ? { name: storedUser.name || 'Гость', phone: storedUser.phone } : registeredUsers[0]);
+  const [profileUser, setProfileUser] = useState<any>(null);
   const [bonusData, setBonusData] = useState<any>(null);
+
   useEffect(() => {
-    const uid = storedUser.userId || storedUser.id;
-    if (uid) {
-      api.getGuestBonusInfo(uid).then(d => {
-        setBonusData(d);
-        setBonusBalance(d.balance || 0);
-      }).catch(() => {});
-    }
+    const loadProfile = async () => {
+      try {
+        const meRes = await api.getMe();
+        if (meRes?.user) {
+          setProfileUser(meRes.user);
+          const guest = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+          Object.assign(guest, meRes.user);
+          sessionStorage.setItem('foodchain_guest_user', JSON.stringify(guest));
+          const uid = meRes.user.id;
+          api.getGuestBonusInfo(uid).then(d => {
+            setBonusData(d);
+            setBonusBalance(d.balance || 0);
+          }).catch(() => {});
+          return;
+        }
+      } catch {}
+      const storedUser = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+      setProfileUser(storedUser);
+      const uid = storedUser.id || storedUser.userId;
+      if (uid) {
+        api.getGuestBonusInfo(uid).then(d => {
+          setBonusData(d);
+          setBonusBalance(d.balance || 0);
+        }).catch(() => {});
+      }
+    };
+    loadProfile();
   }, []);
 
   const initialPts = settings.initial_points || 0;
@@ -1170,11 +1270,11 @@ function ProfilePage({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center text-2xl font-extrabold text-white shadow-lg shadow-orange-500/20">
-                {user?.name ? user.name[0].toUpperCase() : '👤'}
+                {profileUser?.name ? profileUser.name[0].toUpperCase() : '👤'}
               </div>
               <div>
-                <h2 className="text-xl font-extrabold text-white">{user?.name || 'Гость'}</h2>
-                <p className="text-sm text-zinc-500">{user?.phone || ''}</p>
+                <h2 className="text-xl font-extrabold text-white">{profileUser?.name || 'Гость'}</h2>
+                <p className="text-sm text-zinc-500">{profileUser?.phone || ''}</p>
               </div>
             </div>
             <button onClick={() => setGuestPage('settings')} className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400">
@@ -1327,7 +1427,7 @@ function OrdersPage() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="font-extrabold text-white">{order.total}₽</span>
+                <span className="font-extrabold text-white">{usePrice()(order.total)}</span>
                 <p className="text-xs text-zinc-500">{order.address || 'Самовынос'}</p>
               </div>
             </div>
@@ -1346,7 +1446,7 @@ function LoyaltyPage() {
   const [tab, setTab] = useState<'overview' | 'history'>('overview');
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+    const stored = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
     const userId = stored.userId || stored.id;
     if (!userId) { setLoading(false); return; }
     api.getGuestBonusInfo(userId).then(d => {
@@ -1400,7 +1500,7 @@ function LoyaltyPage() {
               <>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="text-zinc-400">До уровня «{data.nextLevel.name}»</span>
-                  <span className="text-zinc-500">нужно {Math.max(0, data.nextLevel.minSpent - data.totalSpent)}₽</span>
+                  <span className="text-zinc-500">нужно {usePrice()(Math.max(0, data.nextLevel.minSpent - data.totalSpent))}</span>
                 </div>
                 <div className="bg-zinc-800 rounded-full h-2.5 overflow-hidden">
                   <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-full h-full transition-all duration-500" style={{ width: `${data.progress || 0}%` }} />
@@ -1409,7 +1509,7 @@ function LoyaltyPage() {
             ) : (
               <p className="text-sm text-zinc-400">Вы достигли максимального уровня!</p>
             )}
-            <p className="text-xs text-zinc-500 mt-2">Сумма заказов: {data?.totalSpent || 0}₽</p>
+            <p className="text-xs text-zinc-500 mt-2">Сумма заказов: {usePrice()(data?.totalSpent || 0)}</p>
           </div>
         )}
 
@@ -1458,7 +1558,7 @@ function LoyaltyPage() {
                       </div>
                     </div>
                     <span className={`font-extrabold text-sm ${tx.type === 'earned' ? 'text-green-500' : 'text-red-500'}`}>
-                      {tx.type === 'earned' ? '+' : '-'}{Math.abs(tx.amount)}₽
+                      {tx.type === 'earned' ? '+' : '-'}{usePrice()(Math.abs(tx.amount))}
                     </span>
                   </div>
                 ))}
@@ -1564,7 +1664,7 @@ function ReviewsPage() {
 
 function SupportChatPage() {
   const { setGuestPage, guestPage } = useApp();
-  const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+  const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
   const senderName = user.name || user.phone || 'Гость';
   const senderPhone = user.phone || '';
   const [chatId, setChatId] = useState<number | null>(null);
@@ -1581,55 +1681,82 @@ function SupportChatPage() {
   useEffect(() => { chatIdRef.current = chatId; }, [chatId]);
 
   useEffect(() => {
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
-    const wsUrl = apiBase.replace(/^http/, 'ws');
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onopen = async () => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const initChat = async () => {
       try {
         const chats = await api.getChats({ status: 'all', tenant_id: 1 });
+        if (cancelled) return null;
         let myChat = chats.find((c: any) => c.guestPhone === senderPhone || c.guestName === senderName);
         if (myChat) {
           if (myChat.status === 'closed') {
             myChat = await api.reopenChat(myChat.id);
           }
           setChatId(myChat.id);
-          ws.send(JSON.stringify({ type: 'subscribe:chat', chatId: myChat.id }));
+          ws?.send(JSON.stringify({ type: 'subscribe:chat', chatId: myChat.id }));
           const msgs = await api.getChatMessages(myChat.id);
-          setMessages(msgs.map((m: any) => ({
-            id: m.id, fromUser: m.senderType === 'guest', text: m.message || '',
-            timestamp: m.createdAt || new Date().toISOString(), isRead: m.isRead || false,
-            fileUrl: m.fileUrl || '',
-          } as SupportMessage)));
+          if (!cancelled) {
+            setMessages(msgs.map((m: any) => ({
+              id: m.id, fromUser: m.senderType === 'guest', text: m.message || '',
+              timestamp: m.createdAt || new Date().toISOString(), isRead: m.isRead || false,
+              fileUrl: m.fileUrl || '',
+            } as SupportMessage)));
+          }
         } else {
           const chat = await api.createChat({ guest_name: senderName, guest_phone: senderPhone });
           setChatId(chat.id);
-          ws.send(JSON.stringify({ type: 'subscribe:chat', chatId: chat.id }));
+          ws?.send(JSON.stringify({ type: 'subscribe:chat', chatId: chat.id }));
         }
-      } catch {} finally { setLoading(false); }
+      } catch {} finally { if (!cancelled) setLoading(false); }
     };
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        const currentId = chatIdRef.current;
-        if (data.type === 'chat:message' && data.chatId === currentId) {
-          const m = data.message;
-          setMessages(prev => {
-            if (prev.some(x => x.id === m.id)) return prev;
-            return [...prev, { id: m.id, fromUser: m.senderType === 'guest', text: m.message || '', timestamp: m.createdAt, isRead: m.isRead, fileUrl: m.fileUrl || '' }];
-          });
+
+    const connect = () => {
+      const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+      const wsUrl = apiBase.replace(/^http/, 'ws');
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        if (cancelled) { ws?.close(); return; }
+        initChat();
+      };
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const currentId = chatIdRef.current;
+          if (data.type === 'chat:message' && data.chatId === currentId) {
+            const m = data.message;
+            setMessages(prev => {
+              if (prev.some(x => x.id === m.id)) return prev;
+              return [...prev, { id: m.id, fromUser: m.senderType === 'guest', text: m.message || '', timestamp: m.createdAt, isRead: m.isRead, fileUrl: m.fileUrl || '' }];
+            });
+          }
+          if (data.type === 'chat:typing' && data.chatId === currentId && data.senderType === 'waiter') {
+            setWaiterTyping(true);
+            clearTimeout((window as any).__waiterTypingTimer);
+            (window as any).__waiterTypingTimer = setTimeout(() => setWaiterTyping(false), 3000);
+          }
+          if (data.type === 'chat:closed' && data.data?.id === currentId) {
+            setMessages(prev => [...prev, { id: Date.now(), fromUser: false, text: 'Чат закрыт. Спасибо за обращение!', timestamp: new Date().toISOString(), isRead: true }]);
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 3000);
         }
-        if (data.type === 'chat:typing' && data.chatId === currentId && data.senderType === 'waiter') {
-          setWaiterTyping(true);
-          clearTimeout((window as any).__waiterTypingTimer);
-          (window as any).__waiterTypingTimer = setTimeout(() => setWaiterTyping(false), 3000);
-        }
-        if (data.type === 'chat:closed' && data.data?.id === currentId) {
-          setMessages(prev => [...prev, { id: Date.now(), fromUser: false, text: 'Чат закрыт. Спасибо за обращение!', timestamp: new Date().toISOString(), isRead: true }]);
-        }
-      } catch {}
+      };
+      ws.onerror = () => { ws?.close(); };
     };
-    return () => { ws.close(); clearTimeout((window as any).__waiterTypingTimer); };
+
+    connect();
+    return () => {
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      ws?.close();
+      clearTimeout((window as any).__waiterTypingTimer);
+    };
   }, []);
 
   useEffect(() => { chatRef.current?.scrollTo(0, chatRef.current.scrollHeight); }, [messages, waiterTyping]);
@@ -1836,7 +1963,7 @@ function CouponsPage() {
           </div>
         )}
         {coupons.map((c: any, i: number) => {
-          const discount = c.type === 'percent' ? `${c.value}%` : `${c.value}₽`;
+          const discount = c.type === 'percent' ? `${c.value}%` : `${usePrice()(c.value)}`;
           const isExpired = c.expires_at && new Date(c.expires_at) < new Date();
           return (
             <div key={c.id || i} className={`bg-gradient-to-br ${gradientColors[i % gradientColors.length]} rounded-2xl p-5 relative overflow-hidden ${isExpired ? 'opacity-50' : ''}`}>
@@ -1847,7 +1974,7 @@ function CouponsPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-extrabold text-white">{c.code}</h3>
-                  <p className="text-white/70 text-xs mt-0.5">{c.min_order ? `Мин. заказ ${c.min_order}₽` : 'Без мин. заказа'}</p>
+                  <p className="text-white/70 text-xs mt-0.5">{c.min_order ? `Мин. заказ ${usePrice()(c.min_order)}` : 'Без мин. заказа'}</p>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-lg">{c.code}</span>
                     <span className="text-white font-bold">{discount}</span>
@@ -1931,14 +2058,55 @@ function MiniGamePage() {
 
 function SettingsPage() {
   const { setGuestPage } = useApp();
+  const [saved, setSaved] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [settings, setSettings] = useState<UserSettings>(() => {
-    try { return JSON.parse(localStorage.getItem('foodchain_settings') || '{}'); } catch { return { name: '', phone: '', email: '', birthday: '', avatar: '', notificationsEnabled: true, smsEnabled: false }; }
+    try {
+      const guest = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+      const phone = guest.phone || '';
+      const savedSettings = phone ? localStorage.getItem('foodchain_settings_' + phone) : null;
+      if (savedSettings) return { ...JSON.parse(savedSettings) };
+      return { name: guest.name || '', phone: guest.phone || '', email: guest.email || '', birthday: guest.birthday || '', avatar: guest.avatar || '', notificationsEnabled: true, smsEnabled: false };
+    } catch { return { name: '', phone: '', email: '', birthday: '', avatar: '', notificationsEnabled: true, smsEnabled: false }; }
   });
 
+  useEffect(() => {
+    api.getMe().then(res => {
+      if (res.user) {
+        setSettings(prev => ({
+          ...prev,
+          name: res.user.name || prev.name,
+          phone: res.user.phone || prev.phone,
+          email: res.user.email || prev.email,
+          birthday: res.user.birthday || prev.birthday,
+        }));
+        const guest = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+        Object.assign(guest, res.user);
+        sessionStorage.setItem('foodchain_guest_user', JSON.stringify(guest));
+      }
+    }).catch(() => {}).finally(() => setLoadingProfile(false));
+  }, []);
+
   const update = (key: keyof UserSettings, value: any) => {
-    const updated = { ...settings, [key]: value };
-    setSettings(updated);
-    localStorage.setItem('foodchain_settings', JSON.stringify(updated));
+    setSettings(prev => ({ ...prev, [key]: value }));
+    setSaved(false);
+  };
+
+  const handleSave = () => {
+    try {
+      const phone = settings.phone;
+      if (phone) {
+        localStorage.setItem('foodchain_settings_' + phone, JSON.stringify(settings));
+      }
+      try {
+        const guest = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+        Object.assign(guest, settings);
+        sessionStorage.setItem('foodchain_guest_user', JSON.stringify(guest));
+      } catch {}
+      api.updateProfile({ name: settings.name, email: settings.email, birthday: settings.birthday }).catch(() => {});
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
   };
 
   return (
@@ -1979,6 +2147,9 @@ function SettingsPage() {
             </button>
           </div>
         </div>
+        <button onClick={handleSave} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl text-sm transition-all active:scale-[0.98] shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+          {saved ? '✓ Сохранено' : 'Сохранить'}
+        </button>
       </div>
     </div>
   );
@@ -2015,7 +2186,7 @@ function OrderChecklistPage() {
               </div>
               <div>
                 <h3 className="font-bold text-white">Заказ #{latestOrder.id}</h3>
-                <p className="text-xs text-zinc-500">{latestOrder.total}₽ • {latestOrder.address || 'Самовынос'}</p>
+                <p className="text-xs text-zinc-500">{usePrice()(latestOrder.total)} • {latestOrder.address || 'Самовынос'}</p>
               </div>
             </div>
             <div className="space-y-0">
@@ -2076,7 +2247,7 @@ function RepeatOrderPage() {
                 <span className="font-bold text-white">#{order.id}</span>
                 <span className="text-xs text-zinc-500">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</span>
               </div>
-              <span className="font-bold text-white">{order.total}₽</span>
+              <span className="font-bold text-white">{usePrice()(order.total)}</span>
             </div>
             <div className="flex flex-wrap gap-1.5 mb-3">
               {order.items.map((item, i) => (
@@ -2190,7 +2361,7 @@ function OrderTrackingPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
     if (user.phone) {
       api.getOrdersTrack(user.phone).then(data => {
         if (cancelled) return;
@@ -2201,7 +2372,7 @@ function OrderTrackingPage() {
       setLoaded(true);
     }
     const interval = setInterval(() => {
-      const u = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+      const u = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
       if (u.phone) api.getOrdersTrack(u.phone).then(data => setOrdersIfChanged(data)).catch(() => {});
     }, 3000);
     const unsub = api.onEvent('order:update', (o: any) => {
@@ -2226,21 +2397,42 @@ function OrderTrackingPage() {
     }
   }, [order?.id]);
 
-  // WebSocket for real-time courier location
+  // WebSocket for real-time courier location with auto-reconnect
   useEffect(() => {
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
-    const wsUrl = apiBase.replace(/^http/, 'ws');
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'courier:location' && order?.courierId && data.courierId === order.courierId) {
-          setTracking((prev: any) => prev ? { ...prev, courierLocation: { lat: data.latitude, lng: data.longitude, updatedAt: data.updatedAt } } : prev);
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const connect = () => {
+      const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+      const wsUrl = apiBase.replace(/^http/, 'ws');
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        if (cancelled) { ws?.close(); return; }
+      };
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'courier:location' && order?.courierId && data.courierId === order.courierId) {
+            setTracking((prev: any) => prev ? { ...prev, courierLocation: { lat: data.latitude, lng: data.longitude, updatedAt: data.updatedAt } } : prev);
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 3000);
         }
-      } catch {}
+      };
+      ws.onerror = () => { ws?.close(); };
     };
-    return () => { ws.close(); };
+
+    connect();
+    return () => {
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      ws?.close();
+    };
   }, [order?.courierId]);
 
   const handleOpenChat = () => {
@@ -2307,7 +2499,7 @@ function OrderTrackingPage() {
               <p className="text-[10px] text-zinc-500 mt-0.5">{new Date(order.createdAt || order.created_at).toLocaleString('ru', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-orange-500">{order.total?.toLocaleString()}₽</p>
+              <p className="text-2xl font-bold text-orange-500">{usePrice()(order.total)}</p>
               <p className="text-[10px] text-zinc-500 mt-0.5">{order.isPaid ? 'Оплачено' : 'Ожидает оплаты'}</p>
             </div>
           </div>
@@ -2330,11 +2522,11 @@ function OrderTrackingPage() {
             {order.items?.map((item: any, i: number) => (
               <div key={i} className="flex justify-between items-center py-1 text-sm">
                 <span className="text-zinc-300">{item.name} <span className="text-zinc-500">×{item.quantity}</span></span>
-                <span className="text-zinc-100 font-medium">{(item.price * item.quantity).toLocaleString()}₽</span>
+                <span className="text-zinc-100 font-medium">{usePrice()(item.price * item.quantity)}</span>
               </div>
             ))}
             <div className="border-t border-zinc-700 mt-2 pt-2 flex justify-between text-white font-bold">
-              <span>Итого</span><span className="text-orange-500">{order.total?.toLocaleString()}₽</span>
+              <span>Итого</span><span className="text-orange-500">{usePrice()(order.total)}</span>
             </div>
           </div>
 
@@ -2478,7 +2670,7 @@ function OrderTrackingPage() {
           {order.status === 'delivered' && (
             <>
               <button onClick={() => {
-                const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+                const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
                 setGuestPage('reviews');
               }}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-2xl text-sm transition-all active:scale-[0.98] shadow-lg shadow-orange-500/20">
@@ -2525,7 +2717,7 @@ function CourierChatPage() {
     const orderId = Number(localStorage.getItem('cgchat_order_id') || '0');
     if (!orderId) return;
     let cancelled = false;
-    const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
     const senderPhone = user.phone || '';
     const senderName = user.name || 'Гость';
 
@@ -2540,30 +2732,48 @@ function CourierChatPage() {
           setChatClosed(chat.status === 'closed');
           const msgs = await api.getCourierGuestChatMessages(chat.id);
           if (!cancelled) setMessages(msgs);
-        } else {
-          return;
         }
       } catch (e) { console.error('CG chat init error', e); }
     })();
 
-    const WS_URL = localStorage.getItem('foodchain_api_url')?.replace('http', 'ws')?.replace('/api', '') || 'ws://localhost:4000';
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-    ws.onopen = () => {
-      if (chatIdRef.current) {
-        ws.send(JSON.stringify({ type: 'subscribe:chat', chatId: chatIdRef.current }));
-      }
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    const connect = () => {
+      const WS_URL = localStorage.getItem('foodchain_api_url')?.replace('http', 'ws')?.replace('/api', '') || 'ws://localhost:4000';
+      ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        if (cancelled) { ws?.close(); return; }
+        if (chatIdRef.current && ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'subscribe:chat', chatId: chatIdRef.current }));
+        }
+      };
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'cg-chat:message' && data.chatId === chatIdRef.current) {
+            setMessages(prev => prev.some(x => x.id === data.message.id) ? prev : [...prev, data.message]);
+          }
+          if (data.type === 'cg-chat:closed' && data.data?.id === chatIdRef.current) {
+            setChatClosed(true);
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+      ws.onerror = () => { ws?.close(); };
     };
-    ws.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      if (data.type === 'cg-chat:message' && data.chatId === chatIdRef.current) {
-        setMessages(prev => prev.some(x => x.id === data.message.id) ? prev : [...prev, data.message]);
-      }
-      if (data.type === 'cg-chat:closed' && data.data?.id === chatIdRef.current) {
-        setChatClosed(true);
-      }
+
+    connect();
+    return () => {
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      ws?.close();
     };
-    return () => { cancelled = true; ws.close(); };
   }, []);
 
   const sendMessage = async () => {
@@ -2582,7 +2792,7 @@ function CourierChatPage() {
         const d = await res.json();
         fileUrl = d.url;
       }
-      const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+      const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
       const saved = await api.sendCourierGuestChatMessage(chatId, {
         sender_id: 0, sender_type: 'guest', sender_name: user.name || 'Гость',
         message: t, file_url: fileUrl,
@@ -2597,7 +2807,7 @@ function CourierChatPage() {
       setSending(true);
       try {
         const locData = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const user = JSON.parse(localStorage.getItem('foodchain_guest_user') || '{}');
+        const user = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
         const saved = await api.sendCourierGuestChatMessage(chatId, {
           sender_id: 0, sender_type: 'guest', sender_name: user.name || 'Гость',
           message: '', file_url: '', message_type: 'location', location_data: locData,

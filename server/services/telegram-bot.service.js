@@ -44,10 +44,6 @@ function startBot(db, settings, tenantId) {
   if (!settings.token) return;
   try {
     bot = new TelegramBotCtor(settings.token, { polling: true });
-    const appUrl = settings.webapp_url || 'http://localhost:4000/tg-app';
-    if (appUrl.startsWith('https://')) {
-      bot.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Меню', web_app: { url: appUrl } } }).catch(() => {});
-    }
 
     bot.setMyCommands([
       { command: '/start', description: 'Приветствие' },
@@ -58,6 +54,7 @@ function startBot(db, settings, tenantId) {
       { command: '/promo', description: 'Акции и скидки' },
       { command: '/feedback', description: 'Оставить отзыв' },
       { command: '/contacts', description: 'Контакты' },
+      { command: '/linkphone', description: 'Привязать номер для SMS-кодов' },
     ]).catch(() => {});
 
     bot.onText(/\/start/, (msg) => {
@@ -135,6 +132,10 @@ function startBot(db, settings, tenantId) {
       bot.sendMessage(msg.chat.id, contacts, { parse_mode: 'Markdown' });
     });
 
+    bot.onText(/\/linkphone/, (msg) => {
+      bot.sendMessage(msg.chat.id, 'Введите номер телефона в формате +79991234567 для привязки к вашему Telegram-аккаунту:', { reply_markup: { force_reply: true } });
+    });
+
     bot.on('message', async (msg) => {
       trackUser(db, msg);
       // Handle Web App data (order from Mini App)
@@ -163,6 +164,8 @@ function startBot(db, settings, tenantId) {
             handleReviewOrderCheck(db, bot, msg, tenantId);
           } else if (replyText === 'Напишите текст отзыва:') {
             handleReviewText(db, bot, msg);
+          } else if (replyText.startsWith('Введите номер телефона в формате')) {
+            handleLinkPhone(db, bot, msg);
           }
         }
       }
@@ -304,6 +307,20 @@ async function handleReviewText(db, bot, msg) {
   delete reviewState[chatId];
 }
 
+function handleLinkPhone(db, bot, msg) {
+  const phone = msg.text.trim();
+  if (!/^\+[1-9]\d{6,14}$/.test(phone)) {
+    return bot.sendMessage(msg.chat.id, '❌ Неверный формат. Используйте +79991234567');
+  }
+  try {
+    db.prepare('UPDATE telegram_bot_users SET phone = ? WHERE chat_id = ?').run(phone, msg.chat.id);
+    bot.sendMessage(msg.chat.id, `✅ Номер ${phone} привязан!\n\nТеперь при входе в приложение код подтверждения будет отправлен вам в Telegram.`);
+  } catch (e) {
+    bot.sendMessage(msg.chat.id, '❌ Ошибка привязки номера');
+    console.error('[TelegramBot] linkphone error:', e.message);
+  }
+}
+
 async function notifyOrderStatus(bot, db, orderId, status) {
   try {
     const subscribers = db.prepare('SELECT chat_id FROM telegram_order_subscriptions WHERE order_id = ?').all(orderId);
@@ -331,6 +348,14 @@ function startIfConfigured(db, tenantId = 1) {
   const settings = getSettings(db, tenantId);
   if (settings.enabled && settings.token) {
     startBot(db, settings, tenantId);
+    return;
+  }
+
+  const envToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (envToken) {
+    const envSettings = { enabled: true, token: envToken, welcome_message: settings.welcome_message || '' };
+    saveSettings(db, envSettings, tenantId);
+    startBot(db, envSettings, tenantId);
   }
 }
 

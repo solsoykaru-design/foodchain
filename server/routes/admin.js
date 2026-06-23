@@ -188,7 +188,7 @@ app.get('/api/admin/supplier-portal/users', (req, res) => {
     const { supplier_id } = req.query;
     let sql = 'SELECT spu.*, s.name as supplier_name FROM supplier_portal_users spu LEFT JOIN suppliers s ON s.id = spu.supplier_id WHERE spu.tenant_id = current_tenant_id()';
     const params = [];
-    if (supplier_id) { sql += ' WHERE spu.supplier_id = ?'; params.push(supplier_id); }
+    if (supplier_id) { sql += ' AND spu.supplier_id = ?'; params.push(supplier_id); }
     sql += ' ORDER BY spu.created_at DESC';
     const users = db.prepare(sql).all(...params);
     res.json(users.map(u => ({ ...u, permissions: JSON.parse(u.permissions || '{}') })));

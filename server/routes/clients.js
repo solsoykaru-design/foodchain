@@ -175,9 +175,8 @@ app.get('/api/reviews/all', (req, res) => {
       FROM reviews r
       LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN orders o ON r.order_id = o.id
-      WHERE 1=1`;
+      WHERE r.tenant_id = current_tenant_id()`;
     const params = [];
-    if (tenant_id) { sql += ' AND r.tenant_id = ?'; params.push(Number(tenant_id)); }
     sql += ' ORDER BY r.created_at DESC';
     const reviews = db.prepare(sql).all(...params);
     const result = reviews.map(r => {

@@ -3,6 +3,7 @@ import { Search, X, Plus, Minus, ShoppingCart, Trash2, Camera } from 'lucide-rea
 import type { Dish, MenuCategory } from '../../types';
 import BarcodeScanner from '../../admin/BarcodeScanner';
 import * as api from '../../api';
+import { usePrice } from '../../PriceContext';
 
 interface CartItem {
   dish: Dish;
@@ -133,7 +134,7 @@ export default function MenuGrid({
               <div className="font-semibold text-sm text-white truncate">{dish.name}</div>
               <div className="text-xs text-zinc-500 mt-0.5 truncate">{dish.description}</div>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm font-extrabold text-orange-500">{dish.price}₽</span>
+                <span className="text-sm font-extrabold text-orange-500">{usePrice()(dish.price)}</span>
                 {dish.weight > 0 && <span className="text-[10px] text-zinc-600">{dish.weight}г</span>}
                 {dish.calories > 0 && <span className="text-[10px] text-zinc-600">{dish.calories}ккал</span>}
               </div>
@@ -213,7 +214,7 @@ export default function MenuGrid({
                             className="w-4 h-4 accent-orange-500" />
                           <span className="text-sm text-zinc-300">{opt.name}</span>
                         </div>
-                        {opt.price > 0 && <span className="text-xs text-orange-500">+{opt.price}₽</span>}
+                        {opt.price > 0 && <span className="text-xs text-orange-500">+{usePrice()(opt.price)}</span>}
                       </label>
                     ))}
                   </div>
@@ -236,7 +237,7 @@ export default function MenuGrid({
                   <button onClick={() => setDishQty(dishQty + 1)} className="p-1 text-zinc-400"><Plus size={16} /></button>
                 </div>
                 <button onClick={addToCart} className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm">
-                  Добавить {dishQty > 1 ? `(${dishQty} шт)` : ''} — {((dishModal.price + (dishModal.customizations?.reduce((s, c) => s + (c.options?.filter(o => dishModifiers.includes(o.name))?.reduce((ss, o) => ss + o.price, 0) || 0), 0) || 0)) * dishQty)}₽
+                  Добавить {dishQty > 1 ? `(${dishQty} шт)` : ''} — {usePrice()(((dishModal.price + (dishModal.customizations?.reduce((s, c) => s + (c.options?.filter(o => dishModifiers.includes(o.name))?.reduce((ss, o) => ss + o.price, 0) || 0), 0) || 0)) * dishQty))}
                 </button>
               </div>
             </div>
@@ -269,7 +270,7 @@ export default function MenuGrid({
                 <div key={idx} className="bg-zinc-800/50 rounded-xl p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-semibold text-sm text-white">{item.dish.name}</span>
-                    <span className="text-sm font-extrabold text-orange-500">{item.totalPrice}₽</span>
+                    <span className="text-sm font-extrabold text-orange-500">{usePrice()(item.totalPrice)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-zinc-500">
                     <span>×{item.quantity}</span>
@@ -336,19 +337,19 @@ export default function MenuGrid({
             {/* Totals */}
             <div className="px-5 pb-5 space-y-1 border-t border-zinc-800 pt-4">
               <div className="flex justify-between text-sm text-zinc-400">
-                <span>Сумма</span><span>{subtotal}₽</span>
+                <span>Сумма</span><span>{usePrice()(subtotal)}</span>
               </div>
               {discountValue > 0 && (
                 <div className="flex justify-between text-sm text-green-400">
-                  <span>Скидка</span><span>-{discountAmount}₽</span>
+                  <span>Скидка</span><span>-{usePrice()(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-extrabold text-white pt-1">
-                <span>Итого</span><span>{total}₽</span>
+                <span>Итого</span><span>{usePrice()(total)}</span>
               </div>
               <button onClick={handleSend}
                 className="w-full mt-3 bg-orange-500 text-white font-bold py-3.5 rounded-xl text-sm active:scale-[0.99]">
-                Отправить на кухню ({total}₽)
+                Отправить на кухню ({usePrice()(total)})
               </button>
               <button onClick={() => setCart([])}
                 className="w-full mt-2 bg-zinc-800 text-zinc-400 font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1">

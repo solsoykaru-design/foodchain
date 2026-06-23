@@ -95,13 +95,18 @@ function serveFromCacheOrThrow(path: string, fallbackMsg: string) {
   throw new OfflineError(fallbackMsg);
 }
 
+const REQUEST_TIMEOUT = 10000;
+
 export async function request(path: string, options?: RequestInit) {
   const token = localStorage.getItem('fc_token');
   const authHeaders: Record<string, string> = {};
   if (token) authHeaders['Authorization'] = `Bearer ${token}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...authHeaders, ...options?.headers },
     });
     if (res.status === 503) {
@@ -113,18 +118,23 @@ export async function request(path: string, options?: RequestInit) {
         return serveFromCacheOrThrow(path, body.error || 'Нет подключения к интернету');
       }
     }
+    clearTimeout(timeoutId);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'API Error');
     }
     return res.json();
   } catch (err) {
+    clearTimeout(timeoutId);
     if (err instanceof OfflineError) throw err;
     if (err instanceof TypeError && err.message.includes('fetch')) {
       if (options?.method && options.method !== 'GET') {
         return await enqueueAndReturn(path, options);
       }
       return serveFromCacheOrThrow(path, 'Нет подключения к интернету');
+    }
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Таймаут запроса');
     }
     throw err;
   }
@@ -143,6 +153,32 @@ export function put(path: string, body?: any) { return request(path, { method: '
 export function del(path: string) { return request(path, { method: 'DELETE' }); }
 
 // Auth
+export async function requestCode(phone: string): Promise<{ success: boolean; message: string }> {
+  return request('/api/auth/request-code', { method: 'POST', body: JSON.stringify({ phone }) });
+}
+
+export async function verifyCode(phone: string, code: string): Promise<{ success: boolean; message: string }> {
+  return request('/api/auth/verify-code', { method: 'POST', body: JSON.stringify({ phone, code }) });
+}
+
+export async function phoneLogin(phone: string, name?: string): Promise<{ token: string; user: any }> {
+  const body: any = { phone };
+  if (name) body.name = name;
+  const data = await request('/api/auth/phone-login', { method: 'POST', body: JSON.stringify(body) });
+  if (data.token) {
+    localStorage.setItem('fc_token', data.token);
+  }
+  return data;
+}
+
+export async function getMe(): Promise<{ user: any }> {
+  return request('/api/auth/me');
+}
+
+export async function updateProfile(data: { name?: string; email?: string; birthday?: string }): Promise<{ user: any }> {
+  return request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) });
+}
+
 export async function login(phone: string, password?: string, role?: string) {
   const body: any = { phone, role };
   if (password) body.password = password;
@@ -208,7 +244,7 @@ export async function createOrder(data: {
   user_id: number; user_name: string; user_phone: string;
   address?: string; items: any[]; total: number;
   payment_method?: string; type?: string; comment?: string;
-  bonus_used?: number;
+  bonus_used?: number; promo_code?: string;
 }): Promise<Order> {
   return request('/api/orders', { method: 'POST', body: JSON.stringify(data) });
 }

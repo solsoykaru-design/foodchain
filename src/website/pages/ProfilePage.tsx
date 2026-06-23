@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Phone, Mail, MapPin, Gift, LogOut, ChevronRight, Package, Star, Clock } from 'lucide-react';
 import { useWebsite } from '../WebsiteApp';
 import * as api from '../../api';
+import { usePrice } from '../../PriceContext';
 
 export default function ProfilePage() {
   const ctx = useWebsite();
@@ -71,7 +72,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/80 text-sm">Бонусный баланс</p>
-              <p className="text-3xl font-bold">{bonusInfo.bonusBalance || 0} ₽</p>
+              <p className="text-3xl font-bold">{usePrice()(bonusInfo.bonusBalance || 0)}</p>
             </div>
             <Gift size={32} className="text-white/40" />
           </div>
@@ -115,7 +116,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">{order.total} ₽</p>
+                  <p className="font-medium">{usePrice()(order.total)}</p>
                   <p className={`text-xs ${order.status === 'delivered' ? 'text-green-600' : 'text-orange-500'}`}>
                     {order.status === 'delivered' ? 'Выполнен' : order.status === 'cancelled' ? 'Отменён' : 'В обработке'}
                   </p>

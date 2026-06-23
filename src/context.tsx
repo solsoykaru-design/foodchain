@@ -3,6 +3,7 @@ import { CartItem, Dish, GuestPage, AdminPage, UserRole, Order, Booking, Table, 
 // Fake data removed — all data loaded from API
 import { useLowStockNotification } from './useLowStockNotification';
 import { changeLanguage } from './i18n';
+import { setCurrency as setCurrencyGlobal } from './currency';
 
 function applyFontSize(size: 'small' | 'medium' | 'large') {
   const sizes = { small: '14px', medium: '16px', large: '18px' };
@@ -64,7 +65,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [guestPage, setGuestPage] = useState<GuestPage>('home');
   const [adminPage, setAdminPage] = useState<AdminPage>('dashboard');
   const [selectedBranch, setSelectedBranch] = useState(1);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('foodchain_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [promoCode, setPromoCode] = useState('');
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [favorites, setFavorites] = useState<number[]>(() => loadLS('favorites', []));
@@ -76,7 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuCategoryId, setMenuCategoryId] = useState(0);
   const [preferredCurrency, setPreferredCurrencyState] = useState(() => { try { return JSON.parse(localStorage.getItem('foodchain_currency') || '"RUB"'); } catch { return 'RUB'; } });
-  const setPreferredCurrency = useCallback((c: string) => { setPreferredCurrencyState(c); try { localStorage.setItem('foodchain_currency', JSON.stringify(c)); } catch {}; }, []);
+  const setPreferredCurrency = useCallback((c: string) => { setPreferredCurrencyState(c); setCurrencyGlobal(c); }, []);
   const [bonusBalance, setBonusBalance] = useState(() => {
     try {
       const stored = localStorage.getItem('foodchain_bonusBalance');
@@ -114,8 +124,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { try { localStorage.setItem('foodchain_bookings', JSON.stringify(bookingsState)); } catch {} }, [bookingsState]);
   useEffect(() => { try { localStorage.setItem('foodchain_reviews', JSON.stringify(reviewsState)); } catch {} }, [reviewsState]);
   useEffect(() => { try { localStorage.setItem('foodchain_bonusBalance', String(bonusBalance)); } catch {} }, [bonusBalance]);
+  useEffect(() => { try { localStorage.setItem('foodchain_cart', JSON.stringify(cart)); } catch {} }, [cart]);
+  useEffect(() => { try { localStorage.setItem('foodchain_favorites', JSON.stringify(favorites)); } catch {} }, [favorites]);
   useEffect(() => { try { localStorage.setItem('foodchain_notifications', JSON.stringify(notifications)); } catch {} }, [notifications]);
   useEffect(() => { try { localStorage.setItem('foodchain_purchaseOrders', JSON.stringify(purchaseOrdersState)); } catch {} }, [purchaseOrdersState]);
+
+  // Initialize preferredCurrency from tenant settings
+  useEffect(() => {
+    import('./api').then(mod => {
+      mod.getTenantSettings().then(s => {
+        if (s?.base_currency) {
+          setPreferredCurrency(s.base_currency);
+        }
+      }).catch(() => {});
+    });
+  }, []);
   useEffect(() => { try { localStorage.setItem('foodchain_suppliers', JSON.stringify(suppliersState)); } catch {} }, [suppliersState]);
   useEffect(() => { try { localStorage.setItem('foodchain_pickupPoints', JSON.stringify(pickupPointsState)); } catch {} }, [pickupPointsState]);
   useEffect(() => { try { localStorage.setItem('foodchain_pickupPointReviews', JSON.stringify(pickupPointReviewsState)); } catch {} }, [pickupPointReviewsState]);
@@ -162,10 +185,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => setCart([]), []);
   const cartTotal = cart.reduce((sum, i) => sum + i.totalPrice, 0);
 
-  const applyPromo = useCallback(() => {
-    if (promoCode.toUpperCase() === 'FIRST100') setPromoDiscount(100);
-    else if (promoCode.toUpperCase() === 'PIZZA20') setPromoDiscount(Math.round(cartTotal * 0.2));
-    else setPromoDiscount(0);
+  const applyPromo = useCallback(async () => {
+    if (!promoCode.trim()) { setPromoDiscount(0); return; }
+    try {
+      const codes = await api.get('/api/promocodes');
+      const found = (Array.isArray(codes) ? codes : []).find((c: any) => c.code === promoCode.trim().toUpperCase() && c.isActive !== false);
+      if (found) {
+        if (found.expires_at && new Date(found.expires_at) < new Date()) {
+          setPromoDiscount(0);
+          return;
+        }
+        if (found.min_order && cartTotal < found.min_order) {
+          setPromoDiscount(0);
+          return;
+        }
+        if (found.type === 'percent') {
+          setPromoDiscount(Math.round(cartTotal * (found.value / 100)));
+        } else {
+          setPromoDiscount(found.value);
+        }
+      } else {
+        setPromoDiscount(0);
+      }
+    } catch {
+      setPromoDiscount(0);
+    }
   }, [promoCode, cartTotal]);
 
   const toggleFavorite = useCallback((dishId: number) => setFavorites(prev => prev.includes(dishId) ? prev.filter(id => id !== dishId) : [...prev, dishId]), []);
@@ -199,9 +243,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const rejectReview = useCallback((id: number) => setReviews(prev => prev.map(r => r.id === id ? { ...r, isModerated: true, isVisible: false } : r)), []);
   const replyReview = useCallback((id: number, reply: string) => setReviews(prev => prev.map(r => r.id === id ? { ...r, reply } : r)), []);
 
-  const registerUser = useCallback((name: string, phone: string, source: RegisteredUser['source']) => {
-    const newUser: RegisteredUser = { id: Date.now() % 100000, name, phone, email: `${name.toLowerCase().split(' ')[0]}@mail.ru`, birthday: '1990-01-01', registeredAt: new Date().toISOString(), source, bonusBalance: 0, totalSpent: 0, visitsCount: 1, lastVisitAt: new Date().toISOString(), loyaltyLevel: 'новичок' };
-    setRegisteredUsers(prev => [newUser, ...prev]);
+  const registerUser = useCallback((name: string, phone: string, source: RegisteredUser['source'], existing?: { id: number; bonusBalance?: number; totalSpent?: number; visitsCount?: number; loyaltyLevel?: string; createdAt?: string }) => {
+    if (existing) {
+      setRegisteredUsers(prev => {
+        const found = prev.find(u => u.phone === phone);
+        if (found) return prev;
+        const user: RegisteredUser = { id: existing.id, name, phone, email: `${name.toLowerCase().split(' ')[0]}@mail.ru`, birthday: '1990-01-01', registeredAt: existing.createdAt || new Date().toISOString(), source, bonusBalance: existing.bonusBalance || 0, totalSpent: existing.totalSpent || 0, visitsCount: existing.visitsCount || 1, lastVisitAt: new Date().toISOString(), loyaltyLevel: (existing.loyaltyLevel as RegisteredUser['loyaltyLevel']) || 'новичок' };
+        return [user, ...prev];
+      });
+    } else {
+      const newUser: RegisteredUser = { id: Date.now() % 100000, name, phone, email: `${name.toLowerCase().split(' ')[0]}@mail.ru`, birthday: '1990-01-01', registeredAt: new Date().toISOString(), source, bonusBalance: 0, totalSpent: 0, visitsCount: 1, lastVisitAt: new Date().toISOString(), loyaltyLevel: 'новичок' };
+      setRegisteredUsers(prev => [newUser, ...prev]);
+    }
   }, []);
 
   const getNewCustomersCount = useCallback((dateFrom: string, dateTo: string) => registeredUsers.filter(u => u.registeredAt.slice(0, 10) >= dateFrom && u.registeredAt.slice(0, 10) <= dateTo).length, [registeredUsers]);

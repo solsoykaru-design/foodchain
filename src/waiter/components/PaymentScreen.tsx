@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Wallet, CreditCard, QrCode, Gift, Printer, Check, X, SplitSquareHorizontal, Loader, Users, Plus, Minus, Trash2 } from 'lucide-react';
 import * as api from '../../api';
 import type { DineInCheck, Order } from '../../types';
+import { usePrice } from '../../PriceContext';
 
 interface Props {
   checks: DineInCheck[];
@@ -113,7 +114,7 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
                     <span className="font-bold text-white">{check.tableName}</span>
                     <p className="text-xs text-zinc-500">{check.guestCount} гостя</p>
                   </div>
-                  <span className="text-xl font-extrabold text-orange-500">{check.total}₽</span>
+                  <span className="text-xl font-extrabold text-orange-500">{usePrice()(check.total)}</span>
                 </div>
                 <button className="w-full bg-blue-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2">
                   <CreditCard size={18} /> Принять оплату
@@ -134,7 +135,7 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
             <Check size={40} className="text-green-400" />
           </div>
           <h2 className="text-xl font-extrabold text-white mb-2">Оплата принята</h2>
-          <p className="text-zinc-400 mb-8">{selectedCheck.tableName} · {selectedCheck.total}₽</p>
+          <p className="text-zinc-400 mb-8">{selectedCheck.tableName} · {usePrice()(selectedCheck.total)}</p>
           <div className="flex flex-col gap-3 max-w-xs mx-auto">
             <button onClick={handlePrintReceipt}
               className="w-full bg-zinc-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2">
@@ -158,12 +159,12 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
       {selectedCheck.orders?.flatMap(o => o.items || []).map((item, i) => (
         <div key={i} className="flex justify-between mb-1">
           <span>{item.name} × {item.quantity}</span>
-          <span>{item.price * item.quantity}₽</span>
+          <span>{usePrice()(item.price * item.quantity)}</span>
         </div>
       ))}
       <div className="border-t border-dashed border-black my-2" />
       <div className="flex justify-between font-bold">
-        <span>ИТОГО</span><span>{selectedCheck.total}₽</span>
+        <span>ИТОГО</span><span>{usePrice()(selectedCheck.total)}</span>
       </div>
       <div className="text-center mt-3">Время: {new Date().toLocaleString('ru')}</div>
       <div className="text-center">Заказ: #{selectedCheck.id}</div>
@@ -185,7 +186,7 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
           <span className="text-zinc-400">{selectedCheck.tableName}</span>
           <span className="text-zinc-500 text-xs">{selectedCheck.guestCount} гостя</span>
         </div>
-        <div className="text-4xl font-extrabold text-orange-500 mb-4">{selectedCheck.total}₽</div>
+        <div className="text-4xl font-extrabold text-orange-500 mb-4">{usePrice()(selectedCheck.total)}</div>
 
         {/* Receipt preview */}
         {renderReceiptPreview()}
@@ -214,7 +215,7 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
             <input type="number" value={cashGiven || ''} onChange={e => setCashGiven(Number(e.target.value))}
               className="w-full bg-zinc-800 rounded-xl px-4 py-3 text-lg font-extrabold text-white outline-none" placeholder="0" />
             {cashGiven >= selectedCheck.total && (
-              <p className="text-green-400 text-sm font-bold mt-1">Сдача: {change.toFixed(0)}₽</p>
+              <p className="text-green-400 text-sm font-bold mt-1">Сдача: {usePrice()(change)}</p>
             )}
           </div>
         )}
@@ -257,7 +258,7 @@ export default function PaymentScreen({ checks, onRefresh, onClose }: Props) {
         <button onClick={handlePayment}
           disabled={(paymentMethod === 'cash' && cashGiven < selectedCheck.total) || (paymentMethod === 'terminal' && terminalPaying)}
           className="w-full bg-green-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-          {paymentMethod === 'terminal' ? (terminalPaying ? 'Оплата...' : 'Оплатить через терминал') : `Оплатить ${selectedCheck.total}₽`}
+          {paymentMethod === 'terminal' ? (terminalPaying ? 'Оплата...' : 'Оплатить через терминал') : `Оплатить ${usePrice()(selectedCheck.total)}`}
         </button>
       </div>
     </div>
@@ -360,7 +361,7 @@ function SplitBillModal({ check, onClose, onSplit }: { check: DineInCheck; onClo
                   <div className="flex items-center justify-between mb-2">
                     <input value={g.name} onChange={e => setGuests(prev => prev.map(gg => gg.id === g.id ? { ...gg, name: e.target.value } : gg))} className="bg-transparent text-sm font-semibold text-white outline-none border-b border-zinc-600 pb-0.5" />
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-extrabold text-orange-500">{g.total}₽</span>
+                      <span className="text-sm font-extrabold text-orange-500">{usePrice()(g.total)}</span>
                       <button onClick={() => removeGuest(g.id)} className="p-1 text-zinc-500 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </div>
@@ -372,7 +373,7 @@ function SplitBillModal({ check, onClose, onSplit }: { check: DineInCheck; onClo
                         <div key={i} className="flex items-center justify-between text-xs">
                           <span className="text-zinc-300">{item.name} × {item.quantity}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-zinc-400">{item.price * item.quantity}₽</span>
+                            <span className="text-zinc-400">{usePrice()(item.price * item.quantity)}</span>
                             <button onClick={() => removeAssignedItem(g.id, item.dishId)} className="text-zinc-600 hover:text-red-500"><X size={12} /></button>
                           </div>
                         </div>
@@ -389,7 +390,7 @@ function SplitBillModal({ check, onClose, onSplit }: { check: DineInCheck; onClo
 
             <div className="flex items-center justify-between border-t border-zinc-800 pt-3 mb-4">
               <span className="text-sm text-zinc-400">Итого</span>
-              <span className="text-lg font-extrabold text-white">{grandTotal}₽</span>
+              <span className="text-lg font-extrabold text-white">{usePrice()(grandTotal)}</span>
             </div>
 
             <button onClick={async () => { await onSplit(guestTotals); setShow(false); }} disabled={guestTotals.some(g => g.items.length === 0)} className="w-full bg-green-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40">

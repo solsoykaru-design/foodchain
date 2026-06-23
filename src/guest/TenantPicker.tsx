@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Store, Search, MapPin, Navigation, Loader, Shield, LogIn, Star, Clock, RotateCcw } from 'lucide-react';
+import { Store, Search, MapPin, Navigation, Loader, Shield, LogIn, Star, Clock, RotateCcw, X } from 'lucide-react';
 import * as api from '../api';
 
-export default function TenantPicker({ onSelect }: { onSelect: () => void }) {
+export default function TenantPicker({ onSelect, onClose }: { onSelect: () => void; onClose?: () => void }) {
   const [tenants, setTenants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -127,8 +127,15 @@ export default function TenantPicker({ onSelect }: { onSelect: () => void }) {
   const displayList = search.length >= 2 ? searchResults : tenants;
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
-      <div className="flex-1 max-w-lg mx-auto w-full p-4">
+    <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col overflow-y-auto">
+      {onClose && (
+        <div className="sticky top-0 z-10 flex justify-end p-4">
+          <button onClick={onClose} className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+      )}
+      <div className="flex-1 max-w-lg mx-auto w-full p-4 pt-0">
         <div className="text-center my-8">
           <button onClick={handleLogoClick} className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Store size={32} className="text-white" />
