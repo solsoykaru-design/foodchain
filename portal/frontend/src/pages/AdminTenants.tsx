@@ -493,25 +493,6 @@ export function AdminTenants() {
               {/* TAB: Details */}
               {activeTab === 'details' && (
                 <div>
-                  {showEdit ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
-                          <label className="text-xs text-slate-400 block mb-1">Название</label>
-                          <input value={editForm.name ?? selectedTenant.name ?? ''} onChange={e => setEditForm(p => ({...p, name: e.target.value}))} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 block mb-1">ИНН</label>
-                          <input value={(editForm.inn ?? selectedTenant.inn) || ''} onChange={e => setEditForm(p => ({...p, inn: e.target.value}))} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 block mb-1">Название</label>
-                          <input value={editForm.name ?? selectedTenant.name ?? ''} onChange={e => setEditForm(p => ({...p, name: e.target.value}))} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
-                        </div>
-            <div className="p-4 sm:p-6">
-              {/* TAB: Details */}
-              {activeTab === 'details' && (
-                <div>
                   {showEdit ? (() => {
                     const fields = [
                       { cols: 'col-span-2', key: 'nickname', label: 'Ник (nickname) — для входа в админку' },
