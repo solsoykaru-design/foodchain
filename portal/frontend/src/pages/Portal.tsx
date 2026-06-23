@@ -10,19 +10,19 @@ import {
 } from 'lucide-react';
 
 const images = {
-  hero1: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&h=900&fit=crop',
-  hero2: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1600&h=900&fit=crop',
-  hero3: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1600&h=900&fit=crop',
-  hero4: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=1600&h=900&fit=crop',
-  chat1: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop',
-  chat2: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&h=600&fit=crop',
-  chat3: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&h=600&fit=crop',
-  app1: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop',
-  app2: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop',
-  app3: 'https://images.unsplash.com/photo-1605637367405-6bf1d0f38897?w=800&h=600&fit=crop',
-  app4: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=600&fit=crop',
-  app5: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop',
-  app6: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
+  hero1: { src: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1600&h=900&fit=crop', label: 'Интерьер ресторана', desc: 'Уютный зал с гостями' },
+  hero2: { src: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1600&h=900&fit=crop', label: 'Официант с планшетом', desc: 'Принимает заказ у стола' },
+  hero3: { src: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1600&h=900&fit=crop', label: 'Приготовление блюда', desc: 'Шеф-повар на кухне' },
+  hero4: { src: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=1600&h=900&fit=crop', label: 'Доставка', desc: 'Курьер с заказом' },
+  chat1: { src: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop', label: 'Гость заказывает через приложение' },
+  chat2: { src: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&h=600&fit=crop', label: 'Команда ресторана в работе' },
+  chat3: { src: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&h=600&fit=crop', label: 'Курьер с приложением на маршруте' },
+  app1: { src: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop', label: 'Смартфон с интерфейсом приложения' },
+  app2: { src: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop', label: 'Планшет официанта в зале' },
+  app3: { src: 'https://images.unsplash.com/photo-1605637367405-6bf1d0f38897?w=800&h=600&fit=crop', label: 'Курьер со смартфоном' },
+  app4: { src: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=800&h=600&fit=crop', label: 'Шеф-повар за работой' },
+  app5: { src: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop', label: 'Дашборд на ноутбуке' },
+  app6: { src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop', label: 'Современный интерьер с киоском' },
 };
 
 const features17 = [
@@ -173,10 +173,14 @@ export function Portal() {
 
       {/* HERO */}
       <section className="relative h-screen min-h-[600px] flex items-center">
-        {heroBg.map((src, i) => (
+          {heroBg.map((slide, i) => (
           <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === heroIdx ? 'opacity-100' : 'opacity-0'}`}>
-            <img src={src} alt="" className="w-full h-full object-cover" />
+            <img src={slide.src} alt={slide.label} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#0a1628]/95 via-[#0a1628]/80 to-[#0a1628]/60" />
+            <div className="absolute bottom-24 left-8 sm:left-12 bg-black/40 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/10">
+              <p className="text-xs font-medium text-white/90">{slide.label}</p>
+              <p className="text-[10px] text-white/50">{slide.desc}</p>
+            </div>
           </div>
         ))}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -291,7 +295,7 @@ export function Portal() {
             ].map((chat, i) => (
               <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-white/5 bg-white/[0.03] overflow-hidden hover:border-cyan-500/30 transition-all">
                 <div className="h-40 overflow-hidden">
-                  <img src={chat.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <img src={chat.img.src} alt={chat.img.label} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 </div>
                 <div className="p-6">
                   <div className="flex items-center gap-3 mb-3">
@@ -400,7 +404,7 @@ export function Portal() {
             ].map((app, i) => (
               <div key={i} className="reveal opacity-0 translate-y-8 transition-all duration-700 group rounded-2xl border border-white/5 bg-white/[0.03] overflow-hidden hover:border-cyan-500/30 hover:-translate-y-1 transition-all">
                 <div className="h-44 overflow-hidden">
-                  <img src={app.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <img src={app.img.src} alt={app.img.label} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 </div>
                 <div className="p-6">
                   <div className="flex items-center gap-3 mb-3">
