@@ -21,13 +21,13 @@ COPY index.html ./
 COPY src/ src/
 COPY public/ public/
 
-# Build all SPAs
-RUN npm run build:website
-RUN npm run build:guest
-RUN npm run build:courier
-RUN npm run build:admin
-RUN npm run build:waiter
-RUN npm run build:kitchen
+# Build all SPAs (use ENV because 'set' is Windows-only)
+RUN VITE_APP=website npm run build:website
+RUN VITE_APP=guest npm run build:guest
+RUN VITE_APP=courier npm run build:courier
+RUN VITE_APP=admin npm run build:admin
+RUN VITE_APP=waiter npm run build:waiter
+RUN VITE_APP=kitchen npm run build:kitchen
 
 # Build portal frontend
 COPY portal/frontend/ portal/frontend/
@@ -39,7 +39,6 @@ RUN apk add --no-cache tini
 
 # Copy node_modules (production only)
 COPY --from=builder /app/node_modules node_modules/
-COPY --from=builder /app/server/node_modules server/node_modules/
 COPY --from=builder /app/portal/backend/node_modules portal/backend/node_modules/
 
 # Copy server code
