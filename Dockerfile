@@ -19,7 +19,7 @@ RUN cd portal/backend && npm ci
 COPY vite.config.ts tsconfig*.json ./
 COPY index.html ./
 COPY src/ src/
-COPY public/ public/ 2>/dev/null || true
+COPY public/ public/
 
 # Build all SPAs
 RUN npm run build:website
