@@ -24,29 +24,29 @@ html {
 }
 
 body {
-  background: #0a1628;
-  color: #ffffff;
+  background: #ffffff;
+  color: #1a1a1a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(201, 168, 76, 0.3);
-  color: #fff;
+  background: rgba(22, 163, 74, 0.3);
+  color: #1a1a1a;
 }
 
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a1628;
+  background: #f5f5f5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1a2640;
+  background: #d4d4d4;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a3a5a;
+  background: #a3a3a3;
 }
 
 .font-serif {
