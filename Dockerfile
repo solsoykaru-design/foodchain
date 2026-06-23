@@ -12,6 +12,7 @@ COPY portal/frontend/package.json portal/frontend/
 
 # Install all dependencies
 RUN npm install
+RUN cd server && npm install
 RUN cd portal/frontend && npm install
 RUN cd portal/backend && npm install
 
@@ -39,6 +40,7 @@ RUN apk add --no-cache tini
 
 # Copy node_modules (production only)
 COPY --from=builder /app/node_modules node_modules/
+COPY --from=builder /app/server/node_modules server/node_modules/
 COPY --from=builder /app/portal/backend/node_modules portal/backend/node_modules/
 
 # Copy server code
