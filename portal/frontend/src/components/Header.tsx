@@ -29,14 +29,14 @@ export function Header() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-zinc-100">
+    <header className="sticky top-0 z-50 bg-[#0a192f]/95 backdrop-blur-xl border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition">
-              <span className="text-white font-bold text-sm">FC</span>
+            <div className="w-9 h-9 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition shadow-cyan-500/20">
+              <span className="text-white font-bold text-sm">F</span>
             </div>
-            <span className="font-bold text-xl text-zinc-900">FoodChain</span>
+            <span className="font-bold text-xl text-white">Food<span className="text-cyan-400">Chain</span></span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -46,8 +46,8 @@ export function Header() {
                 to={link.to}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                   isActive(link.to)
-                    ? 'bg-zinc-100 text-zinc-900'
-                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                    ? 'bg-white/10 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {link.label}
@@ -60,62 +60,62 @@ export function Header() {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 transition text-sm font-medium text-zinc-700"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 transition text-sm font-medium text-white"
                 >
                   <User size={16} />
                   {user?.full_name || user?.email}
                   <ChevronDown size={14} className={`transition ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-zinc-200 rounded-2xl shadow-lg py-1.5 z-50">
-                    <Link to="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                  <div className="absolute right-0 mt-2 w-56 bg-[#1e2a4a] border border-white/10 rounded-2xl shadow-xl py-1.5 z-50">
+                    <Link to="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                       <LayoutDashboard size={16} /> Дашборд
                     </Link>
                     {isSuperAdmin && (
                       <>
-                        <div className="px-4 py-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Админ-панель</div>
-                        <Link to="/admin" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <div className="px-4 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Админ-панель</div>
+                        <Link to="/admin" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Shield size={16} /> Дашборд
                         </Link>
-                        <Link to="/admin/tenants" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/tenants" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Store size={16} /> Рестораны
                         </Link>
-                        <Link to="/admin/tariffs" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/tariffs" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <FileText size={16} /> Тарифы
                         </Link>
-                        <Link to="/admin/tickets" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/tickets" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Bell size={16} /> Тикеты
                         </Link>
-                        <Link to="/admin/monitoring" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/monitoring" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Activity size={16} /> Мониторинг
                         </Link>
-                        <Link to="/admin/audit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/audit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <FileText size={16} /> Аудит
                         </Link>
-                        <Link to="/admin/invoices" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/invoices" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <CreditCard size={16} /> Счета
                         </Link>
-                        <Link to="/admin/branding" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/branding" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Palette size={16} /> Брендинг
                         </Link>
-                        <Link to="/admin/search" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/search" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Search size={16} /> Поиск
                         </Link>
-                        <Link to="/admin/exchange-rates" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/exchange-rates" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Globe size={16} /> Курсы валют
                         </Link>
-                        <Link to="/admin/subscriptions" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/subscriptions" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Activity size={16} /> Подписки
                         </Link>
-                        <Link to="/admin/payment-providers" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/payment-providers" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <CreditCard size={16} /> Платежи
                         </Link>
-                        <Link to="/admin/notifications" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin/notifications" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
                           <Bell size={16} /> Уведомления
                         </Link>
                       </>
                     )}
-                    <hr className="my-1 border-zinc-100" />
+                    <hr className="my-1 border-white/10" />
                     <button onClick={() => { setUserMenuOpen(false); handleLogout(); }} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full text-left">
                       <LogOut size={16} /> Выйти
                     </button>
@@ -124,12 +124,12 @@ export function Header() {
               </div>
             ) : (
               <>
-                <Link to="/login" className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition">
+                <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition">
                   Войти
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-orange-500/25 transition"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition hover:-translate-y-0.5"
                 >
                   Попробовать бесплатно
                 </Link>
@@ -137,58 +137,58 @@ export function Header() {
             )}
           </div>
 
-          <button className="md:hidden p-2 text-zinc-600 hover:text-zinc-900" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden p-2 text-slate-400 hover:text-white" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </div>
 
       {menuOpen && (
-        <div className="md:hidden border-t border-zinc-100 bg-white px-4 py-4 space-y-1">
+        <div className="md:hidden border-t border-white/5 bg-[#0a192f]/98 backdrop-blur-xl px-4 py-4 space-y-1">
           {navLinks.map(link => (
             <Link
               key={link.to}
               to={link.to}
               className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition ${
                 isActive(link.to)
-                  ? 'bg-zinc-100 text-zinc-900'
-                  : 'text-zinc-600 hover:bg-zinc-50'
+                  ? 'bg-white/10 text-white'
+                  : 'text-slate-300 hover:bg-white/5'
               }`}
               onClick={() => setMenuOpen(false)}
             >
               {link.label}
             </Link>
           ))}
-          <hr className="my-2 border-zinc-100" />
+          <hr className="my-2 border-white/10" />
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="block px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Дашборд</Link>
+              <Link to="/dashboard" className="block px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Дашборд</Link>
               {isSuperAdmin && (
                 <>
-                  <div className="px-4 py-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Админ-панель</div>
-                  <Link to="/admin" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Дашборд</Link>
-                  <Link to="/admin/tenants" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Рестораны</Link>
-                  <Link to="/admin/tariffs" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Тарифы</Link>
-                  <Link to="/admin/tickets" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Тикеты</Link>
-                  <Link to="/admin/monitoring" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Мониторинг</Link>
-                  <Link to="/admin/audit" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Аудит</Link>
-                  <Link to="/admin/invoices" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Счета</Link>
-                  <Link to="/admin/branding" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Брендинг</Link>
-                  <Link to="/admin/search" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Поиск</Link>
-                  <Link to="/admin/exchange-rates" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Курсы валют</Link>
-                  <Link to="/admin/notifications" className="block px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>Уведомления</Link>
+                  <div className="px-4 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Админ-панель</div>
+                  <Link to="/admin" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Дашборд</Link>
+                  <Link to="/admin/tenants" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Рестораны</Link>
+                  <Link to="/admin/tariffs" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Тарифы</Link>
+                  <Link to="/admin/tickets" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Тикеты</Link>
+                  <Link to="/admin/monitoring" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Мониторинг</Link>
+                  <Link to="/admin/audit" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Аудит</Link>
+                  <Link to="/admin/invoices" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Счета</Link>
+                  <Link to="/admin/branding" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Брендинг</Link>
+                  <Link to="/admin/search" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Поиск</Link>
+                  <Link to="/admin/exchange-rates" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Курсы валют</Link>
+                  <Link to="/admin/notifications" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Уведомления</Link>
                 </>
               )}
-              <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl">
+              <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-xl">
                 Выйти
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="block px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 rounded-xl" onClick={() => setMenuOpen(false)}>
+              <Link to="/login" className="block px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>
                 Войти
               </Link>
-              <Link to="/register" className="block px-4 py-2.5 text-sm font-bold text-orange-600 hover:bg-orange-50 rounded-xl" onClick={() => setMenuOpen(false)}>
+              <Link to="/register" className="block px-4 py-2.5 text-sm font-bold text-cyan-400 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>
                 Попробовать бесплатно
               </Link>
             </>
