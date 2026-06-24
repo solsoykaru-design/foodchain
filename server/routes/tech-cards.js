@@ -61,10 +61,10 @@ app.get('/api/tech-cards/:id', (req, res) => {
 });
 app.post('/api/tech-cards', (req, res) => {
   try {
-    const { dish_id, dish_name, ingredients, technology, description, cooking_time, output, version } = req.body;
+    const { dish_id, dish_name, ingredients, technology, description, cooking_time, output, version, menu_category } = req.body;
     if (!dish_id) return res.status(400).json({ error: 'dish_id is required' });
 
-    const dish = db.prepare('SELECT id, name FROM dishes WHERE id = ?').get(dish_id);
+    const dish = db.prepare('SELECT id, name, price, cost FROM dishes WHERE id = ?').get(dish_id);
     if (!dish) return res.status(404).json({ error: 'Dish not found' });
 
     const existing = db.prepare('SELECT id, version FROM dish_tech_cards WHERE dish_id = ? AND is_active = 1').get(dish_id);
@@ -76,16 +76,24 @@ app.post('/api/tech-cards', (req, res) => {
 
     const aiService = require('../services/ai-tech-card.service');
     const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
-    const createdNames = [];
+    const createdInvNames = [];
+    const createdCategoryNames = new Set();
 
     let totalCost = 0;
     for (const ing of (ingredients || [])) {
       if (!ing.item_id && ing.item_name) {
-        const item = aiService.findOrCreateInventoryItem(db, ing.item_name, ing.unit || 'г', tenantId);
+        const ingName = ing.item_name;
+        const catName = aiService.detectStockCategoryName(ingName);
+        let catId = null;
+        if (catName) {
+          const cat = aiService.findOrCreateStockCategory(db, catName, tenantId);
+          if (cat) { catId = cat.id; if (cat.created) createdCategoryNames.add(cat.name); }
+        }
+        const item = aiService.findOrCreateInventoryItem(db, ingName, ing.unit || 'г', tenantId, catId);
         if (item) {
           ing.item_id = Number(item.id);
           ing.price_per_unit = item.price_per_unit || 0;
-          if (item.created) createdNames.push(item.name);
+          if (item.created) createdInvNames.push(item.name);
         }
       }
       const priceItem = db.prepare('SELECT price_per_unit, last_price FROM inventory_items WHERE id = ?').get(ing.item_id);
@@ -94,6 +102,18 @@ app.post('/api/tech-cards', (req, res) => {
       const loss = (ing.cold_loss_percent || 0) + (ing.heat_loss_percent || 0);
       totalCost += price * (qty * (1 + loss / 100) / 1000);
     }
+
+    // Update menu item (dish) cost and category
+    try {
+      const sets = ['cost = ?'];
+      const params = [Math.round(totalCost * 100) / 100];
+      if (menu_category) {
+        const menuCat = aiService.findOrCreateMenuCategory(db, menu_category, tenantId);
+        if (menuCat) { sets.push('category_id = ?'); params.push(menuCat.id); }
+      }
+      params.push(dish_id);
+      db.prepare(`UPDATE dishes SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+    } catch {}
 
     const tc = db.prepare(`INSERT INTO dish_tech_cards
       (dish_id, dish_name, number, valid_from, portions, output, technology, fixed_costs, package_weight, cost_price, created_at, tenant_id, version, is_active, cooking_time, description, updated_at)
@@ -111,7 +131,13 @@ app.post('/api/tech-cards', (req, res) => {
         ing.unit || 'г', ing.netto || 0, ing.cold_loss_percent || 0, ing.heat_loss_percent || 0, ing.yield_percent || 100);
     }
 
-    res.json({ id: tc.lastInsertRowid, version: newVersion, totalCost: Math.round(totalCost * 100) / 100, createdItems: createdNames });
+    res.json({
+      id: tc.lastInsertRowid, version: newVersion,
+      totalCost: Math.round(totalCost * 100) / 100,
+      createdItems: createdInvNames,
+      createdCategories: Array.from(createdCategoryNames),
+      menuItemId: dish_id,
+    });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/tech-cards/:id', (req, res) => {
@@ -572,20 +598,17 @@ app.post('/api/tech-cards/ai-generate', async (req, res) => {
 // ─── AI Save Generated Tech Card ───────────────────────
 app.post('/api/tech-cards/ai-save', (req, res) => {
   try {
-    const { dish_name, ingredients, kbju_per_100g, output, technology, cooking_time, matched_ingredients, unmatched_ingredients } = req.body;
+    const { dish_name, ingredients, kbju_per_100g, output, technology, cooking_time, matched_ingredients, unmatched_ingredients, menu_category } = req.body;
     if (!dish_name) return res.status(400).json({ error: 'dish_name is required' });
 
     const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+    const aiService = require('../services/ai-tech-card.service');
 
-    // Create dish entry
-    let dishId = null;
-    const existingDish = db.prepare('SELECT id FROM dishes WHERE LOWER(name) = LOWER(?) AND tenant_id = ?').get(dish_name, tenantId);
-    if (existingDish) {
-      dishId = existingDish.id;
-    } else {
-      const dishInfo = db.prepare('INSERT INTO dishes (name, price, unit, is_available, is_active, tenant_id) VALUES (?, 0, \'г\', 1, 1, ?)').run(dish_name, tenantId);
-      dishId = dishInfo.lastInsertRowid;
-    }
+    // Find or create menu item (dish) with category
+    const totalCost = 0; // calculated after ingredients
+    const menuItem = aiService.findOrCreateMenuItem(db, dish_name, 0, 0, menu_category || 'Общая', tenantId);
+    const dishId = menuItem.id;
+    let menuCreated = menuItem.created;
 
     if (!dishId) return res.status(500).json({ error: 'Не удалось создать блюдо' });
 
@@ -596,18 +619,28 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
       db.prepare('UPDATE dish_tech_cards SET is_active = 0 WHERE id = ?').run(existing.id);
     }
 
-    const aiService = require('../services/ai-tech-card.service');
-
-    // Auto-create inventory items for unmatched ingredients
-    const createdNames = [];
+    // Auto-create inventory items for unmatched ingredients with stock categories
+    const createdInvNames = [];
+    const createdCategoryNames = new Set();
     for (const ing of [...(unmatched_ingredients || []), ...(ingredients || []).filter(i => !i.item_id)]) {
       if (ing.item_id) continue;
-      const item = aiService.findOrCreateInventoryItem(db, ing.item_name || ing.name, ing.unit || 'г', tenantId);
+      const ingName = ing.item_name || ing.name;
+      // Detect and create stock category
+      const catName = aiService.detectStockCategoryName(ingName);
+      let catId = null;
+      if (catName) {
+        const cat = aiService.findOrCreateStockCategory(db, catName, tenantId);
+        if (cat) {
+          catId = cat.id;
+          if (cat.created) createdCategoryNames.add(cat.name);
+        }
+      }
+      const item = aiService.findOrCreateInventoryItem(db, ingName, ing.unit || 'г', tenantId, catId);
       if (item) {
         ing.item_id = Number(item.id);
         ing.price_per_unit = item.price_per_unit || 0;
         ing.cost = ((item.price_per_unit || 0) * (ing.quantity || 0)) / 1000;
-        if (item.created) createdNames.push(item.name);
+        if (item.created) createdInvNames.push(item.name);
       }
     }
 
@@ -620,9 +653,9 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
     }
 
     // Calculate total cost
-    let totalCost = 0;
+    let calculatedCost = 0;
     for (const ing of allIngredients) {
-      totalCost += (ing.cost || ((ing.price_per_unit || 0) * (ing.quantity || 0) / 1000));
+      calculatedCost += (ing.cost || ((ing.price_per_unit || 0) * (ing.quantity || 0) / 1000));
     }
 
     const kbju = kbju_per_100g || {};
@@ -634,7 +667,7 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
     const tc = db.prepare(`INSERT INTO dish_tech_cards
       (dish_id, dish_name, number, valid_from, portions, output, technology, fixed_costs, package_weight, cost_price, created_at, tenant_id, version, is_active, cooking_time, description, updated_at)
       VALUES (?, ?, NULL, NULL, 1, ?, ?, 0, 0, ?, datetime('now'), ?, 1, 1, ?, ?, datetime('now'))`).run(
-      dishId, dish_name, outputVal, techText, Math.round(totalCost * 100) / 100, tenantId, cookTime, JSON.stringify(kbju)
+      dishId, dish_name, outputVal, techText, Math.round(calculatedCost * 100) / 100, tenantId, cookTime, JSON.stringify(kbju)
     );
     const techCardId = tc.lastInsertRowid;
 
@@ -644,19 +677,31 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)`);
 
     for (const ing of allIngredients) {
-      insertIng.run(techCardId, ing.item_id, ing.item_name, ing.quantity || 0, ing.unit || 'г', tenantId);
+      insertIng.run(techCardId, ing.item_id, ing.item_name || ing.name, ing.quantity || 0, ing.unit || 'г', tenantId);
     }
 
-    // Update dish KBJU
+    // Update dish price and cost
     try {
-      db.prepare('UPDATE dishes SET calories = ?, proteins = ?, fats = ?, carbs = ? WHERE id = ?').run(
+      db.prepare('UPDATE dishes SET price = ?, cost = ?, calories = ?, proteins = ?, fats = ?, carbs = ? WHERE id = ?').run(
+        0, Math.round(calculatedCost * 100) / 100,
         kbju.calories || 0, kbju.proteins || 0, kbju.fats || 0, kbju.carbs || 0, dishId
       );
     } catch {}
 
     aiService.logAIRequest(db, 'save', dish_name, { techCardId, dishId }, null);
 
-    res.json({ id: techCardId, dish_id: dishId, version: newVersion, totalCost: Math.round(totalCost * 100) / 100, createdItems: createdNames });
-  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+    res.json({
+      id: techCardId, dish_id: dishId, version: newVersion,
+      totalCost: Math.round(calculatedCost * 100) / 100,
+      createdItems: createdInvNames,
+      createdCategories: Array.from(createdCategoryNames),
+      menuItemCreated: menuCreated,
+      menuItemId: dishId,
+    });
+  } catch (e) {
+    const aiService = require('../services/ai-tech-card.service');
+    aiService.logAIRequest(db, 'save', req.body?.dish_name, null, e.message || e);
+    res.status(500).json({ error: safeError(e.message) });
+  }
 });
 };

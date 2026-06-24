@@ -1026,18 +1026,92 @@ function matchIngredientsWithStock(ingredients, db, tenantId) {
   return { matched, unmatched };
 }
 
-function findOrCreateInventoryItem(db, name, unit, tenantId) {
+function findOrCreateInventoryItem(db, name, unit, tenantId, categoryId) {
   const trimmed = name.trim();
   if (!trimmed) return null;
 
   // Check if exists
-  const existing = db.prepare('SELECT id, name, price_per_unit, unit FROM inventory_items WHERE LOWER(name) = LOWER(?) AND (tenant_id = ? OR tenant_id = 1)').get(trimmed, tenantId);
+  const existing = db.prepare('SELECT id, name, price_per_unit, unit, category_id FROM inventory_items WHERE LOWER(name) = LOWER(?) AND (tenant_id = ? OR tenant_id = 1)').get(trimmed, tenantId);
   if (existing) return existing;
 
   // Create new
   const defaultUnit = (unit && ['г','кг','мл','л','шт'].includes(unit)) ? unit : 'кг';
-  const info = db.prepare('INSERT INTO inventory_items (name, unit, price_per_unit, current_stock, tenant_id) VALUES (?, ?, 0, 0, ?)').run(trimmed, defaultUnit, tenantId);
-  return { id: info.lastInsertRowid, name: trimmed, price_per_unit: 0, unit: defaultUnit, created: true };
+  const info = db.prepare('INSERT INTO inventory_items (name, unit, price_per_unit, current_stock, tenant_id, category_id) VALUES (?, ?, 0, 0, ?, ?)').run(trimmed, defaultUnit, tenantId, categoryId || null);
+  return { id: info.lastInsertRowid, name: trimmed, price_per_unit: 0, unit: defaultUnit, category_id: categoryId, created: true };
+}
+
+const STOCK_CATEGORY_KEYWORDS = {
+  'Овощи и зелень': ['помидор', 'огурец', 'салат', 'капуста', 'морковь', 'лук', 'свекла', 'картофель', 'редис', 'чеснок', 'перец болгарский', 'баклажан', 'кабачок', 'тыква', 'укроп', 'петрушк', 'зелень', 'шпинат', 'руккол'],
+  'Мясо и птица': ['куриц', 'говядин', 'свинин', 'баранин', 'фарш мясной', 'фарш куриный', 'бекон', 'колбас', 'сосис', 'ветчин', 'грудинк', 'филе куриное', 'филе индейк'],
+  'Молочные продукты': ['молок', 'сливк', 'сыр', 'творог', 'сметан', 'кефир', 'йогурт', 'масло сливочное', 'морожен', 'ряженк', 'простокваш'],
+  'Соусы и заправки': ['соус', 'майонез', 'кетчуп', 'горчиц', 'томатная паста', 'уксус', 'оливковое масло', 'растительное масло', 'подсолнечное масло', 'заправк'],
+  'Бакалея': ['мук', 'сахар', 'соль', 'крахмал', 'разрыхлитель', 'сод', 'дрожж', 'желатин', 'ванилин', 'какао', 'корица', 'специ', 'приправ'],
+  'Крупы и гарниры': ['рис', 'гречк', 'макарон', 'спагетти', 'вермишель', 'пшен', 'овсян', 'перлов', 'чечевиц', 'горох', 'фасол', 'кускус', 'булгур', 'лапш'],
+  'Рыба и морепродукты': ['рыб', 'филе рыбы', 'семг', 'лосос', 'треск', 'сельд', 'креветк', 'миди', 'кальмар', 'тунец', 'скумбри'],
+  'Фрукты и ягоды': ['яблок', 'банан', 'апельсин', 'лимон', 'мандарин', 'виноград', 'клубник', 'малин', 'черник', 'груш', 'персик', 'абрикос', 'арбуз', 'дын'],
+  'Яйца': ['яйц'],
+  'Хлеб и выпечка': ['хлеб', 'батон', 'лаваш', 'булочк', 'сухар', 'панировоч', 'мука', 'тесто', 'слоен'],
+  'Напитки': ['вод', 'сок', 'компот', 'морс', 'кофе', 'чай', 'лимонад', 'газировк'],
+};
+
+function detectStockCategoryName(name) {
+  const lower = name.toLowerCase().trim();
+  for (const [category, keywords] of Object.entries(STOCK_CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return category;
+    }
+  }
+  return null;
+}
+
+function findOrCreateStockCategory(db, name, tenantId) {
+  if (!name || !name.trim()) return null;
+  const trimmed = name.trim();
+  let existing = db.prepare('SELECT id, name FROM stock_categories WHERE LOWER(name) = LOWER(?)').get(trimmed);
+  if (existing) return existing;
+  const info = db.prepare('INSERT INTO stock_categories (name, tenant_id) VALUES (?, ?)').run(trimmed, tenantId);
+  return { id: info.lastInsertRowid, name: trimmed, created: true };
+}
+
+function findOrCreateMenuCategory(db, name, tenantId) {
+  if (!name || !name.trim()) return null;
+  const trimmed = name.trim();
+  let existing = db.prepare('SELECT id, name FROM menu_categories WHERE LOWER(name) = LOWER(?) AND tenant_id = ?').get(trimmed, tenantId);
+  if (existing) return existing;
+  const info = db.prepare('INSERT INTO menu_categories (name, tenant_id) VALUES (?, ?)').run(trimmed, tenantId);
+  return { id: info.lastInsertRowid, name: trimmed, created: true };
+}
+
+function findOrCreateMenuItem(db, dishName, price, costPrice, categoryName, tenantId) {
+  if (!dishName || !dishName.trim()) return null;
+  const trimmed = dishName.trim();
+
+  // Find existing dish
+  const existing = db.prepare('SELECT id, name, price, cost, category_id FROM dishes WHERE LOWER(name) = LOWER(?) AND tenant_id = ?').get(trimmed, tenantId);
+  if (existing) {
+    // Update cost and price if provided
+    const updates = [];
+    const params = [];
+    if (price !== undefined && price !== null) { updates.push('price = ?'); params.push(price); }
+    if (costPrice !== undefined && costPrice !== null) { updates.push('cost = ?'); params.push(costPrice); }
+    if (categoryName) {
+      const cat = findOrCreateMenuCategory(db, categoryName, tenantId);
+      if (cat) { updates.push('category_id = ?'); params.push(cat.id); }
+    }
+    if (updates.length > 0) {
+      params.push(existing.id);
+      db.prepare(`UPDATE dishes SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+    return { id: existing.id, name: existing.name, created: false };
+  }
+
+  // Create new dish
+  const menuCat = categoryName ? findOrCreateMenuCategory(db, categoryName, tenantId) : null;
+  const finalPrice = (price !== undefined && price !== null) ? price : 0;
+  const info = db.prepare('INSERT INTO dishes (name, price, cost, category_id, unit, is_available, is_active, tenant_id) VALUES (?, ?, ?, ?, \'г\', 1, 1, ?)').run(
+    trimmed, finalPrice, costPrice || 0, menuCat ? menuCat.id : null, tenantId
+  );
+  return { id: info.lastInsertRowid, name: trimmed, created: true };
 }
 
 function logAIRequest(db, action, dishName, result, error) {
@@ -1055,6 +1129,10 @@ module.exports = {
   generateTechCard,
   matchIngredientsWithStock,
   findOrCreateInventoryItem,
+  findOrCreateMenuItem,
+  findOrCreateMenuCategory,
+  findOrCreateStockCategory,
+  detectStockCategoryName,
   logAIRequest,
   parseAIResponse,
 };

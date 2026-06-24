@@ -81,9 +81,15 @@ export default function AiTechCardModal({ onClose, onSaved }: Props) {
         technology: editTechnology,
         cooking_time: editCookingTime,
       });
+      const msgs = [];
+      if (res.menuItemCreated) msgs.push('Блюдо создано в меню.');
       if (res.createdItems?.length > 0) {
-        addToast(`Создано ${res.createdItems.length} новых ингредиентов: ${res.createdItems.join(', ')}. Цена 0₽, отредактируйте в Складских элементах.`, 'info');
+        msgs.push(`Добавлено ${res.createdItems.length} ингредиентов на склад: ${res.createdItems.join(', ')}.`);
       }
+      if (res.createdCategories?.length > 0) {
+        msgs.push(`Созданы категории: ${res.createdCategories.join(', ')}.`);
+      }
+      if (msgs.length > 0) addToast(msgs.join(' '), 'info');
       addToast('Техкарта создана!', 'success');
       onSaved();
       onClose();
