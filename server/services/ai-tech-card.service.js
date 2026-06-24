@@ -28,10 +28,12 @@ function fetchJSON(url, options = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const mod = u.protocol === 'https:' ? https : http;
-    const req = mod.request(url, { method: options.method || 'GET', headers: options.headers || { 'Content-Type': 'application/json' }, timeout: options.timeout || 30000 }, (res) => {
+    const timedOut = { current: false };
+    const req = mod.request(url, { method: options.method || 'GET', headers: options.headers || { 'Content-Type': 'application/json' }, timeout: options.timeout || 15000 }, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
+        if (timedOut.current) return;
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try { resolve(JSON.parse(data)); } catch { reject(new Error(`Invalid JSON: ${data.slice(0, 200)}`)); }
         } else {
@@ -39,8 +41,8 @@ function fetchJSON(url, options = {}) {
         }
       });
     });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.on('error', (e) => { if (!timedOut.current) { timedOut.current = true; reject(e); } });
+    req.on('timeout', () => { timedOut.current = true; req.destroy(); reject(new Error('Timeout')); });
     if (options.body) req.write(options.body);
     req.end();
   });
@@ -48,7 +50,7 @@ function fetchJSON(url, options = {}) {
 
 async function queryTheMealDB(dishName) {
   const encoded = encodeURIComponent(dishName);
-  const data = await fetchJSON(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encoded}`);
+  const data = await fetchJSON(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encoded}`, { timeout: 8000 });
   if (!data.meals || data.meals.length === 0) {
     throw new Error('Not found in TheMealDB');
   }
@@ -124,14 +126,14 @@ async function queryDeepSeek(dishName) {
   });
 
   const data = await fetchJSON('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body,
-    timeout: 60000,
-  });
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${DEEPSEEK_API_KEY}',
+      },
+      body,
+      timeout: 20000,
+    });
 
   const text = data.choices?.[0]?.message?.content || '';
   if (!text) throw new Error('Empty response from DeepSeek');
@@ -175,7 +177,7 @@ async function queryOpenCode(dishName) {
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: 60000,
+    timeout: 20000,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
@@ -944,6 +946,14 @@ function queryLocalDB(dishName) {
 
 async function generateTechCard(dishName) {
   const errors = [];
+
+  return await Promise.race([
+    generateTechCardInner(dishName, errors),
+    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 28000)),
+  ]);
+}
+
+async function generateTechCardInner(dishName, errors) {
 
   // Try TheMealDB first
   try {
