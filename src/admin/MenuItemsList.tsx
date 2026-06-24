@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, X, ChevronUp, ChevronDown, Upload, CheckCircle, XCircle, Image as ImageIcon, FlaskConical, RefreshCw, Plus, Trash2, Copy, Printer, ArrowUpDown, Download, FileSpreadsheet, FileType, Loader2 } from 'lucide-react';
 import * as api from '../api';
 import MenuItemCard from './MenuItemCard';
+import TechCardModal from './TechCardModal';
 import { addToast } from '../ToastContext';
 import * as XLSX from 'xlsx';
 import Lightbox from './Lightbox';
@@ -63,6 +64,7 @@ export default function MenuItemsList() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [techCardModal, setTechCardModal] = useState<{ id: number; name: string; price?: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -444,8 +446,8 @@ export default function MenuItemsList() {
                   <td className={`${cellClass} text-zinc-700 dark:text-zinc-300 text-[13px]`}>{item.markup?.toFixed(1)}%</td>
                   <td className={`${cellClass} text-center`} onClick={e => e.stopPropagation()}>
                     {item.techCardId ? (
-                      <button className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
-                        onClick={() => addToast(`Техкарта #${item.techCardId}`, 'info')}>
+                      <button onClick={() => setTechCardModal({ id: item.id, name: item.name, price: item.price })}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700">
                         <FlaskConical size={13} /> <span>Есть</span>
                       </button>
                     ) : (
@@ -572,6 +574,14 @@ export default function MenuItemsList() {
       )}
       {showCreate && (
         <MenuItemCard onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); load(); }} />
+      )}
+      {techCardModal && (
+        <TechCardModal
+          dishId={techCardModal.id}
+          dishName={techCardModal.name}
+          dishPrice={techCardModal.price}
+          onClose={() => setTechCardModal(null)}
+        />
       )}
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>

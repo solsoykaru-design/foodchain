@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Image as ImageIcon, Upload } from 'lucide-react';
+import { X, Image as ImageIcon, Upload, FlaskConical, Plus } from 'lucide-react';
 import * as api from '../api';
+import { addToast } from '../ToastContext';
+import TechCardModal from './TechCardModal';
 
 interface MenuItem {
   id: number; name: string; imageUrl: string; barcode?: string; article?: string;
@@ -30,6 +32,7 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
   const [error, setError] = useState('');
   const [cats, setCats] = useState<Category[]>([]);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [showTechCard, setShowTechCard] = useState(false);
 
   useEffect(() => { api.getMenuCategories().then(setCats).catch(() => {}); }, []);
 
@@ -159,7 +162,10 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
               <label className={lbl}>Техкарта</label>
               <div className="flex items-center gap-2 h-[38px]">
                 {form.techCardId ? (
-                  <span className="text-sm text-blue-600 font-medium">Техкарта #{form.techCardId}</span>
+                  <button onClick={() => setShowTechCard(true)}
+                    className="flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-700 font-medium bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition">
+                    <FlaskConical size={14} /> Техкарта #{form.techCardId}
+                  </button>
                 ) : (
                   <span className="text-sm text-zinc-400">Не назначена</span>
                 )}
@@ -205,6 +211,14 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
           </button>
         </div>
       </div>
+      {showTechCard && form.id > 0 && (
+        <TechCardModal
+          dishId={form.id}
+          dishName={form.name}
+          dishPrice={form.price}
+          onClose={() => setShowTechCard(false)}
+        />
+      )}
     </div>
   );
 }
