@@ -95,7 +95,7 @@ function serveFromCacheOrThrow(path: string, fallbackMsg: string) {
   throw new OfflineError(fallbackMsg);
 }
 
-const REQUEST_TIMEOUT = 10000;
+const REQUEST_TIMEOUT = 25000;
 
 export async function request(path: string, options?: RequestInit) {
   const token = localStorage.getItem('fc_token');
