@@ -414,7 +414,7 @@ export default function MenuItemsList() {
                       setSelectedIds(next);
                     }} className="rounded border-zinc-300 dark:border-zinc-600 accent-blue-500" />
                   </td>
-                  <td className={`${cellClass} font-medium text-zinc-900 dark:text-white max-w-[160px] truncate`}>{item.name}</td>
+                  <td className={`${cellClass} font-medium text-zinc-900 dark:text-white max-w-[160px] truncate`}>{item.name || '—'}</td>
                   <td className={cellClass}>
                     {item.imageUrl ? (
                       <button onClick={() => setLightbox(item.imageUrl)} className="inline-block">
@@ -428,7 +428,7 @@ export default function MenuItemsList() {
                   </td>
                   <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 max-w-[110px] truncate text-[13px]`}>{item.barcode || '—'}</td>
                   <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 text-[13px]`}>{item.article || '—'}</td>
-                  <td className={`${cellClass} text-zinc-700 dark:text-zinc-300 text-[13px]`}>{item.netto || item.weight ? `${(item.netto || item.weight)}` : '—'}</td>
+                  <td className={`${cellClass} text-zinc-700 dark:text-zinc-300 text-[13px]`}>{item.netto || item.weight ? `${item.netto || item.weight} ${item.unit || 'г'}` : '—'}</td>
                   <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 text-[13px]`}>{item.unit || 'г'}</td>
                   <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 max-w-[110px] truncate text-[13px]`}>{item.categoryName || '—'}</td>
                   <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 text-[13px]`}>{item.type === 'service' ? 'Услуга' : 'Товар'}</td>
@@ -439,11 +439,11 @@ export default function MenuItemsList() {
                       <XCircle size={15} className="text-red-400" />
                     )}
                   </td>
-                  <td className={`${cellClass} font-medium text-zinc-900 dark:text-white text-[13px] whitespace-nowrap`}>{item.price?.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}₽</td>
+                  <td className={`${cellClass} font-medium text-zinc-900 dark:text-white text-[13px] whitespace-nowrap`}>{(item.price ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}₽</td>
                   {showCostColumn && (
-                    <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 text-[13px] whitespace-nowrap`}>{item.cost?.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}₽</td>
+                    <td className={`${cellClass} text-zinc-600 dark:text-zinc-400 text-[13px] whitespace-nowrap`}>{(item.cost ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}₽</td>
                   )}
-                  <td className={`${cellClass} text-zinc-700 dark:text-zinc-300 text-[13px]`}>{item.markup?.toFixed(1)}%</td>
+                  <td className={`${cellClass} text-zinc-700 dark:text-zinc-300 text-[13px]`}>{(item.markup ?? 0).toFixed(1)}%</td>
                   <td className={`${cellClass} text-center`} onClick={e => e.stopPropagation()}>
                     {item.techCardId ? (
                       <button onClick={() => setTechCardModal({ id: item.id, name: item.name, price: item.price })}

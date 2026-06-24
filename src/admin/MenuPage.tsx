@@ -315,8 +315,8 @@ export default function MenuPage() {
                       {dish.categoryName && <p className="text-xs text-zinc-500">{dish.categoryName}</p>}
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-zinc-900 dark:text-white">{dish.price.toLocaleString()}₽</p>
-                      {dish.weight > 0 && <p className="text-[10px] text-zinc-400">{dish.weight}г</p>}
+                      <p className="text-lg font-bold text-zinc-900 dark:text-white">{(dish.price ?? 0).toLocaleString()}₽</p>
+                      {(dish.weight ?? 0) > 0 && <p className="text-[10px] text-zinc-400">{dish.weight}г</p>}
                     </div>
                   </div>
                   {dish.description && <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 line-clamp-2">{dish.description}</p>}
