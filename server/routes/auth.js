@@ -69,7 +69,10 @@ module.exports = function(app, db, config) {
         }
 
         // BRANCH A: Check superadmin in users table
-        const superadmin = db.prepare("SELECT * FROM users WHERE login = ? AND role = 'superadmin'").get(login);
+        let superadmin;
+        try {
+          superadmin = db.prepare("SELECT * FROM users WHERE login = ? AND role = 'superadmin'").get(login);
+        } catch { superadmin = null; }
         if (superadmin) {
           const storedHash = superadmin.password;
           let valid = false;

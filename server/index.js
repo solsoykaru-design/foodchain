@@ -4300,8 +4300,14 @@ require('./routes/telegram.js')(app, db, config);
 require('./routes/yuma-import.js')(app, db, config);
 
 // ─── Seed superadmin ────────────────────────────────────────────
-const superadmin = db.prepare("SELECT * FROM users WHERE login = 'ali' AND role = 'superadmin'").get();
+try { db.exec(`ALTER TABLE users ADD COLUMN login TEXT`); } catch(e) {}
+let superadmin = null;
 let superadminPassword = '';
+try {
+  superadmin = db.prepare("SELECT * FROM users WHERE login = 'ali' AND role = 'superadmin'").get();
+} catch (e) {
+  console.error('[Seed] Superadmin check failed:', e.message);
+}
 if (!superadmin) {
   superadminPassword = crypto.randomBytes(4).toString('hex') + '-' + crypto.randomBytes(4).toString('hex');
   const hashed = bcrypt.hashSync(superadminPassword, 10);
