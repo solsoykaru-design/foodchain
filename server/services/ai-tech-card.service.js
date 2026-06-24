@@ -5,6 +5,8 @@ const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
+const OPENCODE_API_KEY = process.env.OPENCODE_API_KEY || process.env.DEEPSEEK_API_KEY || '';
+const OPENCODE_MODEL = process.env.OPENCODE_MODEL || 'north-mini-code-free';
 
 const PROMPT_TEMPLATE = `Ты — шеф-повар с 20-летним опытом. Составь технологическую карту для блюда «{name}».
 
@@ -149,6 +151,37 @@ async function queryOllama(dishName) {
   if (!text) throw new Error('Empty response from Ollama');
 
   return parseAIResponse(text, 'ollama');
+}
+
+async function queryOpenCode(dishName) {
+  if (!OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY not configured');
+  if (OPENCODE_API_KEY.length < 10) throw new Error('Invalid API key');
+
+  const prompt = PROMPT_TEMPLATE.replace(/\{name\}/g, dishName);
+  const body = JSON.stringify({
+    model: OPENCODE_MODEL,
+    messages: [
+      { role: 'system', content: 'Ты — русскоязычный шеф-повар. Все названия ингредиентов пиши ТОЛЬКО на русском языке. Ответ давай ТОЛЬКО в формате JSON.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 2000,
+  });
+
+  const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENCODE_API_KEY}`,
+    },
+    body,
+    timeout: 60000,
+  });
+
+  const text = data.choices?.[0]?.message?.content || '';
+  if (!text) throw new Error('Empty response from OpenCode');
+
+  return parseAIResponse(text, 'opencode');
 }
 
 function parseAIResponse(text, source) {
@@ -920,7 +953,15 @@ async function generateTechCard(dishName) {
     errors.push({ source: 'themealdb', error: e.message });
   }
 
-  // Try DeepSeek
+  // Try OpenCode Zen (free DeepSeek V4 Flash)
+  try {
+    const result = await queryOpenCode(dishName);
+    return result;
+  } catch (e) {
+    errors.push({ source: 'opencode', error: e.message });
+  }
+
+  // Try DeepSeek (direct API)
   try {
     const result = await queryDeepSeek(dishName);
     return result;
