@@ -71,7 +71,7 @@ export default function AiTechCardModal({ onClose, onSaved }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.aiSaveTechCard({
+      const res = await api.aiSaveTechCard({
         dish_name: editName,
         ingredients: editIngredients,
         matched_ingredients: result?.matched_ingredients || [],
@@ -81,6 +81,9 @@ export default function AiTechCardModal({ onClose, onSaved }: Props) {
         technology: editTechnology,
         cooking_time: editCookingTime,
       });
+      if (res.createdItems?.length > 0) {
+        addToast(`Создано ${res.createdItems.length} новых ингредиентов: ${res.createdItems.join(', ')}. Цена 0₽, отредактируйте в Складских элементах.`, 'info');
+      }
       addToast('Техкарта создана!', 'success');
       onSaved();
       onClose();

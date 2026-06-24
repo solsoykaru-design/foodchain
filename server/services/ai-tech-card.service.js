@@ -1026,6 +1026,20 @@ function matchIngredientsWithStock(ingredients, db, tenantId) {
   return { matched, unmatched };
 }
 
+function findOrCreateInventoryItem(db, name, unit, tenantId) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  // Check if exists
+  const existing = db.prepare('SELECT id, name, price_per_unit, unit FROM inventory_items WHERE LOWER(name) = LOWER(?) AND (tenant_id = ? OR tenant_id = 1)').get(trimmed, tenantId);
+  if (existing) return existing;
+
+  // Create new
+  const defaultUnit = (unit && ['г','кг','мл','л','шт'].includes(unit)) ? unit : 'кг';
+  const info = db.prepare('INSERT INTO inventory_items (name, unit, price_per_unit, current_stock, tenant_id) VALUES (?, ?, 0, 0, ?)').run(trimmed, defaultUnit, tenantId);
+  return { id: info.lastInsertRowid, name: trimmed, price_per_unit: 0, unit: defaultUnit, created: true };
+}
+
 function logAIRequest(db, action, dishName, result, error) {
   try {
     db.prepare(`INSERT INTO ai_logs (action, dish_name, result, error, created_at)
@@ -1040,6 +1054,7 @@ function logAIRequest(db, action, dishName, result, error) {
 module.exports = {
   generateTechCard,
   matchIngredientsWithStock,
+  findOrCreateInventoryItem,
   logAIRequest,
   parseAIResponse,
 };

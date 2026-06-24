@@ -74,8 +74,20 @@ app.post('/api/tech-cards', (req, res) => {
       db.prepare('UPDATE dish_tech_cards SET is_active = 0 WHERE id = ?').run(existing.id);
     }
 
+    const aiService = require('../services/ai-tech-card.service');
+    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+    const createdNames = [];
+
     let totalCost = 0;
     for (const ing of (ingredients || [])) {
+      if (!ing.item_id && ing.item_name) {
+        const item = aiService.findOrCreateInventoryItem(db, ing.item_name, ing.unit || 'г', tenantId);
+        if (item) {
+          ing.item_id = Number(item.id);
+          ing.price_per_unit = item.price_per_unit || 0;
+          if (item.created) createdNames.push(item.name);
+        }
+      }
       const priceItem = db.prepare('SELECT price_per_unit, last_price FROM inventory_items WHERE id = ?').get(ing.item_id);
       const price = priceItem ? (priceItem.price_per_unit || priceItem.last_price || 0) : 0;
       const qty = ing.quantity || 0;
@@ -99,7 +111,7 @@ app.post('/api/tech-cards', (req, res) => {
         ing.unit || 'г', ing.netto || 0, ing.cold_loss_percent || 0, ing.heat_loss_percent || 0, ing.yield_percent || 100);
     }
 
-    res.json({ id: tc.lastInsertRowid, version: newVersion, totalCost: Math.round(totalCost * 100) / 100 });
+    res.json({ id: tc.lastInsertRowid, version: newVersion, totalCost: Math.round(totalCost * 100) / 100, createdItems: createdNames });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/tech-cards/:id', (req, res) => {
@@ -584,18 +596,33 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
       db.prepare('UPDATE dish_tech_cards SET is_active = 0 WHERE id = ?').run(existing.id);
     }
 
+    const aiService = require('../services/ai-tech-card.service');
+
+    // Auto-create inventory items for unmatched ingredients
+    const createdNames = [];
+    for (const ing of [...(unmatched_ingredients || []), ...(ingredients || []).filter(i => !i.item_id)]) {
+      if (ing.item_id) continue;
+      const item = aiService.findOrCreateInventoryItem(db, ing.item_name || ing.name, ing.unit || 'г', tenantId);
+      if (item) {
+        ing.item_id = Number(item.id);
+        ing.price_per_unit = item.price_per_unit || 0;
+        ing.cost = ((item.price_per_unit || 0) * (ing.quantity || 0)) / 1000;
+        if (item.created) createdNames.push(item.name);
+      }
+    }
+
     // Prepare merged ingredients
     const allIngredients = (matched_ingredients || []).concat(unmatched_ingredients || []);
     if (allIngredients.length === 0 && ingredients) {
       for (const ing of ingredients) {
-        allIngredients.push({ item_id: null, item_name: ing.name, quantity: ing.quantity, unit: ing.unit || 'г', price_per_unit: 0, cost: 0 });
+        allIngredients.push({ item_id: ing.item_id, item_name: ing.name, quantity: ing.quantity, unit: ing.unit || 'г', price_per_unit: 0, cost: 0 });
       }
     }
 
     // Calculate total cost
     let totalCost = 0;
     for (const ing of allIngredients) {
-      totalCost += (ing.cost || 0);
+      totalCost += (ing.cost || ((ing.price_per_unit || 0) * (ing.quantity || 0) / 1000));
     }
 
     const kbju = kbju_per_100g || {};
@@ -627,10 +654,9 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
       );
     } catch {}
 
-    const aiService = require('../services/ai-tech-card.service');
     aiService.logAIRequest(db, 'save', dish_name, { techCardId, dishId }, null);
 
-    res.json({ id: techCardId, dish_id: dishId, version: newVersion, totalCost: Math.round(totalCost * 100) / 100 });
+    res.json({ id: techCardId, dish_id: dishId, version: newVersion, totalCost: Math.round(totalCost * 100) / 100, createdItems: createdNames });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 };
