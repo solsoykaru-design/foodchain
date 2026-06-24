@@ -21,7 +21,7 @@ export function query(sql, params = []) {
   }
   const stmt = db.prepare(sql);
   const info = stmt.run(...params);
-  return { rows: [], changes: info.changes, lastInsertRowid: info.lastInsertRowid };
+  return { rows: [], changes: info.changes, lastInsertRowid: Number(info.lastInsertRowid) };
 }
 
 export function get(sql, params = []) {
@@ -37,3 +37,4 @@ export function transaction(fn) {
 }
 
 export default db;
+export { db };

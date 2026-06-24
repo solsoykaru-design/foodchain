@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const Database = require('better-sqlite3');
@@ -105,6 +106,8 @@ app.use('/api/staff/login', authLimiter);
 app.use('/api/courier/login', authLimiter);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/releases', express.static(path.join(__dirname, 'releases')));
+
 
 const guestDist = path.join(__dirname, '..', 'dist-guest');
 if (fs.existsSync(guestDist)) {
@@ -116,11 +119,29 @@ if (fs.existsSync(guestDist)) {
 
 const adminDist = path.join(__dirname, '..', 'dist-admin');
 if (fs.existsSync(adminDist)) {
+  app.use('/admin', (req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    next();
+  });
   app.use('/admin', express.static(adminDist));
   app.use('/admin', (req, res) => {
     res.sendFile(path.join(adminDist, 'index.html'));
   });
 }
+
+// Vosk model proxy (COEP requires same-origin for model files)
+app.use('/vosk-models', (req, res) => {
+  const filePath = req.path.replace(/^\//, '');
+  const targetUrl = `https://alphacephei.com/vosk/models/${filePath}`;
+  https.get(targetUrl, (proxyRes) => {
+    delete proxyRes.headers['content-disposition'];
+    delete proxyRes.headers['content-encoding'];
+    proxyRes.pipe(res);
+  }).on('error', () => {
+    res.status(502).send('Proxy error');
+  });
+});
 
 const courierDist = path.join(__dirname, '..', 'dist-courier');
 if (fs.existsSync(courierDist)) {
@@ -205,7 +226,7 @@ const TENANT_TABLES = new Set([
   'user_bonuses', 'bonus_transactions', 'certificates', 'discount_rules',
   'workshops', 'wholesale_prices', 'contragents', 'branches',
   'messages', 'chats', 'staff_chats', 'courier_guest_chats',
-  'courier_chat_templates', 'push_settings', 'cashier_shifts',
+  'courier_chat_templates', 'push_settings', 'device_tokens', 'notification_logs', 'cashier_shifts',
   'stock_categories', 'themes', 'dish_step_completions',
   'staff_schedules', 'bank_transactions', 'client_groups',
   'review_questions', 'modifier_groups', 'modifiers', 'stop_lists',
@@ -1281,6 +1302,30 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS telegram_bot_log (
     is_enabled INTEGER DEFAULT 0,
     UNIQUE(tenant_id)
   );
+
+  CREATE TABLE IF NOT EXISTS device_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    token TEXT NOT NULL,
+    platform TEXT DEFAULT '',
+    device_info TEXT DEFAULT '',
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now', '+3 hours')),
+    updated_at TEXT DEFAULT (datetime('now', '+3 hours')),
+    UNIQUE(token)
+  );
+
+  CREATE TABLE IF NOT EXISTS notification_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    channel TEXT NOT NULL,
+    recipient TEXT DEFAULT '',
+    title TEXT DEFAULT '',
+    status TEXT DEFAULT 'sent',
+    error TEXT,
+    message_id TEXT,
+    created_at TEXT DEFAULT (datetime('now', '+3 hours'))
+  );
 `);
 
 // ─── Schema migrations ───────────────────────────────────────────
@@ -1471,6 +1516,19 @@ try { db.exec(`ALTER TABLE promo_codes ADD COLUMN created_at TEXT DEFAULT (datet
 try { db.exec(`CREATE TABLE IF NOT EXISTS themes (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, name TEXT NOT NULL, colors TEXT NOT NULL DEFAULT '{}', is_preset INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT DEFAULT (datetime('now')))`); } catch(e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN theme_id INTEGER DEFAULT NULL`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN theme_id INTEGER DEFAULT NULL`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN login TEXT UNIQUE`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''`); } catch(e) {}
+try { db.exec(`
+  CREATE TABLE IF NOT EXISTS auth_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    tenant_id INTEGER,
+    action TEXT NOT NULL,
+    ip TEXT,
+    user_agent TEXT,
+    timestamp TEXT DEFAULT (datetime('now'))
+  )
+`); } catch(e) {}
 // Seed preset themes if table is empty
 const themeCount = db.prepare('SELECT COUNT(*) as cnt FROM themes').get();
 if (themeCount.cnt === 0) {
@@ -1535,10 +1593,27 @@ try { db.exec(`ALTER TABLE tech_cards ADD COLUMN expiry_date TEXT`); } catch(e) 
 try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN cold_loss_percent REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN heat_loss_percent REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_card_ingredients ADD COLUMN yield REAL DEFAULT 0`); } catch(e) {}
+db.exec(`CREATE TABLE IF NOT EXISTS dish_tech_cards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dish_id INTEGER, dish_name TEXT,
+  number TEXT, valid_from TEXT, portions REAL, output REAL, technology TEXT,
+  fixed_costs REAL, package_weight REAL, cost_price REAL, created_at TEXT,
+  tenant_id INTEGER DEFAULT 1, cooking_time INTEGER DEFAULT 0,
+  description TEXT DEFAULT '', updated_at TEXT
+)`);
+db.exec(`CREATE TABLE IF NOT EXISTS dish_tech_card_ingredients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tech_card_id INTEGER, item_id INTEGER, item_name TEXT,
+  quantity REAL DEFAULT 0, unit TEXT DEFAULT 'г', netto REAL DEFAULT 0,
+  yield REAL DEFAULT 0, tenant_id INTEGER DEFAULT 1
+)`);
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_instructions TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN step_mode INTEGER DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN is_active INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN version INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN cold_loss_percent REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN heat_loss_percent REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN yield_percent REAL DEFAULT 100`); } catch(e) {}
 try { db.exec(`CREATE TABLE IF NOT EXISTS dish_step_completions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER NOT NULL,
@@ -3209,6 +3284,7 @@ try { telegramBot = require(path.join(__dirname, 'services', 'telegram-bot.servi
 
 // ─── Email Settings ──────────────────────────────────────────────
 const emailService = require(path.join(__dirname, 'services', 'email.service.js'));
+const pushService = require(path.join(__dirname, 'services', 'push.service.js'));
 
 
 
@@ -4191,9 +4267,17 @@ const config = {
   authenticateBrandingUpload,
   csvUpload,
   broadcast,
-  aggregatorIntegration, supplierPortal, emailService,
+  aggregatorIntegration, supplierPortal, emailService, pushService,
   authenticateToken, requireRole,
 };
+
+function notifLog(channel, recipient, title, status, error, messageId) {
+  try {
+    db.prepare('INSERT INTO notification_logs (tenant_id, channel, recipient, title, status, error, message_id) VALUES (1, ?, ?, ?, ?, ?, ?)')
+      .run(channel, String(recipient || '').slice(0, 500), String(title || '').slice(0, 500), status, error || null, messageId || null);
+  } catch (e) { console.error('[notifLog]', e.message); }
+}
+config.notifLog = notifLog;
 
 require('./routes/misc.js')(app, db, config);
 require('./routes/auth.js')(app, db, config);
@@ -4215,8 +4299,27 @@ require('./routes/branding.js')(app, db, config);
 require('./routes/telegram.js')(app, db, config);
 require('./routes/yuma-import.js')(app, db, config);
 
+// ─── Seed superadmin ────────────────────────────────────────────
+const superadmin = db.prepare("SELECT * FROM users WHERE login = 'ali' AND role = 'superadmin'").get();
+let superadminPassword = '';
+if (!superadmin) {
+  superadminPassword = crypto.randomBytes(4).toString('hex') + '-' + crypto.randomBytes(4).toString('hex');
+  const hashed = bcrypt.hashSync(superadminPassword, 10);
+  try {
+    const info = db.prepare("INSERT INTO users (login, name, phone, password, role, tenant_id) VALUES (?, ?, ?, ?, ?, ?)").run('ali', 'SuperAdmin', '+70000000001', hashed, 'superadmin', null);
+    console.log('✅ Superadmin created: login=ali password=' + superadminPassword);
+  } catch(e) {
+    console.error('[Seed] Failed to create superadmin:', e.message);
+  }
+} else {
+  console.log('ℹ️  Superadmin "ali" already exists');
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
+  if (superadminPassword) {
+    console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
+  }
   // Start Telegram bot if configured
   try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
   try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }

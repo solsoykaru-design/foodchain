@@ -16,7 +16,7 @@ export const config = {
   },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5180',
   bcryptRounds: 12,
-  mainServerUrl: process.env.MAIN_SERVER_URL || 'http://localhost:4000',
+  mainServerUrl: process.env.MAIN_SERVER_URL || `http://localhost:${process.env.PORT || 4000}`,
   portalSyncKey: process.env.PORTAL_SYNC_KEY || 'portal-sync-key-123',
   payme: {
     merchantId: process.env.PAYME_MERCHANT_ID || 'dev-payme-merchant',

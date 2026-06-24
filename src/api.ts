@@ -1,6 +1,6 @@
 import type { Order, OrderStatus, Review, BarcodeGenerateResult } from './types';
 
-const API_BASE = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+const API_BASE = localStorage.getItem('foodchain_api_url') || '';
 
 const listeners: Record<string, Array<(data: any) => void>> = {};
 
@@ -1400,6 +1400,14 @@ export async function searchTenants(query: string): Promise<any[]> {
   return request(`/api/tenants/search?q=${encodeURIComponent(query)}`);
 }
 
+export async function getTenants(): Promise<any[]> {
+  return request('/api/tenants');
+}
+
+export async function switchTenant(tenantId: number): Promise<{ token: string; tenant: any }> {
+  return request('/api/auth/switch-tenant', { method: 'POST', body: JSON.stringify({ tenantId }) });
+}
+
 export async function getNearbyTenants(lat: number, lng: number, radius?: number): Promise<any[]> {
   return request(`/api/tenants/nearby?lat=${lat}&lng=${lng}${radius ? `&radius=${radius}` : ''}`);
 }
@@ -1562,6 +1570,8 @@ export async function getShifts(page?: number): Promise<any> {
 // ─── WebSocket ────────────────────────────────────────────────
 let ws: WebSocket | null = null;
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let wsReconnectAttempts = 0;
+const WS_MAX_RECONNECT_DELAY = 30000;
 export function connectWebSocket(onMessage?: (data: any) => void) {
   if (ws && ws.readyState === WebSocket.OPEN) return;
   try {
@@ -1571,17 +1581,27 @@ export function connectWebSocket(onMessage?: (data: any) => void) {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
+        wsReconnectAttempts = 0;
         emit(data.type, data);
         onMessage?.(data);
       } catch {}
     };
-    ws.onclose = () => { wsReconnectTimer = setTimeout(() => connectWebSocket(onMessage), 3000); };
+    ws.onclose = () => {
+      const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), WS_MAX_RECONNECT_DELAY);
+      wsReconnectAttempts++;
+      wsReconnectTimer = setTimeout(() => connectWebSocket(onMessage), delay);
+    };
     ws.onerror = () => { ws?.close(); };
-  } catch { wsReconnectTimer = setTimeout(() => connectWebSocket(onMessage), 5000); }
+  } catch {
+    const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), WS_MAX_RECONNECT_DELAY);
+    wsReconnectAttempts++;
+    wsReconnectTimer = setTimeout(() => connectWebSocket(onMessage), delay);
+  }
 }
 export function disconnectWebSocket() {
   if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
   ws?.close(); ws = null;
+  wsReconnectAttempts = 0;
 }
 
 // ─── Auto Orders ───────────────────────────────────────────────

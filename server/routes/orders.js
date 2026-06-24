@@ -1,6 +1,6 @@
 
 module.exports = function(app, db, config) {
-  const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, aggregatorIntegration, authenticateToken, requireRole } = config;
+  const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, pushService, notifLog, aggregatorIntegration, authenticateToken, requireRole } = config;
 
 app.get('/api/orders', (req, res) => {
   const { status, courier_id, user_id } = req.query;
@@ -359,23 +359,27 @@ app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'co
 
   try {
     const tenantId = order.tenant_id || 1;
-    const recipient = db.prepare('SELECT email FROM users WHERE id = ?').get(order.user_id);
-    if (recipient && recipient.email) {
-      const unsub = db.prepare('SELECT id FROM email_unsubscribes WHERE tenant_id = ? AND email = ?').get(tenantId, recipient.email);
+    const memberId = order.user_id;
+    const user = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(memberId);
+    const title = 'Статус заказа #' + order.id + ': ' + (STATUS_LABELS[status] || status);
+    // Email
+    if (user && user.email) {
+      const unsub = db.prepare('SELECT id FROM email_unsubscribes WHERE tenant_id = ? AND email = ?').get(tenantId, user.email);
       if (!unsub) {
         const tmpl = db.prepare("SELECT * FROM email_templates WHERE tenant_id = ? AND name = 'status_changed' AND is_system = 1").get(tenantId) || db.prepare("SELECT * FROM email_templates WHERE tenant_id = ? AND name = 'Новый заказ' AND is_system = 1").get(tenantId);
         if (tmpl) {
           let body = (tmpl.body_html || '') + '';
-          body = body.replace(/\{status\}/g, STATUS_LABELS[status] || status).replace(/\{order_id\}/g, order.id).replace(/\{user_name\}/g, order.user_name || '');
-          body += '<br><br><small><a href="' + (process.env.BASE_URL || '') + '/api/email/unsubscribe?email=' + encodeURIComponent(recipient.email) + '&tenant=' + tenantId + '">Отписаться от рассылки</a></small>';
-          const result = await emailService.sendMail(db, { to: recipient.email, subject: tmpl.subject, html: body }, tenantId);
-          if (result.success) {
-            db.prepare('INSERT INTO email_logs (tenant_id, recipient, subject, status) VALUES (?, ?, ?, ?)').run(tenantId, recipient.email, tmpl.subject, 'sent');
-          }
+          body = body.replace(/\{status\}/g, STATUS_LABELS[status] || status).replace(/\{order_id\}/g, order.id).replace(/\{user_name\}/g, user.name || '');
+          body += '<br><br><small><a href="' + (process.env.BASE_URL || '') + '/api/email/unsubscribe?email=' + encodeURIComponent(user.email) + '&tenant=' + tenantId + '">Отписаться от рассылки</a></small>';
+          await emailService.sendMail(db, { to: user.email, subject: tmpl.subject, html: body }, tenantId, notifLog);
         }
       }
     }
-  } catch (e) { console.error('[Email] Status change notification error:', e.message); }
+    // Push
+    const pushTitle = 'Статус заказа #' + order.id;
+    const pushBody = STATUS_LABELS[status] || status;
+    pushService.sendToAll(db, { title: pushTitle, body: pushBody, data: { orderId: String(order.id), status } }, tenantId, notifLog).catch(() => {});
+  } catch (e) { console.error('[Status change notification error]:', e.message); }
 
   const updated = emitOrderUpdate(req.params.id);
 

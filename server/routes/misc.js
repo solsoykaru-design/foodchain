@@ -1,9 +1,10 @@
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 
 module.exports = function(app, db, config) {
-  const { io, JWT_SECRET, PORTAL_SYNC_KEY, upload, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, STATUS_CHAIN, checkRoleLimit, emailService, uploadChat, uploadAppImage } = config;
+  const { io, JWT_SECRET, PORTAL_SYNC_KEY, upload, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, STATUS_CHAIN, checkRoleLimit, emailService, pushService, notifLog, uploadChat, uploadAppImage } = config;
 
 app.get('/tg-app', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'tg-app.html')));
 app.get('/login', (req, res) => {
@@ -614,6 +615,65 @@ app.delete('/api/branches/:id', (req, res) => {
     res.json({ message: 'Branch deleted' });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+function notifySuperadminNewTenant(tenantInfo) {
+  try {
+    const superadmin = db.prepare("SELECT id, email, name FROM users WHERE login = 'ali' AND role = 'superadmin'").get();
+    if (!superadmin) return;
+
+    const title = 'Новый арендатор: ' + (tenantInfo.name || tenantInfo.nickname || 'Без имени');
+    const tenantNick = tenantInfo.nickname || tenantInfo.name || '';
+    const adminLogin = tenantInfo.admin_login || '';
+    const adminEmail = tenantInfo.admin_email || '';
+    const tariffName = tenantInfo.tariff_name || '';
+    const subscriptionStart = tenantInfo.subscription_start || '';
+    const subscriptionEnd = tenantInfo.subscription_end || '';
+    const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const bodyLines = [
+      'Название: ' + (tenantInfo.name || '—'),
+      'Никнейм: ' + tenantNick,
+      adminLogin ? 'Логин администратора: ' + adminLogin : '',
+      adminEmail ? 'Email администратора: ' + adminEmail : '',
+      tariffName ? 'Тариф: ' + tariffName : '',
+      subscriptionStart ? 'Подписка с: ' + subscriptionStart : '',
+      subscriptionEnd ? 'Подписка до: ' + subscriptionEnd : '',
+      'Дата регистрации: ' + date,
+    ];
+    const body = bodyLines.filter(Boolean).join('\n');
+
+    const ins = db.prepare('INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)').run(superadmin.id, title, body);
+    const notif = db.prepare('SELECT * FROM notifications WHERE id = ?').get(ins.lastInsertRowid);
+    if (notif && io) {
+      try { io.emit('notification', toCamelCase(notif)); } catch {}
+    }
+
+    if (superadmin.email && emailService) {
+      const rows = [
+        '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Название</td><td style="padding:8px 12px;border:1px solid #ddd;">' + (tenantInfo.name || '—') + '</td></tr>',
+        '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Никнейм</td><td style="padding:8px 12px;border:1px solid #ddd;">' + tenantNick + '</td></tr>',
+        adminLogin ? '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Логин администратора</td><td style="padding:8px 12px;border:1px solid #ddd;">' + adminLogin + '</td></tr>' : '',
+        adminEmail ? '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Email администратора</td><td style="padding:8px 12px;border:1px solid #ddd;">' + adminEmail + '</td></tr>' : '',
+        tariffName ? '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Тариф</td><td style="padding:8px 12px;border:1px solid #ddd;">' + tariffName + '</td></tr>' : '',
+        subscriptionStart ? '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Подписка действует с</td><td style="padding:8px 12px;border:1px solid #ddd;">' + subscriptionStart + '</td></tr>' : '',
+        subscriptionEnd ? '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Подписка действует до</td><td style="padding:8px 12px;border:1px solid #ddd;">' + subscriptionEnd + '</td></tr>' : '',
+        '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:bold;">Дата регистрации</td><td style="padding:8px 12px;border:1px solid #ddd;">' + date + '</td></tr>',
+      ];
+      const html = [
+        '<h2 style="color:#1e40af;">Новый арендатор зарегистрирован</h2>',
+        '<table style="border-collapse:collapse;width:100%;max-width:500px;">',
+        rows.filter(Boolean).join('\n'),
+        '</table>',
+        '<p style="margin-top:16px;"><a href="' + (process.env.PUBLIC_URL || 'http://localhost:4000') + '/portal/admin/tenants" style="display:inline-block;background:#1e40af;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">Перейти к списку арендаторов</a></p>',
+        '<hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0;"/>',
+        '<p style="color:#94a3b8;font-size:12px;">Это письмо отправлено автоматически системой FoodChain.</p>',
+      ].join('\n');
+      emailService.sendMail(db, { to: superadmin.email, subject: title, html: html }, null).catch(() => {});
+    }
+  } catch (e) {
+    console.error('[notifySuperadminNewTenant] Error:', e.message);
+  }
+}
+
 app.post('/api/internal/sync-tenant', (req, res) => {
   try {
     const { key, tenant } = req.body;
@@ -654,6 +714,7 @@ app.post('/api/internal/sync-tenant', (req, res) => {
         seedDemoData(db, bcrypt, tenant.id);
         db.prepare('UPDATE foodchain_portal_tenants SET demo_data_created_at = datetime(\'now\') WHERE id = ?').run(tenant.id);
       }
+      notifySuperadminNewTenant(tenant);
     }
     res.json({ synced: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -678,6 +739,71 @@ app.post('/api/internal/delete-tenant', (req, res) => {
     if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
     db.prepare('DELETE FROM foodchain_portal_tenants WHERE id = ?').run(tenant_id);
     res.json({ deleted: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Internal: send welcome email to new tenant (called by portal) ─────
+app.post('/api/internal/send-welcome-email', (req, res) => {
+  try {
+    const { key, tenant } = req.body;
+    if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
+    if (!tenant || !tenant.email) return res.status(400).json({ error: 'tenant.email required' });
+
+    if (!emailService || !emailService.sendMail) return res.json({ skipped: true, reason: 'emailService not configured' });
+
+    const login = tenant.admin_login || '';
+    const password = tenant.admin_password || '';
+
+    const html = [
+      '<div style="max-width:600px;margin:auto;font-family:Inter,sans-serif;">',
+      '<div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:32px;text-align:center;border-radius:16px 16px 0 0;">',
+      '<h1 style="color:white;margin:0;font-size:24px;">Добро пожаловать в FoodChain!</h1>',
+      '</div>',
+      '<div style="padding:32px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">',
+      '<p style="color:#334155;">Ваш ресторан <strong>' + (tenant.name || '') + '</strong> успешно зарегистрирован в системе FoodChain.</p>',
+      '<h2 style="color:#1e40af;font-size:18px;margin-top:24px;">Данные для входа</h2>',
+      '<table style="border-collapse:collapse;width:100%;background:white;border-radius:8px;overflow:hidden;">',
+      '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Ресторан (никнейм)</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;">' + (tenant.nickname || tenant.name || '') + '</td></tr>',
+      login ? '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Логин администратора</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;">' + login + '</code></td></tr>' : '',
+      password ? '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Пароль</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:13px;">' + password + '</code></td></tr>' : '',
+      '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Дата регистрации</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;">' + new Date().toLocaleDateString('ru-RU') + '</td></tr>',
+      tenant.tariff_name ? '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Тариф</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;">' + tenant.tariff_name + '</td></tr>' : '',
+      tenant.subscription_start ? '<tr><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Подписка действует с</td><td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;">' + tenant.subscription_start + '</td></tr>' : '',
+      tenant.subscription_end ? '<tr><td style="padding:10px 16px;font-weight:600;color:#475569;">Подписка действует до</td><td style="padding:10px 16px;">' + tenant.subscription_end + '</td></tr>' : '',
+      '</table>',
+      '<h2 style="color:#1e40af;font-size:18px;margin-top:24px;">Ссылки</h2>',
+      '<p style="color:#334155;line-height:1.8;">',
+      '🔗 <a href="' + (process.env.PUBLIC_URL || 'http://localhost:5180') + '/portal" style="color:#3b82f6;">Портал арендатора</a><br/>',
+      '📱 <a href="' + (process.env.PUBLIC_URL || 'http://localhost:5180') + '/portal/apps" style="color:#3b82f6;">Скачать приложения</a> (гость, курьер, официант, кухня)',
+      '</p>',
+      '<h2 style="color:#1e40af;font-size:18px;margin-top:24px;">Быстрый старт</h2>',
+      '<ol style="color:#334155;line-height:1.8;padding-left:20px;">',
+      '<li><strong>Войдите</strong> в портал арендатора по ссылке выше, используя логин и пароль администратора</li>',
+      '<li><strong>Добавьте меню</strong> — создайте категории и блюда, установите цены</li>',
+      '<li><strong>Подключите сотрудников</strong> — в разделе «Персонал» добавьте официантов, поваров, курьеров</li>',
+      '<li><strong>Настройте доставку</strong> — укажите адрес ресторана, зону доставки, способы оплаты</li>',
+      '<li><strong>Запускайте</strong> — после настройки ресторан готов к приёму заказов!</li>',
+      '</ol>',
+      '<p style="color:#94a3b8;font-size:12px;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px;">Это письмо отправлено автоматически. Если у вас возникли вопросы, обратитесь в службу поддержки.</p>',
+      '</div></div>',
+    ].join('\n');
+
+    emailService.sendMail(db, { to: tenant.email, subject: 'Добро пожаловать в FoodChain! Ваш ресторан зарегистрирован', html: html }, null, notifLog).catch(e => console.error('[sendWelcomeEmail]', e.message));
+    res.json({ sent: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Internal: send notification email to tenant (called by portal) ─────
+app.post('/api/internal/send-notification-email', (req, res) => {
+  try {
+    const { key, to, subject, html } = req.body;
+    if (key !== PORTAL_SYNC_KEY) return res.status(403).json({ error: 'Invalid key' });
+    if (!to || !subject) return res.status(400).json({ error: 'to and subject required' });
+
+    if (!emailService || !emailService.sendMail) return res.json({ skipped: true, reason: 'emailService not configured' });
+
+    emailService.sendMail(db, { to, subject, html: html || '<p>' + subject + '</p>' }, null, notifLog).catch(e => console.error('[sendNotificationEmail]', e.message));
+    res.json({ sent: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
@@ -1036,6 +1162,8 @@ app.put('/api/email/settings', (req, res) => {
 app.post('/api/email/test', async (req, res) => {
   try {
     const result = await emailService.testConnection(db, req.body?.tenant_id || 1);
+    if (result.success) notifLog('email', 'test', 'Тест SMTP', 'sent');
+    else notifLog('email', 'test', 'Тест SMTP', 'failed', result.error);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1043,7 +1171,7 @@ app.post('/api/email/send', async (req, res) => {
   try {
     const { to, subject, html } = req.body;
     if (!to || !subject) return res.status(400).json({ error: 'Missing to/subject' });
-    const result = await emailService.sendMail(db, { to, subject, html }, req.query.tenant_id || 1);
+    const result = await emailService.sendMail(db, { to, subject, html }, req.query.tenant_id || 1, notifLog);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1121,10 +1249,7 @@ app.post('/api/email/send-campaign', async (req, res) => {
     const subject = subject_override || template.subject;
     let sent = 0, failed = 0;
     for (const email of recipient_emails) {
-      const result = await emailService.sendMail(db, { to: email, subject, html: template.body_html });
-      db.prepare('INSERT INTO email_logs (tenant_id, recipient, subject, status) VALUES (?, ?, ?, ?)').run(
-        req.query.tenant_id || 1, email, subject, result.success ? 'sent' : 'failed'
-      );
+      const result = await emailService.sendMail(db, { to: email, subject, html: template.body_html }, req.query.tenant_id || 1, notifLog);
       if (result.success) sent++; else failed++;
     }
     res.json({ sent, failed, total: recipient_emails.length });
@@ -1137,6 +1262,84 @@ app.get('/api/email/stats', (req, res) => {
   const opened = db.prepare("SELECT COUNT(*) as c FROM email_logs WHERE opened_at IS NOT NULL AND tenant_id = 1").get();
   const recent = db.prepare('SELECT * FROM email_logs WHERE tenant_id = 1 ORDER BY sent_at DESC LIMIT 20').all();
   res.json({ total: total.c, sent: sent.c, failed: failed.c, opened: opened.c, openRate: total.c > 0 ? Math.round(opened.c / total.c * 100) : 0, recent });
+});
+app.get('/api/notification-logs', (req, res) => {
+  try {
+    const { channel, limit, offset } = req.query;
+    const tenantId = req.query.tenant_id || 1;
+    let sql = 'SELECT * FROM notification_logs WHERE tenant_id = ?';
+    const params = [tenantId];
+    if (channel) { sql += ' AND channel = ?'; params.push(channel); }
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    const lim = Math.min(parseInt(limit) || 50, 500);
+    const off = parseInt(offset) || 0;
+    params.push(lim, off);
+    const logs = db.prepare(sql).all(...params);
+    const count = db.prepare('SELECT COUNT(*) as c FROM notification_logs WHERE tenant_id = ?' + (channel ? ' AND channel = ?' : '')).get(...(channel ? [tenantId, channel] : [tenantId]));
+    res.json({ logs, total: count.c });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/notification-logs/stats', (req, res) => {
+  try {
+    const tenantId = req.query.tenant_id || 1;
+    const total = db.prepare('SELECT COUNT(*) as c FROM notification_logs WHERE tenant_id = ?').get(tenantId);
+    const sent = db.prepare("SELECT COUNT(*) as c FROM notification_logs WHERE status = 'sent' AND tenant_id = ?").get(tenantId);
+    const failed = db.prepare("SELECT COUNT(*) as c FROM notification_logs WHERE status = 'failed' AND tenant_id = ?").get(tenantId);
+    const byChannel = db.prepare('SELECT channel, COUNT(*) as c FROM notification_logs WHERE tenant_id = ? GROUP BY channel').all(tenantId);
+    res.json({ total: total.c, sent: sent.c, failed: failed.c, byChannel });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/device-tokens', (req, res) => {
+  try {
+    const tenantId = req.query.tenant_id || 1;
+    const tokens = db.prepare('SELECT * FROM device_tokens WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
+    res.json(tokens);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/device-tokens/register', (req, res) => {
+  try {
+    const { token, platform, device_info } = req.body;
+    const tenantId = req.body.tenant_id || 1;
+    if (!token) return res.status(400).json({ error: 'token required' });
+    res.json(pushService.registerDeviceToken(db, { tenant_id: tenantId, token, platform, device_info }));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/device-tokens/unregister', (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'token required' });
+    res.json(pushService.unregisterDeviceToken(db, token));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/push-settings', (req, res) => {
+  try {
+    const tenantId = req.query.tenant_id || 1;
+    res.json(pushService.getSettings(db, tenantId));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/push-settings', (req, res) => {
+  try {
+    const { api_key, project_id, sender_id, app_id, is_enabled } = req.body;
+    const tenantId = req.body.tenant_id || 1;
+    res.json(pushService.saveSettings(db, { tenant_id: tenantId, api_key, project_id, sender_id, app_id, is_enabled }));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/push-settings/test', async (req, res) => {
+  try {
+    const tenantId = (req.body && req.body.tenant_id) || 1;
+    const result = await pushService.sendTest(db, tenantId);
+    if (result.success) notifLog('push', 'test', 'Тестовое push-уведомление', 'sent');
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/push-settings/send', async (req, res) => {
+  try {
+    const { title, body, data } = req.body;
+    const tenantId = req.body.tenant_id || 1;
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const result = await pushService.sendToAll(db, { title, body, data }, tenantId, notifLog);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/email/templates/:id/preview', (req, res) => {
   const template = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(req.params.id);

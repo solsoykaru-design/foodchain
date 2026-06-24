@@ -2,11 +2,15 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import { query, get, run } from '../db.js';
+import { query, get, run, db } from '../db.js';
 import { config } from '../config.js';
 import * as yookassa from '../services/yookassa.js';
 import * as cloudpayments from '../services/cloudpayments.js';
 import * as tbank from '../services/tbank.js';
+
+function ensureColumn(table, column, definition) {
+  try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`); } catch (e) {}
+}
 
 export const adminRouter = Router();
 
@@ -27,11 +31,7 @@ adminRouter.use(requireSuperadmin);
 adminRouter.get('/tenants', (req, res, next) => {
   try {
     const { search, status, tariff_id, sort, order } = req.query;
-    let sql = `SELECT t.*, tar.name as tariff_name, tar.code as tariff_code,
-               t.access_mode,
-               (SELECT COUNT(*) FROM staff_accounts WHERE tenant_id = t.id AND is_active = 1) as staff_count,
-               (SELECT IFNULL(SUM(amount), 0) FROM payments WHERE tenant_id = t.id AND status = 'succeeded') as total_paid,
-               (SELECT username FROM staff_accounts WHERE tenant_id = t.id AND role = 'superadmin' LIMIT 1) as admin_username
+    let sql = `SELECT t.*, tar.name as tariff_name, tar.code as tariff_code
                FROM tenants t LEFT JOIN tariffs tar ON tar.id = t.tariff_id WHERE 1=1`;
     const params = [];
 
@@ -46,7 +46,23 @@ adminRouter.get('/tenants', (req, res, next) => {
     const sortField = (sort && ['id', 'name', 'email', 'status', 'created_at', 'subscription_end'].includes(sort)) ? sort : 'created_at';
     sql += ` ORDER BY t.${sortField} ${order === 'asc' ? 'ASC' : 'DESC'}`;
 
-    res.json(query(sql, params));
+    const tenants = query(sql, params);
+    try {
+      const staffCounts = {};
+      const payments = {};
+      const adminNames = {};
+      for (const t of tenants) {
+        try { staffCounts[t.id] = get('SELECT COUNT(*) as c FROM staff_accounts WHERE tenant_id = ? AND is_active = 1', [t.id])?.c || 0; } catch { staffCounts[t.id] = 0; }
+        try { payments[t.id] = get('SELECT IFNULL(SUM(amount), 0) as total FROM payments WHERE tenant_id = ? AND status = \'succeeded\'', [t.id])?.total || 0; } catch { payments[t.id] = 0; }
+        try { adminNames[t.id] = get('SELECT username FROM staff_accounts WHERE tenant_id = ? AND role = \'superadmin\' LIMIT 1', [t.id])?.username || null; } catch { adminNames[t.id] = null; }
+      }
+      for (const t of tenants) {
+        t.staff_count = staffCounts[t.id] || 0;
+        t.total_paid = payments[t.id] || 0;
+        t.admin_username = adminNames[t.id] || null;
+      }
+    } catch {}
+    res.json(tenants);
   } catch (err) { next(err); }
 });
 
@@ -197,26 +213,56 @@ adminRouter.delete('/tenants/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-adminRouter.post('/tenants/:id/notify', (req, res, next) => {
+adminRouter.post('/tenants/:id/notify', async (req, res, next) => {
   try {
-    const { subject, body, type } = req.body;
+    const { subject, body, type, sendEmail } = req.body;
     if (!subject || !body) return res.status(400).json({ error: 'Тема и текст обязательны' });
-    run("INSERT INTO notification_logs (tenant_id, subject, body, type) VALUES (?, ?, ?, ?)",
+    run("INSERT INTO notification_logs (tenant_id, subject, body, type, is_read) VALUES (?, ?, ?, ?, 0)",
       [req.params.id, subject, body, type || 'info']);
     run("INSERT INTO audit_logs (tenant_id, user_id, action, details) VALUES (?, ?, 'admin.notification_sent', ?)",
       [req.params.id, req.user.userId, JSON.stringify({ subject })]);
+
+    if (sendEmail) {
+      try {
+        const tenant = get('SELECT email, name FROM tenants WHERE id = ?', [req.params.id]);
+        if (tenant?.email) {
+          const html = '<div style="font-family:Inter,sans-serif;padding:24px;"><h2 style="color:#1e40af;">' + subject + '</h2><p>' + body + '</p><hr style="margin-top:24px;"/><p style="color:#94a3b8;font-size:12px;">FoodChain — система автоматизации ресторанов</p></div>';
+          await fetch(`${config.mainServerUrl}/api/internal/send-notification-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: config.portalSyncKey, to: tenant.email, subject, html })
+          });
+        }
+      } catch (emailErr) {
+        console.warn('[NOTIFY_EMAIL] Failed:', emailErr.message);
+      }
+    }
+
     res.status(201).json({ message: 'Уведомление отправлено' });
   } catch (err) { next(err); }
 });
 
-adminRouter.post('/notify-all', (req, res, next) => {
+adminRouter.post('/notify-all', async (req, res, next) => {
   try {
-    const { subject, body, type } = req.body;
+    const { subject, body, type, sendEmail } = req.body;
     if (!subject || !body) return res.status(400).json({ error: 'Тема и текст обязательны' });
-    const tenants = query("SELECT id FROM tenants WHERE status = 'active'");
+    const tenants = query("SELECT id, email, name FROM tenants WHERE status = 'active'");
     for (const t of tenants) {
-      run("INSERT INTO notification_logs (tenant_id, subject, body, type) VALUES (?, ?, ?, ?)",
+      run("INSERT INTO notification_logs (tenant_id, subject, body, type, is_read) VALUES (?, ?, ?, ?, 0)",
         [t.id, subject, body, type || 'info']);
+
+      if (sendEmail && t.email) {
+        try {
+          const html = '<div style="font-family:Inter,sans-serif;padding:24px;"><h2 style="color:#1e40af;">' + subject + '</h2><p>' + body + '</p><hr style="margin-top:24px;"/><p style="color:#94a3b8;font-size:12px;">FoodChain — система автоматизации ресторанов</p></div>';
+          await fetch(`${config.mainServerUrl}/api/internal/send-notification-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: config.portalSyncKey, to: t.email, subject, html })
+          });
+        } catch (emailErr) {
+          console.warn('[BROADCAST_EMAIL] Failed for ' + t.email + ':', emailErr.message);
+        }
+      }
     }
     run("INSERT INTO audit_logs (user_id, action, details) VALUES (?, 'admin.broadcast_sent', ?)",
       [req.user.userId, JSON.stringify({ subject, tenant_count: tenants.length })]);
@@ -441,14 +487,17 @@ adminRouter.delete('/payment-providers/:code', (req, res, next) => {
 
 adminRouter.get('/stats', (req, res, next) => {
   try {
+    let monthlyRevenue = 0, totalRevenue = 0;
+    try { monthlyRevenue = query("SELECT IFNULL(SUM(amount), 0) as t FROM payments WHERE status = 'succeeded' AND paid_at >= datetime('now', '-30 days')")[0]?.t || 0; } catch {}
+    try { totalRevenue = query("SELECT IFNULL(SUM(amount), 0) as t FROM payments WHERE status = 'succeeded'")[0]?.t || 0; } catch {}
+    let byTariff = [];
+    try { byTariff = query('SELECT tar.code, tar.name, COUNT(*) as count FROM tenants t JOIN tariffs tar ON tar.id = t.tariff_id GROUP BY tar.id, tar.code, tar.name'); } catch {}
     res.json({
       total_tenants: query("SELECT COUNT(*) as c FROM tenants")[0]?.c || 0,
       active_tenants: query("SELECT COUNT(*) as c FROM tenants WHERE status = 'active'")[0]?.c || 0,
-      monthly_revenue: query("SELECT IFNULL(SUM(amount), 0) as t FROM payments WHERE status = 'succeeded' AND paid_at >= datetime('now', '-30 days')")[0]?.t || 0,
-      total_revenue: query("SELECT IFNULL(SUM(amount), 0) as t FROM payments WHERE status = 'succeeded'")[0]?.t || 0,
-      by_tariff: query(
-        'SELECT tar.code, tar.name, COUNT(*) as count FROM tenants t JOIN tariffs tar ON tar.id = t.tariff_id GROUP BY tar.id, tar.code, tar.name'
-      ),
+      monthly_revenue: monthlyRevenue,
+      total_revenue: totalRevenue,
+      by_tariff: byTariff,
     });
   } catch (err) { next(err); }
 });
@@ -460,18 +509,29 @@ adminRouter.post('/tenants', async (req, res, next) => {
 
     const mode = access_mode === 'production' ? 'production' : 'demo';
     const appSettingsStr = app_settings ? JSON.stringify(app_settings) : null;
-    const tRes = run(
-      'INSERT INTO tenants (uuid, name, nickname, inn, phone, address, email, tariff_id, status, access_mode, app_settings, base_currency) VALUES (?,?,?,?,?,?,?,?,\'active\',?,?,?)',
-      [uuidv4(), name, nickname || null, inn, phone, address || null, email, tariff_id || 1, mode, appSettingsStr, base_currency || 'RUB']
-    );
-    const tenantId = tRes.lastInsertRowid;
+
+    let tenantId;
+    try {
+      const tRes = run(
+        'INSERT INTO tenants (uuid, name, nickname, inn, phone, address, email, tariff_id, status, access_mode, app_settings, base_currency) VALUES (?,?,?,?,?,?,?,?,\'active\',?,?,?)',
+        [uuidv4(), name, nickname || null, inn, phone, address || null, email, tariff_id || 1, mode, appSettingsStr, base_currency || 'RUB']
+      );
+      tenantId = Number(tRes.lastInsertRowid);
+    } catch (e) {
+      return res.status(500).json({ error: 'Ошибка создания ресторана: ' + e.message });
+    }
 
     const passwordHash = admin_password ? bcrypt.hashSync(admin_password, config.bcryptRounds) : null;
     let syncWarnings = [];
+    let createErrors = [];
 
     if (admin_username && passwordHash) {
-      run('INSERT INTO staff_accounts (tenant_id, username, password_hash, role, first_name) VALUES (?,?,?,\'superadmin\',?)',
-        [tenantId, admin_username, passwordHash, name]);
+      try {
+        run('INSERT INTO staff_accounts (tenant_id, username, password_hash, role, first_name) VALUES (?,?,?,\'superadmin\',?)',
+          [tenantId, admin_username, passwordHash, name]);
+      } catch (e) {
+        createErrors.push('staff_accounts: ' + e.message);
+      }
 
       try {
         const syncRes = await fetch(`${config.mainServerUrl}/api/internal/sync-staff`, {
@@ -499,22 +559,37 @@ adminRouter.post('/tenants', async (req, res, next) => {
       }
     }
 
-    run('INSERT INTO users (email, password_hash, full_name, role, tenant_id, email_verified) VALUES (?,?,?,\'partner\',?,1)',
-      [email, passwordHash || bcrypt.hashSync('changeme', config.bcryptRounds), name, tenantId]);
+    try {
+      run('INSERT INTO users (email, password_hash, full_name, role, tenant_id, email_verified) VALUES (?,?,?,\'partner\',?,1)',
+        [email, passwordHash || bcrypt.hashSync('changeme', config.bcryptRounds), name, tenantId]);
+    } catch (e) {
+      createErrors.push('users: ' + e.message);
+    }
 
     run("INSERT INTO audit_logs (tenant_id, user_id, action, details) VALUES (?,?,'admin.tenant_created',?)",
       [tenantId, req.user.userId, JSON.stringify({ name, email })]);
 
     const newTenant = get('SELECT * FROM tenants WHERE id = ?', [tenantId]);
+    const tariff = tariff_id ? get('SELECT name FROM tariffs WHERE id = ?', [tariff_id]) : null;
+    const tariffName = tariff?.name || '';
+    const subscriptionStart = newTenant.subscription_start || '';
+    const subscriptionEnd = newTenant.subscription_end || '';
+
+    const tenantPayload = {
+      id: newTenant.id, name: newTenant.name, nickname: newTenant.nickname,
+      allow_create_branches: newTenant.allow_create_branches || 0,
+      access_mode: newTenant.access_mode, with_demo_data: !!with_demo_data,
+      app_settings: appSettingsStr, base_currency: newTenant.base_currency || 'RUB',
+      admin_login: admin_username || '', admin_email: email || '',
+      tariff_name: tariffName, subscription_start: subscriptionStart,
+      subscription_end: subscriptionEnd,
+    };
 
     try {
       const syncRes = await fetch(`${config.mainServerUrl}/api/internal/sync-tenant`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: config.portalSyncKey,
-          tenant: { id: newTenant.id, name: newTenant.name, nickname: newTenant.nickname, allow_create_branches: newTenant.allow_create_branches || 0, access_mode: newTenant.access_mode, with_demo_data: !!with_demo_data, app_settings: appSettingsStr, base_currency: newTenant.base_currency || 'RUB' }
-        })
+        body: JSON.stringify({ key: config.portalSyncKey, tenant: tenantPayload })
       });
       if (!syncRes.ok) {
         const errData = await syncRes.json().catch(() => ({ error: syncRes.statusText }));
@@ -524,12 +599,27 @@ adminRouter.post('/tenants', async (req, res, next) => {
       syncWarnings.push(`sync-tenant: ${syncErr.message}`);
     }
 
-    if (syncWarnings.length > 0) {
-      console.warn('[SYNC] Warnings during tenant creation:', syncWarnings);
-      res.status(201).json({ ...newTenant, syncWarnings });
-    } else {
-      res.status(201).json(newTenant);
+    // ─── Send welcome email to tenant ─────────────────────────────────
+    try {
+      await fetch(`${config.mainServerUrl}/api/internal/send-welcome-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: config.portalSyncKey,
+          tenant: { email, name: newTenant.name, nickname: newTenant.nickname, admin_login: admin_username || '', admin_password: admin_password || '', tariff_name: tariffName, subscription_start: subscriptionStart, subscription_end: subscriptionEnd }
+        })
+      });
+    } catch (emailErr) {
+      console.warn('[WELCOME_EMAIL] Failed:', emailErr.message);
     }
+
+    const response = { ...newTenant };
+    if (syncWarnings.length) response.syncWarnings = syncWarnings;
+    if (createErrors.length) {
+      response.createErrors = createErrors;
+      console.warn('[TENANT_CREATE] Partial errors:', createErrors);
+    }
+    res.status(201).json(response);
   } catch (err) { next(err); }
 });
 

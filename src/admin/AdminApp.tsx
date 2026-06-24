@@ -62,6 +62,7 @@ import ShiftsPage from './ShiftsPage';
 import AutoWriteoffPage from './AutoWriteoffPage';
 import CostingPage from './CostingPage';
 import EmailSettingsPage from './EmailSettingsPage';
+import NotificationLogsPage from './NotificationLogsPage';
 import BankStatementPage from './BankStatementPage';
 import StaffSchedulePage from './StaffSchedulePage';
 import CrmIntegrationPage from './CrmIntegrationPage';
@@ -82,6 +83,7 @@ import ExtensionsSdkPage from './ExtensionsSdkPage';
 import GamificationPage from './GamificationPage';
 import CurrencySettingsPage from './CurrencySettingsPage';
 import YumaImportPage from './YumaImportPage';
+import ProfilePage from './ProfilePage';
 import { setDocType, getDocType } from './docStore';
 import * as api from '../api';
 import { onEvent } from '../api';
@@ -90,10 +92,10 @@ import ThemeConstructor from '../themes/ThemeConstructor';
 import BrandingPage from './BrandingPage';
 import SiteSettingsPage from './SiteSettingsPage';
 import LanguageSelector from './LanguageSelector';
-import { LayoutDashboard, ShoppingBag, BookOpen, CalendarDays, CalendarX, Calculator, Warehouse, Truck, DollarSign, Megaphone, UsersRound, Settings, Shield, ShieldCheck, ChefHat, Bell, Moon, Sun, LogOut, Users, MessageSquare, MessageCircle, MapPin, FileText, FolderTree, CreditCard, Wallet, RefreshCw, ChevronDown, Package, Building2, Factory, Handshake, Receipt, Files, FileSpreadsheet, ClipboardList, ArrowDownUp, PackageSearch, FlaskConical, ArrowLeftRight, FileUp, Scissors, Cog, ShoppingCart, Hammer, Handshake as HandshakeIcon, Globe, Menu as MenuIcon, X, Palette, BarChart3, Calendar, GitCompare, Smartphone, Award, Printer, Mail, FileJson, Monitor, Puzzle, Phone, PhoneCall, Gamepad2, Code } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, BookOpen, CalendarDays, CalendarX, Calculator, Warehouse, Truck, DollarSign, Megaphone, UsersRound, Settings, Shield, ShieldCheck, ChefHat, Bell, Moon, Sun, LogOut, Users, User, MessageSquare, MessageCircle, MapPin, FileText, FolderTree, CreditCard, Wallet, RefreshCw, ChevronDown, Package, Building2, Factory, Handshake, Receipt, Files, FileSpreadsheet, ClipboardList, ArrowDownUp, PackageSearch, FlaskConical, ArrowLeftRight, FileUp, Scissors, Cog, ShoppingCart, Hammer, Handshake as HandshakeIcon, Globe, Menu as MenuIcon, X, Palette, BarChart3, Calendar, GitCompare, Smartphone, Award, Printer, Mail, FileJson, Monitor, Puzzle, Phone, PhoneCall, Gamepad2, Code, Search } from 'lucide-react';
 
 export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
-  const { adminPage, setAdminPage } = useApp();
+  const { adminPage, setAdminPage, addNotification } = useApp();
   const { t } = useTranslation();
   // addToast is imported globally from ToastContext
   const [refreshKey, setRefreshKey] = useState(0);
@@ -119,6 +121,9 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
       }
       if (data.type === 'order:new') {
         addToast(`Новый заказ #${data.orderId || ''}`, 'info');
+      }
+      if (data.type === 'notification' && data.title) {
+        addNotification({ type: 'system', title: data.title, body: data.body || '' });
       }
       window.dispatchEvent(new CustomEvent(data.type, { detail: data }));
     });
@@ -197,6 +202,7 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'terminal' && <TerminalSettingsPage key={refreshKey} />}
           {adminPage === 'shifts' && <ShiftsPage key={refreshKey} />}
           {adminPage === 'email_settings' && <EmailSettingsPage key={refreshKey} />}
+          {adminPage === 'notification_logs' && <NotificationLogsPage key={refreshKey} />}
           {adminPage === 'bank_statement' && <BankStatementPage key={refreshKey} />}
           {adminPage === 'staff_schedule' && <StaffSchedulePage key={refreshKey} />}
           {adminPage === 'crm_integration' && <CrmIntegrationPage key={refreshKey} />}
@@ -219,7 +225,8 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'foh_display' && <FohDisplayPage key={refreshKey} />}
           {adminPage === 'honest_sign' && <HonestSignPage key={refreshKey} />}
           {adminPage === 'yuma_import' && <YumaImportPage key={refreshKey} />}
-          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import'].includes(adminPage) && (
+          {adminPage === 'profile' && <ProfilePage key={refreshKey} />}
+          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'notification_logs', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import', 'profile'].includes(adminPage) && (
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 text-center shadow-sm">
               <p className="text-zinc-500 dark:text-zinc-400">{t('page_developing')}: {adminPage}</p>
             </div>
@@ -388,6 +395,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             { id: 'notifications', icon: Bell, label: t('sidebar_notifications') },
             { id: 'push_settings', icon: Settings, label: t('sidebar_push_settings') },
             { id: 'email_settings', icon: Mail, label: 'E-mail настройки' },
+            { id: 'notification_logs', icon: Bell, label: 'Логи уведомлений' },
           ]
         },
       ]
@@ -411,6 +419,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { id: 'salary', icon: Wallet, label: t('sidebar_salary') },
         { id: 'staff', icon: UsersRound, label: t('sidebar_staff') },
         { id: 'staff_schedule', icon: CalendarDays, label: 'График работы' },
+        { id: 'profile', icon: User, label: 'Мой профиль', roles: ['superadmin'] },
         { id: 'payment_settings', icon: CreditCard, label: t('sidebar_payment') },
         {
           id: 'settings_group', icon: Settings, label: t('sidebar_settings_group'),
@@ -606,6 +615,43 @@ function TopBar({ onLogout, onRefresh, onMenuToggle }: { onLogout?: () => void; 
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [showTenantSwitcher, setShowTenantSwitcher] = useState(false);
+  const tenantSwitcherRef = useRef<HTMLDivElement>(null);
+
+  const adminUser = (() => { try { return JSON.parse(localStorage.getItem('foodchain_admin_user') || '{}'); } catch { return {}; } })();
+  const isSuperadmin = adminUser.role === 'superadmin';
+
+  useEffect(() => {
+    if (isSuperadmin) {
+      api.getTenants().then(setTenants).catch(() => {});
+    }
+  }, [isSuperadmin]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tenantSwitcherRef.current && !tenantSwitcherRef.current.contains(e.target as Node)) {
+        setShowTenantSwitcher(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSwitchTenant = async (tenantId: number) => {
+    try {
+      const res = await api.switchTenant(tenantId);
+      localStorage.setItem('fc_token', res.token);
+      const user = JSON.parse(localStorage.getItem('foodchain_admin_user') || '{}');
+      user.tenantName = res.tenant.name || res.tenant.nickname;
+      user.tenantId = res.tenant.id;
+      localStorage.setItem('foodchain_admin_user', JSON.stringify(user));
+      setShowTenantSwitcher(false);
+      window.location.reload();
+    } catch (e: any) {
+      addToast(e.message || 'Ошибка переключения', 'error');
+    }
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (searchRef.current && !searchRef.current.contains(e.target as Node)) { setShowSearch(false); } };
@@ -629,9 +675,10 @@ function TopBar({ onLogout, onRefresh, onMenuToggle }: { onLogout?: () => void; 
   };
 
   return (
-    <div className="shrink-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 px-4 md:px-6 h-16 flex items-center justify-end gap-2 md:gap-4">
-      <button onClick={onMenuToggle} className="md:hidden p-2 text-zinc-500 hover:text-zinc-700 transition active:scale-[0.97] mr-2"><MenuIcon size={20} /></button>
-      <div ref={searchRef} className="relative flex-1 max-w-md mr-auto">
+    <div className="shrink-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 px-4 md:px-6 h-16 flex items-center justify-start md:justify-end gap-1 md:gap-4 overflow-x-auto scrollbar-hide flex-nowrap">
+      <button onClick={onMenuToggle} className="md:hidden p-2 text-zinc-500 hover:text-zinc-700 transition active:scale-[0.97] shrink-0"><MenuIcon size={20} /></button>
+      <button onClick={() => setShowSearch(v => !v)} className="md:hidden p-2 text-zinc-500 hover:text-blue-500 transition active:scale-[0.97] shrink-0" title="Поиск"><Search size={18} /></button>
+      <div ref={searchRef} className={`relative flex-1 max-w-md mr-auto ${showSearch ? 'block' : 'hidden'} md:block`}>
         <input ref={searchInputRef} value={searchQuery} onChange={e => doSearch(e.target.value)} onFocus={() => setShowSearch(true)}
           placeholder={t('topbar_search_placeholder')}
           className="w-full border-2 border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" />
@@ -650,10 +697,10 @@ function TopBar({ onLogout, onRefresh, onMenuToggle }: { onLogout?: () => void; 
           </div>
         )}
       </div>
-      <button onClick={onRefresh} className="p-2 text-zinc-500 hover:text-blue-500 transition active:scale-[0.97]" title={t('topbar_refresh')}>
+      <button onClick={onRefresh} className="p-2 text-zinc-500 hover:text-blue-500 transition active:scale-[0.97] shrink-0" title={t('topbar_refresh')}>
         <RefreshCw size={20} />
       </button>
-      <div className="relative">
+      <div className="relative shrink-0">
         <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 text-zinc-500 hover:text-zinc-700 transition active:scale-[0.97]">
           <Bell size={20} />
           {unreadCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full animate-pulse" />}
@@ -667,7 +714,7 @@ function TopBar({ onLogout, onRefresh, onMenuToggle }: { onLogout?: () => void; 
           </div>
         )}
       </div>
-      <div className="flex items-center gap-0.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-0.5" title="Размер текста">
+      <div className="flex items-center gap-0.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-0.5 shrink-0" title="Размер текста">
         {(['small','medium','large'] as const).map(s => {
           const active = fontSize === s;
           const sz = { small: '11px', medium: '14px', large: '17px' };
@@ -679,9 +726,32 @@ function TopBar({ onLogout, onRefresh, onMenuToggle }: { onLogout?: () => void; 
           );
         })}
       </div>
-      <LanguageSelector />
-      <ThemeSelector />
-      <button onClick={onLogout} className="p-2 text-zinc-500 hover:text-red-500 transition active:scale-[0.97]"><LogOut size={20} /></button>
+      <span className="shrink-0"><LanguageSelector /></span>
+      <span className="shrink-0"><ThemeSelector /></span>
+      {isSuperadmin && (
+        <div ref={tenantSwitcherRef} className="relative shrink-0">
+          <button onClick={() => setShowTenantSwitcher(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg transition">
+            <Building2 size={16} />
+            <span className="max-w-[120px] truncate">{adminUser.tenantName || 'Ресторан'}</span>
+            <ChevronDown size={14} />
+          </button>
+          {showTenantSwitcher && (
+            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl z-50 max-h-72 overflow-y-auto">
+              <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Переключить ресторан</div>
+              {tenants.map(tenant => (
+                <button key={tenant.id} onClick={() => handleSwitchTenant(tenant.id)}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-2 ${tenant.id === adminUser.tenantId ? 'text-blue-600 font-semibold' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                  <Building2 size={16} className="shrink-0" />
+                  <span className="truncate">{tenant.name}</span>
+                  {tenant.id === adminUser.tenantId && <span className="ml-auto text-xs text-blue-500">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <button onClick={onLogout} className="p-2 text-zinc-500 hover:text-red-500 transition active:scale-[0.97] shrink-0"><LogOut size={20} /></button>
     </div>
   );
 }
