@@ -254,7 +254,7 @@ export default function AddContragentModal({ contragent, onClose, onSaved }: Pro
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-[720px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-[720px] max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{isEdit ? 'Редактировать контрагента' : 'Новый контрагент'}</h2>
           <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-600 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">

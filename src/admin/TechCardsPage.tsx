@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
-import { FileText, Plus, X, Edit3, Trash2, Search, Download, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
-import TechCardEditor from './TechCardEditor';
+import { FileText, Plus, X, Edit3, Trash2, Search, Download, Upload, ChevronLeft, ChevronRight } from 'lucide-react';import TechCardEditor from './TechCardEditor';
 import { addToast } from '../ToastContext';
+
 
 export default function TechCardsPage() {
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -14,6 +14,8 @@ export default function TechCardsPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [stats, setStats] = useState<any>(null);
+
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +61,7 @@ export default function TechCardsPage() {
   };
 
   const handleSaved = () => { load(); setView('list'); };
+
 
   if (view === 'editor' && editingId) {
     return (
@@ -154,6 +157,7 @@ export default function TechCardsPage() {
           </table>
         </div>
       )}
+
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">

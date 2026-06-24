@@ -1,42 +1,44 @@
 const express = require('express');
-const https = require('https');
 const path = require('path');
 const fs = require('fs');
 
-const DIST = path.join(__dirname, '..', 'dist-admin');
+const DIST = require('electron').app?.isPackaged
+  ? path.join(process.resourcesPath, 'dist-admin')
+  : path.join(__dirname, '..', 'dist-admin');
 const REMOTE_HOST = 'foodchain-qpxh.onrender.com';
 
-function proxyReq(req, res) {
+function proxyToRemote(req, res, prefix) {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  const pathname = '/api' + (req.url.includes('?') ? req.url.slice(0, req.url.indexOf('?')) : req.url);
+  const pathname = prefix + (req.url.includes('?') ? req.url.slice(0, req.url.indexOf('?')) : req.url);
 
-  const body = JSON.stringify(req.body || {});
+  const body = req.body ? JSON.stringify(req.body) : undefined;
+  const https = require('https');
   const opts = {
     hostname: REMOTE_HOST,
     port: 443,
     path: pathname + qs,
     method: req.method,
     headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(body),
       'Host': REMOTE_HOST,
       'Origin': `https://${REMOTE_HOST}`,
       'Authorization': req.headers.authorization || '',
       'Cookie': req.headers.cookie || '',
     },
   };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.headers['Content-Length'] = Buffer.byteLength(body);
+  }
 
   const proxyReq = https.request(opts, (proxyRes) => {
     const chunks = [];
     proxyRes.on('data', c => chunks.push(c));
     proxyRes.on('end', () => {
-      const data = Buffer.concat(chunks);
-      const contentType = proxyRes.headers['content-type'] || '';
       res.writeHead(proxyRes.statusCode, {
         ...proxyRes.headers,
         'access-control-allow-origin': '*',
       });
-      res.end(data);
+      res.end(Buffer.concat(chunks));
     });
   });
 
@@ -45,7 +47,7 @@ function proxyReq(req, res) {
     if (!res.headersSent) res.status(502).json({ error: 'Bad gateway' });
   });
 
-  proxyReq.write(body);
+  if (body) proxyReq.write(body);
   proxyReq.end();
 }
 
@@ -53,9 +55,14 @@ module.exports = function createServer(port) {
   const app = express();
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   app.use('/api', (req, res) => {
-    proxyReq(req, res);
+    proxyToRemote(req, res, '/api');
+  });
+
+  app.use('/uploads', (req, res) => {
+    proxyToRemote(req, res, '/uploads');
   });
 
   app.get(/^\/(?!api).*$/, (req, res, next) => {

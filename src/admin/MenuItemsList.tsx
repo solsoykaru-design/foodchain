@@ -497,7 +497,7 @@ export default function MenuItemsList() {
       {/* Import modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-4" onClick={() => { if (!importing) setShowImportModal(false); }}>
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-[520px] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-[520px] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
               <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Upload size={18} /> Импорт элементов

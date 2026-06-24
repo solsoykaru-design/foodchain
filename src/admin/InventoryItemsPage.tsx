@@ -7,6 +7,8 @@ import ProductModal from './ProductModal';
 import CategoryItemsModal from './CategoryItemsModal';
 import { addToast } from '../ToastContext';
 
+
+
 interface CatNode {
   id: number; name: string; parentId?: number;
   itemCount: number; children: CatNode[];
@@ -29,6 +31,8 @@ export default function InventoryItemsPage() {
   const [showCard, setShowCard] = useState(false);
 
   const [editItemId, setEditItemId] = useState<number | null>(null);
+
+
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -177,6 +181,7 @@ export default function InventoryItemsPage() {
   }, [page, limit, filterWarehouse, filterCategory, filterTechCard, filterContragent, selectedCatId]);
 
   useEffect(() => { load(); }, [load]);
+
 
   const openCard = (id: number) => {
     setCardId(id);
@@ -391,6 +396,8 @@ export default function InventoryItemsPage() {
               className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-all active:scale-[0.97]">
               <Upload size={16} /> Импорт
             </button>
+
+
             <button onClick={handleDownloadSample}
               className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-all active:scale-[0.97]">
               <FileText size={16} /> Образец
@@ -462,6 +469,8 @@ export default function InventoryItemsPage() {
                     <th className="p-3 text-left">Наименование</th>
                     <th className="p-3 text-left">Категория</th>
                     <th className="p-3 text-left">Ед.изм</th>
+                    <th className="p-3 text-right">Брутто</th>
+                    <th className="p-3 text-right">Нетто</th>
                     <th className="p-3 text-right">Остаток</th>
                     <th className="p-3 text-right">Цена</th>
                     <th className="p-3 text-right">Техкарта</th>
@@ -482,6 +491,8 @@ export default function InventoryItemsPage() {
                       </td>
                       <td className="p-3 text-zinc-500">{item.category}</td>
                       <td className="p-3 text-zinc-500">{item.unit}</td>
+                      <td className="p-3 text-right text-zinc-700 dark:text-zinc-300">{item.brutto ? `${item.brutto} ${item.unit}` : '—'}</td>
+                      <td className="p-3 text-right text-zinc-700 dark:text-zinc-300">{item.netto ? `${item.netto} ${item.unit}` : '—'}</td>
                       <td className={`p-3 text-right font-medium ${item.currentBalance <= 0 ? 'text-red-500' : item.currentBalance < item.minStock ? 'text-amber-500' : 'text-zinc-900 dark:text-white'}`}>
                         {item.currentBalance?.toFixed(2)}
                       </td>
@@ -625,6 +636,7 @@ export default function InventoryItemsPage() {
           onSaved={() => { setEditItemId(null); load(); }}
         />
       )}
+
     </div>
   );
 

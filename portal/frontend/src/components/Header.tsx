@@ -1,7 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../store/auth';
-import { Store, LogOut, User, LayoutDashboard, Shield, FileText, Bell, Search, Activity, CreditCard, Palette, Grid, Menu, X, ChevronDown, MessageCircle, Globe } from 'lucide-react';
-import { useState } from 'react';
+import { Store, LogOut, User, LayoutDashboard, Shield, FileText, Bell, BellDot, Search, Activity, CreditCard, Palette, Grid, Menu, X, ChevronDown, MessageCircle, Globe } from 'lucide-react';
+
+import { useState, useEffect, useRef } from 'react';
+import { api } from '../api/client';
 
 export function Header() {
   const { isAuthenticated, isSuperAdmin, user, logout } = useAuth();
@@ -9,6 +11,46 @@ export function Header() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isAuthenticated && !isSuperAdmin) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, isSuperAdmin]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.getMyNotifications();
+      setNotifications(res.notifications || []);
+      setUnreadCount(res.unreadCount || 0);
+    } catch {}
+  };
+
+  const markRead = async (id: number) => {
+    try {
+      await api.markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {}
+  };
+
+  const handleNotifClick = (notif: any) => {
+    if (!notif.is_read) markRead(notif.id);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -58,15 +100,49 @@ export function Header() {
 
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 transition text-sm font-medium text-white"
-                >
-                  <User size={16} />
-                  {user?.full_name || user?.email}
-                  <ChevronDown size={14} className={`transition ${userMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
+              <>
+                {!isSuperAdmin && (
+                  <div ref={notifRef} className="relative">
+                    <button onClick={() => setNotifOpen(v => !v)}
+                      className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+                      {unreadCount > 0 ? <BellDot size={20} /> : <Bell size={20} />}
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 border-2 border-[#0a192f] rounded-full text-[10px] font-bold text-white flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    {notifOpen && (
+                      <div className="absolute right-0 mt-2 w-80 bg-[#1e2a4a] border border-white/10 rounded-2xl shadow-xl z-50 max-h-96 overflow-y-auto">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-white">Уведомления</h3>
+                          <Link to="/notifications" onClick={() => setNotifOpen(false)} className="text-xs text-cyan-400 hover:underline">Все</Link>
+                        </div>
+                        {notifications.length === 0 ? (
+                          <p className="text-center text-xs text-slate-500 py-8">Нет уведомлений</p>
+                        ) : (
+                          notifications.slice(0, 10).map(n => (
+                            <button key={n.id} onClick={() => handleNotifClick(n)}
+                              className={`w-full text-left px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition ${n.is_read ? '' : 'bg-cyan-500/5'}`}>
+                              <p className={`text-sm ${n.is_read ? 'text-slate-300' : 'text-white font-semibold'}`}>{n.subject}</p>
+                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>
+                              <p className="text-[10px] text-slate-600 mt-1">{n.created_at ? new Date(n.created_at).toLocaleDateString('ru-RU') : ''}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 transition text-sm font-medium text-white"
+                  >
+                    <User size={16} />
+                    {user?.full_name || user?.email}
+                    <ChevronDown size={14} className={`transition ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
                 {userMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-[#1e2a4a] border border-white/10 rounded-2xl shadow-xl py-1.5 z-50">
                     <Link to="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5" onClick={() => setUserMenuOpen(false)}>
@@ -123,7 +199,7 @@ export function Header() {
                   </div>
                 )}
               </div>
-            ) : (
+            </> ) : (
               <>
                 <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition">
                   Войти
@@ -164,6 +240,11 @@ export function Header() {
           {isAuthenticated ? (
             <>
               <Link to="/dashboard" className="block px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>Дашборд</Link>
+              {!isSuperAdmin && (
+                <Link to="/notifications" className="block px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 rounded-xl" onClick={() => setMenuOpen(false)}>
+                  <Bell size={16} className="inline mr-1.5" />Уведомления
+                </Link>
+              )}
               {isSuperAdmin && (
                 <>
                   <div className="px-4 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Админ-панель</div>

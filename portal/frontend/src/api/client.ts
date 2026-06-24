@@ -95,6 +95,8 @@ export const api = {
   updateMyTenant: (data: any) => request<any>('/tenants/my', { method: 'PUT', body: data }),
   changeTariff: (tariff_id: number) => request<any>('/tenants/my/change-tariff', { method: 'POST', body: { tariff_id } }),
   getTenantStats: () => request<any>('/tenants/my/stats'),
+  getMyNotifications: () => request<{ notifications: any[]; unreadCount: number }>('/tenants/my/notifications'),
+  markNotificationRead: (id: number) => request<any>(`/tenants/my/notifications/${id}/read`, { method: 'PUT' }),
 
   // Payments
   getPayments: () => request<any[]>('/payments'),
@@ -127,8 +129,8 @@ export const api = {
     request<any>(`/admin/tenants/${id}/extend`, { method: 'PATCH', body: { months } }),
   adminUpdateTenantNotes: (id: number, notes: string) =>
     request<any>(`/admin/tenants/${id}/notes`, { method: 'PATCH', body: { notes } }),
-  adminNotifyTenant: (id: number, subject: string, body: string, type?: string) =>
-    request<any>(`/admin/tenants/${id}/notify`, { method: 'POST', body: { subject, body, type } }),
+  adminNotifyTenant: (id: number, subject: string, body: string, type?: string, sendEmail?: boolean) =>
+    request<any>(`/admin/tenants/${id}/notify`, { method: 'POST', body: { subject, body, type, sendEmail } }),
   adminGetTenantNotifications: (id: number) =>
     request<any[]>(`/admin/tenants/${id}/notifications`),
   adminGetAllNotifications: () => request<any[]>('/admin/notifications'),
@@ -157,8 +159,8 @@ export const api = {
     request<any[]>('/admin/invoices' + (params ? '?' + new URLSearchParams(params as any).toString() : '')),
 
   // Broadcast
-  adminBroadcast: (subject: string, body: string, type?: string, tariff_ids?: number[]) =>
-    request<any>('/admin/broadcast', { method: 'POST', body: { subject, body, type, tariff_ids } }),
+  adminBroadcast: (subject: string, body: string, type?: string, tariff_ids?: number[], sendEmail?: boolean) =>
+    request<any>('/admin/broadcast', { method: 'POST', body: { subject, body, type, tariff_ids, sendEmail } }),
 
   // Modules
   adminGetModules: (tenantId?: number) =>

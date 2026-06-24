@@ -39,7 +39,7 @@ export default function TechCardViewModal({ techCardId, onClose, onSaved }: Prop
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-[800px] max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-[800px] max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
             Техкарта #{card.number || card.id}

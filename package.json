@@ -61,10 +61,11 @@
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "tailwind-merge": "^2.2.1",
+    "vosk-browser": "^0.0.8",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.1",
+    "@capacitor/cli": "^5.7.8",
     "@tailwindcss/vite": "^4.0.0",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.11.24",

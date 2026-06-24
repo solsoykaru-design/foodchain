@@ -48,6 +48,7 @@ app.get('/api/inventory-items', (req, res) => {
       return {
         id: i.id, name: i.name, category: i.category_name || i.category || cat?.name || '',
         unit: i.unit || 'шт', barcode: i.barcode || '',
+        brutto: i.brutto || 0, netto: i.netto || 0,
         currentBalance: i.currentBalance, documentQuantity: i.document_quantity || 0,
         pricePerUnit: i.lastPrice || i.price_per_unit || 0,
         branchId: i.branch_id, branchName: i.branch_name || b?.name || '',
@@ -501,16 +502,16 @@ app.delete('/api/inventory/:id', (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Товар не найден' });
     const id = req.params.id;
     const del = db.transaction(() => {
-      db.prepare('DELETE FROM inventory_transactions WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM forecasts WHERE product_id = ?').run(id);
-      db.prepare('DELETE FROM packaging WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM stock_contragents WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM batches WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM warehouse_bindings WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM price_history WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM tech_card_ingredients WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM tech_cards WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM inventory_items WHERE id = ?').run(id);
+      db.prepare('DELETE FROM inventory_transactions WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM forecasts WHERE product_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM packaging WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM stock_contragents WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM batches WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM warehouse_bindings WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM price_history WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM tech_card_ingredients WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM tech_cards WHERE item_id = ? /* current_tenant_id */').run(id);
+      db.prepare('DELETE FROM inventory_items WHERE id = ? AND tenant_id = current_tenant_id()').run(id);
     });
     del();
     res.json({ ok: true });

@@ -24,14 +24,6 @@
 
         </activity>
 
-        <meta-data android:name="com.vk.sdk.VK_API_APP_ID" android:value="${VK_APP_ID}"/>
-
-        <activity
-            android:name="com.vk.sdk.VKServiceActivity"
-            android:label="VK"
-            android:theme="@style/VK.Transparent"
-            android:exported="true" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -42,6 +34,8 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
     </application>
+
+    <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

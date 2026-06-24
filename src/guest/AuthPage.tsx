@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useApp } from '../context';
-import { Phone, LogIn, Loader } from 'lucide-react';
+import { Phone, LogIn, Loader, Lock, Store, User } from 'lucide-react';
 import SocialAuth from '../SocialAuth';
 import * as api from '../api';
 
@@ -14,6 +14,40 @@ export default function AuthPage({ onLogin, branding }: { onLogin: () => void; b
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuperadminLogin, setShowSuperadminLogin] = useState(false);
+  const [saTenant, setSaTenant] = useState('');
+  const [saLogin, setSaLogin] = useState('');
+  const [saPassword, setSaPassword] = useState('');
+  const [saLoading, setSaLoading] = useState(false);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSecretTap = () => {
+    tapCountRef.current += 1;
+    if (tapCountRef.current >= 7) {
+      setShowSuperadminLogin(true);
+      tapCountRef.current = 0;
+    }
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 1500);
+  };
+
+  const handleSuperadminLogin = async () => {
+    if (!saTenant.trim() || !saLogin.trim() || !saPassword) return;
+    setSaLoading(true);
+    setError('');
+    try {
+      const res = await api.tenantLogin(saTenant.trim(), saLogin.trim(), saPassword);
+      if (res.token) localStorage.setItem('fc_token', res.token);
+      sessionStorage.setItem('foodchain_guest_user', JSON.stringify(res.user));
+      registerUser(res.user.name || 'SuperAdmin', res.user.phone || '', 'mobile_app');
+      onLogin();
+    } catch (e: any) {
+      setError(e.message || 'Ошибка входа суперадмина');
+    } finally {
+      setSaLoading(false);
+    }
+  };
 
   function normalizePhoneRaw(raw: string) {
     const digits = raw.replace(/\D/g, '');
@@ -64,13 +98,13 @@ export default function AuthPage({ onLogin, branding }: { onLogin: () => void; b
       <div className="w-full max-w-sm bg-zinc-900/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl ring-1 ring-zinc-800">
         <div className="text-center mb-8">
           {c.logoUrl ? (
-            <img src={c.logoUrl} className="w-16 h-16 rounded-2xl mx-auto mb-4 object-contain" />
+            <img src={c.logoUrl} onClick={handleSecretTap} className="w-16 h-16 rounded-2xl mx-auto mb-4 object-contain cursor-pointer" />
           ) : (
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ background: `linear-gradient(135deg, ${bc}, ${c.secondaryColor || '#FFC107'})` }}>
               <span className="text-3xl font-extrabold text-white">{c.restaurantName?.[0] || 'F'}</span>
             </div>
           )}
-          <h1 className="text-3xl font-extrabold text-white">{c.restaurantName || 'FoodChain'}</h1>
+          <h1 className="text-3xl font-extrabold text-white cursor-pointer select-none" onClick={handleSecretTap}>{c.restaurantName || 'FoodChain'}</h1>
           <p className="text-zinc-500 text-sm mt-1">{c.slogan || branding?.site?.slogan || 'Доставка вкусной еды'}</p>
         </div>
 
@@ -81,6 +115,18 @@ export default function AuthPage({ onLogin, branding }: { onLogin: () => void; b
           {error && <p className="text-red-400 text-xs text-center">{error}</p>}
           <button onClick={handleLogin} disabled={loading} className="w-full text-white font-extrabold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60" style={{ ...btnStyle, ...shadowStyle }}>{loading ? <Loader size={18} className="animate-spin" /> : <LogIn size={18} />} Войти</button>
         </div>
+
+        {showSuperadminLogin && (
+          <div className="space-y-3 mt-6 pt-6 border-t border-zinc-800">
+            <h3 className="text-sm font-bold text-zinc-400 text-center flex items-center justify-center gap-2">
+              <Lock size={14} /> Вход суперадмина
+            </h3>
+            <input value={saTenant} onChange={e => setSaTenant(e.target.value)} placeholder="Ресторан (nickname)" className="w-full bg-zinc-800 text-white rounded-xl px-4 py-3 text-sm outline-none ring-1 ring-zinc-700 placeholder-zinc-600" />
+            <input value={saLogin} onChange={e => setSaLogin(e.target.value)} placeholder="Логин" className="w-full bg-zinc-800 text-white rounded-xl px-4 py-3 text-sm outline-none ring-1 ring-zinc-700 placeholder-zinc-600" />
+            <input type="password" value={saPassword} onChange={e => setSaPassword(e.target.value)} placeholder="Пароль" className="w-full bg-zinc-800 text-white rounded-xl px-4 py-3 text-sm outline-none ring-1 ring-zinc-700 placeholder-zinc-600" />
+            <button onClick={handleSuperadminLogin} disabled={saLoading} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60 transition">{saLoading ? <Loader size={18} className="animate-spin" /> : <LogIn size={18} />} Войти как суперадмин</button>
+          </div>
+        )}
       </div>
     </div>
   );

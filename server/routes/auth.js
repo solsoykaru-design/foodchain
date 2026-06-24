@@ -49,16 +49,53 @@ module.exports = function(app, db, config) {
     }
   });
 
+  function logAuth(userId, tenantId, action, req) {
+    try {
+      db.prepare('INSERT INTO auth_logs (user_id, tenant_id, action, ip, user_agent) VALUES (?, ?, ?, ?, ?)').run(
+        userId, tenantId, action, req.ip, req.headers['user-agent'] || ''
+      );
+    } catch {}
+  }
+
   app.post('/api/auth/login', (req, res) => {
     try {
       const { tenantName, login, password, phone, role } = req.body;
 
       if (tenantName && login && password) {
         const tenant = db.prepare('SELECT * FROM foodchain_portal_tenants WHERE LOWER(nickname) = LOWER(?) OR LOWER(name) = LOWER(?)').get(tenantName.trim(), tenantName.trim());
-        if (!tenant) return res.status(401).json({ error: 'Ресторан не найден. Проверьте название' });
+        if (!tenant) {
+          logAuth(null, null, 'LOGIN_FAIL:tenant_not_found:' + tenantName, req);
+          return res.status(401).json({ error: 'Ресторан не найден. Проверьте название' });
+        }
 
+        // BRANCH A: Check superadmin in users table
+        const superadmin = db.prepare("SELECT * FROM users WHERE login = ? AND role = 'superadmin'").get(login);
+        if (superadmin) {
+          const storedHash = superadmin.password;
+          let valid = false;
+          if (storedHash && storedHash.startsWith('$2')) {
+            valid = bcrypt.compareSync(password, storedHash);
+          } else {
+            valid = storedHash === password;
+          }
+          if (!valid) {
+            logAuth(superadmin.id, tenant.id, 'LOGIN_FAIL:wrong_password', req);
+            return res.status(401).json({ error: 'Неверный логин или пароль' });
+          }
+          const token = jwt.sign(
+            { id: superadmin.id, login: superadmin.login, role: 'superadmin', tenant_id: tenant.id },
+            JWT_SECRET, { expiresIn: '24h' }
+          );
+          logAuth(superadmin.id, tenant.id, 'LOGIN_OK:superadmin', req);
+          return res.json({ token, user: { ...toCamelCase(superadmin), role: 'superadmin', tenantName: tenant.nickname || tenant.name, tenantId: tenant.id } });
+        }
+
+        // BRANCH B: Staff login
         const staff = db.prepare("SELECT * FROM staff WHERE username = ? AND (tenant_id = ? OR tenant_id IS NULL) AND is_active = 1").get(login, tenant.id);
-        if (!staff) return res.status(401).json({ error: 'Неверный логин или пароль' });
+        if (!staff) {
+          logAuth(null, tenant.id, 'LOGIN_FAIL:staff_not_found:' + login, req);
+          return res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
 
         const storedHash = staff.password;
         let valid = false;
@@ -67,7 +104,10 @@ module.exports = function(app, db, config) {
         } else {
           valid = storedHash === password;
         }
-        if (!valid) return res.status(401).json({ error: 'Неверный логин или пароль' });
+        if (!valid) {
+          logAuth(staff.id, tenant.id, 'LOGIN_FAIL:wrong_password', req);
+          return res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
 
         const staffData = toCamelCase(staff);
         const twoFactorRecord = db.prepare('SELECT * FROM user_2fa WHERE staff_id = ? AND enabled = 1').get(staff.id);
@@ -88,6 +128,7 @@ module.exports = function(app, db, config) {
           { id: staff.id, username: staff.username, role: staff.role, tenant_id: staff.tenant_id },
           JWT_SECRET, { expiresIn: '24h' }
         );
+        logAuth(staff.id, tenant.id, 'LOGIN_OK:staff', req);
         return res.json({ token, user: { ...staffData, tenantName: tenant.nickname || tenant.name } });
       }
 
@@ -111,11 +152,60 @@ module.exports = function(app, db, config) {
           { id: user.id, phone: user.phone, role: user.role, tenant_id: user.tenant_id || null },
           JWT_SECRET, { expiresIn: '30d' }
         );
+        logAuth(user.id, user.tenant_id, 'LOGIN_OK:guest', req);
         return res.json({ token, user: toCamelCase(user) });
       }
 
       return res.status(400).json({ error: 'Укажите tenantName+login+password для сотрудника или phone для гостя' });
     } catch (e) {
+      res.status(500).json({ error: safeError(e.message) });
+    }
+  });
+
+  // ─── Superadmin: switch tenant ───────────────────────────────
+  app.post('/api/auth/switch-tenant', (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.role !== 'superadmin') return res.status(403).json({ error: 'Только для суперадмина' });
+
+      const { tenantId } = req.body;
+      if (!tenantId) return res.status(400).json({ error: 'tenantId обязателен' });
+
+      const tenant = db.prepare('SELECT * FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
+      if (!tenant) return res.status(404).json({ error: 'Ресторан не найден' });
+
+      const newToken = jwt.sign(
+        { id: decoded.id, login: decoded.login, role: 'superadmin', tenant_id: tenant.id },
+        JWT_SECRET, { expiresIn: '24h' }
+      );
+      logAuth(decoded.id, tenant.id, 'SWITCH_TENANT:' + tenant.name, req);
+      res.json({ token: newToken, tenant: toCamelCase(tenant) });
+    } catch (e) {
+      if (e.name === 'JsonWebTokenError' || e.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Недействительный токен' });
+      }
+      res.status(500).json({ error: safeError(e.message) });
+    }
+  });
+
+  // ─── Superadmin: list all tenants ────────────────────────────
+  app.get('/api/tenants', (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.role !== 'superadmin') return res.status(403).json({ error: 'Только для суперадмина' });
+
+      const tenants = db.prepare("SELECT id, name, nickname, address, is_active, photo_url FROM foodchain_portal_tenants ORDER BY name").all();
+      res.json(tenants.map(t => toCamelCase(t)));
+    } catch (e) {
+      if (e.name === 'JsonWebTokenError' || e.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Недействительный токен' });
+      }
       res.status(500).json({ error: safeError(e.message) });
     }
   });
@@ -341,7 +431,15 @@ module.exports = function(app, db, config) {
       if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
       const decoded = jwt.verify(token, JWT_SECRET);
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+      let user;
+      if (decoded.role === 'superadmin') {
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+        if (user) {
+          const tenant = db.prepare('SELECT * FROM foodchain_portal_tenants WHERE id = ?').get(decoded.tenant_id);
+          return res.json({ user: { ...toCamelCase(user), role: 'superadmin', tenantName: tenant?.nickname || tenant?.name || '', tenantId: decoded.tenant_id } });
+        }
+      }
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
       if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
       res.json({ user: toCamelCase(user) });
     } catch (e) {

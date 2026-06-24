@@ -40,7 +40,8 @@
 .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
 .animate-slide-in { animation: slideIn 0.3s ease-out; }
 
-body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; user-select: none; }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; user-select: none; overflow-x: hidden; width: 100%; }
+#root { overflow-x: hidden; width: 100%; }
 button:active { filter: brightness(0.92); transform: scale(0.97); }
 button:active:disabled { filter: none; transform: none; }
 input, textarea, select { user-select: text; }

@@ -43,10 +43,14 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api/messages': { target: 'http://localhost:4000', changeOrigin: true },
-      '/api/notifications': { target: 'http://localhost:4000', changeOrigin: true },
-      '/api/push-settings': { target: 'http://localhost:4000', changeOrigin: true },
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
       '/uploads': { target: 'http://localhost:4000', changeOrigin: true },
+      '/vosk-models': { target: 'https://alphacephei.com/vosk/models', changeOrigin: true, rewrite: (path) => path.replace(/^\/vosk-models/, '') },
+      '/yastt': { target: 'https://stt.api.cloud.yandex.net', changeOrigin: true, rewrite: (path) => '/speech/v1/stt:recognize' },
+    },
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
   resolve: {

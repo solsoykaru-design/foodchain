@@ -3,6 +3,7 @@ import * as api from '../api';
 import { addToast } from '../ToastContext';
 import { Save, Key, Database, Eye, EyeOff, Globe, MessageCircle, Building2, Shield, Smartphone, QrCode, Store, Truck, Warehouse, Users, Gift, ChefHat, Settings2 } from 'lucide-react';
 
+
 const SETTINGS_LABELS: Record<string, string> = {
   app_name: 'Название приложения',
   currency: 'Валюта',
@@ -202,6 +203,7 @@ export default function SettingsPage() {
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-5 flex items-center gap-2"><Globe size={20} className="text-blue-500" /> Интеграции</h3>
         <IntegrationsSection />
       </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-100 dark:border-zinc-800 shadow-sm">

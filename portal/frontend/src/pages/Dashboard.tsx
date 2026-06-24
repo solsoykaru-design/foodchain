@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../store/auth';
-import { ArrowRight, ShoppingBag, UserCheck, CreditCard, Calendar, LayoutDashboard, Users, AlertCircle, Store, Download, Shield } from 'lucide-react';
+import { ArrowRight, ShoppingBag, UserCheck, CreditCard, Calendar, LayoutDashboard, Users, AlertCircle, Store, Download, Shield, Bell } from 'lucide-react';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -86,6 +86,7 @@ export function Dashboard() {
           { to: '/payments', title: 'Платежи и счета', desc: 'История платежей, выставленные счета, онлайн-оплата', icon: CreditCard },
           { to: '/branches', title: 'Точки (филиалы)', desc: tenant?.allow_create_branches ? 'Управление точками и филиалами' : 'Управление точками ограничено', icon: Store },
           { to: '/staff', title: 'Сотрудники', desc: 'Управление доступом к админ-панели ресторана', icon: Users },
+          { to: '/notifications', title: 'Уведомления', desc: 'Сообщения от администрации и системные уведомления', icon: Bell },
           { to: '/import', title: 'Импорт данных', desc: 'Загрузка меню и технологических карт из Excel', icon: Download },
           { to: null, title: 'Перейти в админ-панель', desc: 'Управление заказами, меню, складом и отчётами', icon: ArrowRight, external: 'http://localhost:5173' },
         ].map((item, i) => {

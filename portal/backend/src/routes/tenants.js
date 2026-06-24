@@ -247,3 +247,27 @@ tenantsRouter.delete('/my/branches/:id', async (req, res, next) => {
     res.json({ message: 'Точка удалена' });
   } catch (err) { next(err); }
 });
+
+// ─── Tenant notifications ──────────────────────────────────────────
+tenantsRouter.get('/my/notifications', async (req, res, next) => {
+  try {
+    const rows = query(
+      'SELECT * FROM notification_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 50',
+      [req.user.tenantId]
+    );
+    const unread = get(
+      'SELECT COUNT(*) as cnt FROM notification_logs WHERE tenant_id = ? AND is_read = 0',
+      [req.user.tenantId]
+    );
+    res.json({ notifications: rows, unreadCount: unread?.cnt || 0 });
+  } catch (err) { next(err); }
+});
+
+tenantsRouter.put('/my/notifications/:id/read', async (req, res, next) => {
+  try {
+    const notif = get('SELECT id FROM notification_logs WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenantId]);
+    if (!notif) return res.status(404).json({ error: 'Уведомление не найдено' });
+    run('UPDATE notification_logs SET is_read = 1 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});

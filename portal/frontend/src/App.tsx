@@ -36,6 +36,7 @@ import { Finance } from './pages/Finance';
 import { Blog } from './pages/Blog';
 import { Support } from './pages/Support';
 import { Portal } from './pages/Portal';
+import TenantNotifications from './pages/TenantNotifications';
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/import" element={<ProtectedRoute><Layout><ImportPage /></Layout></ProtectedRoute>} />
         <Route path="/staff" element={<ProtectedRoute><Layout><StaffAccounts /></Layout></ProtectedRoute>} />
         <Route path="/branches" element={<ProtectedRoute><Layout><Branches /></Layout></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Layout><TenantNotifications /></Layout></ProtectedRoute>} />
         <Route path="/subscription" element={<ProtectedRoute><Layout><Subscription /></Layout></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute><Layout><Payments /></Layout></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
