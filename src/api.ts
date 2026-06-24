@@ -543,6 +543,14 @@ export async function deleteTechCardIngredient(techCardId: number, ingId: number
   return request(`/api/tech-card/${techCardId}/ingredients/${ingId}`, { method: 'DELETE' });
 }
 
+export async function aiGenerateTechCard(dishName: string): Promise<any> {
+  return request('/api/tech-cards/ai-generate', { method: 'POST', body: JSON.stringify({ dish_name: dishName }) });
+}
+
+export async function aiSaveTechCard(data: any): Promise<any> {
+  return request('/api/tech-cards/ai-save', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function getTechCardModifiers(techCardId: number): Promise<any[]> {
   return request(`/api/tech-card/${techCardId}/modifiers`);
 }

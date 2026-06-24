@@ -522,4 +522,115 @@ app.get('/api/tech-cards/:id/steps', (req, res) => {
     res.json({ stepMode: !!tc.step_mode, steps, raw: tc.step_instructions || tc.technology || '' });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+
+// ─── AI Generate Tech Card ──────────────────────────────
+app.post('/api/tech-cards/ai-generate', async (req, res) => {
+  try {
+    const { dish_name } = req.body;
+    if (!dish_name || !dish_name.trim()) return res.status(400).json({ error: 'Введите название блюда' });
+
+    const aiService = require('../services/ai-tech-card.service');
+    const result = await aiService.generateTechCard(dish_name.trim());
+
+    // Match ingredients with stock
+    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+    const { matched, unmatched } = aiService.matchIngredientsWithStock(result.ingredients, db, tenantId);
+
+    aiService.logAIRequest(db, 'generate', dish_name, result, null);
+
+    res.json({
+      dish_name: dish_name.trim(),
+      ingredients: result.ingredients,
+      matched_ingredients: matched,
+      unmatched_ingredients: unmatched,
+      kbju_per_100g: result.kbju_per_100g,
+      output: result.output,
+      technology: result.technology,
+      cooking_time: result.cooking_time,
+      source: result.source,
+    });
+  } catch (e) {
+    const aiService = require('../services/ai-tech-card.service');
+    aiService.logAIRequest(db, 'generate', req.body?.dish_name, null, e.message || e);
+    const msg = e.errors ? `Не удалось сгенерировать техкарту. TheMealDB: ${e.errors[0]?.error || 'ошибка'}. DeepSeek: ${e.errors[1]?.error || 'недоступен'}. Ollama: ${e.errors[2]?.error || 'недоступен'}.` : (e.message || 'Ошибка генерации');
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── AI Save Generated Tech Card ───────────────────────
+app.post('/api/tech-cards/ai-save', (req, res) => {
+  try {
+    const { dish_name, ingredients, kbju_per_100g, output, technology, cooking_time, matched_ingredients, unmatched_ingredients } = req.body;
+    if (!dish_name) return res.status(400).json({ error: 'dish_name is required' });
+
+    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+
+    // Create dish entry
+    let dishId = null;
+    const existingDish = db.prepare('SELECT id FROM dishes WHERE LOWER(name) = LOWER(?) AND tenant_id = ?').get(dish_name, tenantId);
+    if (existingDish) {
+      dishId = existingDish.id;
+    } else {
+      const dishInfo = db.prepare('INSERT INTO dishes (name, price, unit, is_available, is_active, tenant_id) VALUES (?, 0, \'г\', 1, 1, ?)').run(dish_name, tenantId);
+      dishId = dishInfo.lastInsertRowid;
+    }
+
+    if (!dishId) return res.status(500).json({ error: 'Не удалось создать блюдо' });
+
+    // Check for existing active tech card
+    const existing = db.prepare('SELECT id, version FROM dish_tech_cards WHERE dish_id = ? AND is_active = 1').get(dishId);
+    const newVersion = existing ? existing.version + 1 : 1;
+    if (existing) {
+      db.prepare('UPDATE dish_tech_cards SET is_active = 0 WHERE id = ?').run(existing.id);
+    }
+
+    // Prepare merged ingredients
+    const allIngredients = (matched_ingredients || []).concat(unmatched_ingredients || []);
+    if (allIngredients.length === 0 && ingredients) {
+      for (const ing of ingredients) {
+        allIngredients.push({ item_id: null, item_name: ing.name, quantity: ing.quantity, unit: ing.unit || 'г', price_per_unit: 0, cost: 0 });
+      }
+    }
+
+    // Calculate total cost
+    let totalCost = 0;
+    for (const ing of allIngredients) {
+      totalCost += (ing.cost || 0);
+    }
+
+    const kbju = kbju_per_100g || {};
+    const techText = technology || '';
+    const outputVal = parseFloat(output) || 300;
+    const cookTime = parseInt(cooking_time) || 0;
+
+    // Insert tech card
+    const tc = db.prepare(`INSERT INTO dish_tech_cards
+      (dish_id, dish_name, number, valid_from, portions, output, technology, fixed_costs, package_weight, cost_price, created_at, tenant_id, version, is_active, cooking_time, description, updated_at)
+      VALUES (?, ?, NULL, NULL, 1, ?, ?, 0, 0, ?, datetime('now'), ?, 1, 1, ?, ?, datetime('now'))`).run(
+      dishId, dish_name, outputVal, techText, Math.round(totalCost * 100) / 100, tenantId, cookTime, JSON.stringify(kbju)
+    );
+    const techCardId = tc.lastInsertRowid;
+
+    // Insert ingredients
+    const insertIng = db.prepare(`INSERT INTO dish_tech_card_ingredients
+      (tech_card_id, item_id, item_name, quantity, unit, tenant_id)
+      VALUES (?, ?, ?, ?, ?, ?)`);
+
+    for (const ing of allIngredients) {
+      insertIng.run(techCardId, ing.item_id, ing.item_name, ing.quantity || 0, ing.unit || 'г', tenantId);
+    }
+
+    // Update dish KBJU
+    try {
+      db.prepare('UPDATE dishes SET calories = ?, proteins = ?, fats = ?, carbs = ? WHERE id = ?').run(
+        kbju.calories || 0, kbju.proteins || 0, kbju.fats || 0, kbju.carbs || 0, dishId
+      );
+    } catch {}
+
+    const aiService = require('../services/ai-tech-card.service');
+    aiService.logAIRequest(db, 'save', dish_name, { techCardId, dishId }, null);
+
+    res.json({ id: techCardId, dish_id: dishId, version: newVersion, totalCost: Math.round(totalCost * 100) / 100 });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
 };

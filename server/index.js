@@ -1614,6 +1614,14 @@ try { db.exec(`ALTER TABLE dish_tech_cards ADD COLUMN version INTEGER DEFAULT 1`
 try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN cold_loss_percent REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN heat_loss_percent REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dish_tech_card_ingredients ADD COLUMN yield_percent REAL DEFAULT 100`); } catch(e) {}
+try { db.exec(`CREATE TABLE IF NOT EXISTS ai_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT,
+  dish_name TEXT,
+  result TEXT,
+  error TEXT,
+  created_at TEXT
+)`); } catch(e) {}
 try { db.exec(`CREATE TABLE IF NOT EXISTS dish_step_completions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER NOT NULL,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
-import { FileText, Plus, X, Edit3, Trash2, Search, Download, Upload, ChevronLeft, ChevronRight } from 'lucide-react';import TechCardEditor from './TechCardEditor';
+import { FileText, Plus, X, Edit3, Trash2, Search, Download, Upload, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';import TechCardEditor from './TechCardEditor';
+import AiTechCardModal from './AiTechCardModal';
 import { addToast } from '../ToastContext';
 
 
@@ -14,6 +15,7 @@ export default function TechCardsPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [stats, setStats] = useState<any>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
 
 
 
@@ -71,6 +73,8 @@ export default function TechCardsPage() {
     );
   }
 
+  const handleAiSaved = () => { load(); setShowAiModal(false); };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -86,6 +90,9 @@ export default function TechCardsPage() {
           </button>
           <button onClick={() => {}} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-700">
             <Upload size={18} /> Импорт
+          </button>
+          <button onClick={() => setShowAiModal(true)} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-600">
+            <Sparkles size={18} /> Создать по названию
           </button>
           <button onClick={openNew} className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-600">
             <Plus size={18} /> Создать техкарту
@@ -166,6 +173,8 @@ export default function TechCardsPage() {
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 disabled:opacity-30"><ChevronRight size={16} /></button>
         </div>
       )}
+
+      {showAiModal && <AiTechCardModal onClose={() => setShowAiModal(false)} onSaved={handleAiSaved} />}
     </div>
   );
 }
