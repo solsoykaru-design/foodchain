@@ -1,28 +1,23 @@
 import { API_URL } from '../constants/config';
 
-let apiKey = '';
+let baseUrl = API_URL;
 
-export function setApiKey(key: string) {
-  apiKey = key;
-}
-
-export function getApiKey() {
-  return apiKey;
+export function setBaseUrl(url: string) {
+  baseUrl = url;
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const url = `${API_URL}${path}`;
+  const url = `${baseUrl}${path}`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  if (apiKey) {
-    headers['x-api-key'] = apiKey; // assuming your backend checks this header
-  }
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text.slice(0, 200));
+    let msg = text;
+    try { const j = JSON.parse(text); msg = j.error || j.message || text; } catch {}
+    throw new Error(msg.slice(0, 300));
   }
   return res.json();
 }
@@ -39,8 +34,4 @@ export async function aiSaveTechCard(data: any) {
     method: 'POST',
     body: JSON.stringify(data),
   });
-}
-
-export async function testConnection() {
-  return request('/api/health');
 }

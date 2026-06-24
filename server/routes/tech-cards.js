@@ -648,7 +648,7 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
     const allIngredients = (matched_ingredients || []).concat(unmatched_ingredients || []);
     if (allIngredients.length === 0 && ingredients) {
       for (const ing of ingredients) {
-        allIngredients.push({ item_id: ing.item_id, item_name: ing.name, quantity: ing.quantity, unit: ing.unit || 'г', price_per_unit: 0, cost: 0 });
+        allIngredients.push({ item_id: ing.item_id, item_name: ing.item_name || ing.name, quantity: ing.quantity, unit: ing.unit || 'г', price_per_unit: 0, cost: 0 });
       }
     }
 
@@ -679,8 +679,6 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
     for (const ing of allIngredients) {
       insertIng.run(techCardId, ing.item_id, ing.item_name || ing.name, ing.quantity || 0, ing.unit || 'г', tenantId);
     }
-
-    // Update dish price and cost
     try {
       db.prepare('UPDATE dishes SET price = ?, cost = ?, calories = ?, proteins = ?, fats = ?, carbs = ? WHERE id = ?').run(
         0, Math.round(calculatedCost * 100) / 100,
