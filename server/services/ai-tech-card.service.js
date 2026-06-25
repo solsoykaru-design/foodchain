@@ -108,8 +108,8 @@ function parseMeasureToGrams(measure, ingredientName) {
 function detectUnit(measure) {
   const m = measure.trim().toLowerCase();
   if (m.includes('kg') || m.includes('kilogram') || m.includes('kilo') || m.includes('кг')) return 'г';
-  if (m.includes('l') || m.includes('liter') || m.includes('л') && !m.includes('ml')) return 'мл';
   if (m.includes('ml') || m.includes('milliliter') || m.includes('мл')) return 'мл';
+  if (m.includes('l') || m.includes('liter') || m.includes('л')) return 'л';
   if (m.includes('tsp') || m.includes('tablespoon') || m.includes('ст.л') || m.includes('ч.л')) return 'г';
   return 'г';
 }
@@ -129,7 +129,7 @@ async function queryDeepSeek(dishName) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${DEEPSEEK_API_KEY}',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body,
       timeout: 20000,
@@ -1067,7 +1067,7 @@ function detectStockCategoryName(name) {
 function findOrCreateStockCategory(db, name, tenantId) {
   if (!name || !name.trim()) return null;
   const trimmed = name.trim();
-  let existing = db.prepare('SELECT id, name FROM stock_categories WHERE LOWER(name) = LOWER(?)').get(trimmed);
+  let existing = db.prepare('SELECT id, name FROM stock_categories WHERE LOWER(name) = LOWER(?) AND (tenant_id = ? OR tenant_id = 1)').get(trimmed, tenantId);
   if (existing) return existing;
   const info = db.prepare('INSERT INTO stock_categories (name, tenant_id) VALUES (?, ?)').run(trimmed, tenantId);
   return { id: info.lastInsertRowid, name: trimmed, created: true };

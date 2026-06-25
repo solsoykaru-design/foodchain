@@ -78,7 +78,7 @@ const server = http.createServer(app);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000,https://portal.foodchain.uz,https://admin.foodchain.uz').split(',').map(s => s.trim());
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (!origin || ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -108,6 +108,9 @@ app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/releases', express.static(path.join(__dirname, 'releases')));
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 const guestDist = path.join(__dirname, '..', 'dist-guest');
 if (fs.existsSync(guestDist)) {
@@ -4306,6 +4309,8 @@ require('./routes/payments.js')(app, db, config);
 require('./routes/branding.js')(app, db, config);
 require('./routes/telegram.js')(app, db, config);
 require('./routes/yuma-import.js')(app, db, config);
+require('./routes/mobile.js')(app, db, { safeError });
+require('./routes/mobile-push.js')(app, db, { safeError });
 
 // ─── Seed superadmin ────────────────────────────────────────────
 try { db.exec(`ALTER TABLE users ADD COLUMN login TEXT`); } catch(e) {}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AI Техкарты</string>
+    <string name="title_activity_main">AI Техкарты</string>
+    <string name="package_name">com.foodchain.techcard</string>
+    <string name="custom_url_scheme">com.foodchain.techcard</string>
+</resources>

@@ -1,9 +1,14 @@
 import { API_URL } from '../constants/config';
 
 let baseUrl = API_URL;
+let authToken: string | null = null;
 
 export function setBaseUrl(url: string) {
   baseUrl = url;
+}
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
 }
 
 async function request(path: string, options: RequestInit = {}) {
@@ -12,6 +17,7 @@ async function request(path: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const text = await res.text();
@@ -21,6 +27,13 @@ async function request(path: string, options: RequestInit = {}) {
   }
   return res.json();
 }
+
+export const api = {
+  get: (path: string) => request(path),
+  post: (path: string, body?: any) => request(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  put: (path: string, body?: any) => request(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  delete: (path: string) => request(path, { method: 'DELETE' }),
+};
 
 export async function aiGenerateTechCard(dishName: string) {
   return request('/api/tech-cards/ai-generate', {

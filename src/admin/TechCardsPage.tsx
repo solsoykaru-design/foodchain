@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
 import { FileText, Plus, X, Edit3, Trash2, Search, Download, Upload, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';import TechCardEditor from './TechCardEditor';
 import AiTechCardModal from './AiTechCardModal';
+import TechCardImportModal from './TechCardImportModal';
 import { addToast } from '../ToastContext';
 
 
@@ -16,6 +17,8 @@ export default function TechCardsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
 
 
@@ -75,6 +78,31 @@ export default function TechCardsPage() {
 
   const handleAiSaved = () => { load(); setShowAiModal(false); };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const token = localStorage.getItem('fc_token');
+      const res = await fetch('/api/tech-cards/export', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Ошибка экспорта');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tech-cards-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Файл экспортирован', 'success');
+    } catch (e: any) {
+      addToast(e.message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImported = () => { load(); setShowImportModal(false); };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -85,10 +113,10 @@ export default function TechCardsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => {}} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-green-700">
-            <Download size={18} /> XLSX
+          <button onClick={handleExport} disabled={exporting} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-green-700 disabled:opacity-50">
+            <Download size={18} /> {exporting ? '...' : 'XLSX'}
           </button>
-          <button onClick={() => {}} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-700">
+          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-700">
             <Upload size={18} /> Импорт
           </button>
           <button onClick={() => setShowAiModal(true)} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-amber-600">
@@ -175,6 +203,7 @@ export default function TechCardsPage() {
       )}
 
       {showAiModal && <AiTechCardModal onClose={() => setShowAiModal(false)} onSaved={handleAiSaved} />}
+      {showImportModal && <TechCardImportModal onClose={() => setShowImportModal(false)} onImported={handleImported} />}
     </div>
   );
 }

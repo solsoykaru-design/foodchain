@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'FoodChain Admin',
   webDir: 'dist-admin',
   server: {
-    androidScheme: 'https'
+    url: 'http://192.168.0.144:4000/admin',
+    cleartext: true
   }
 };
 

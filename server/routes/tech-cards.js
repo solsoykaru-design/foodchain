@@ -2,6 +2,35 @@
 module.exports = function(app, db, config) {
   const { safeError, toCamelCase, toCamelCaseArray } = config;
 
+app.get('/api/tech-cards/limit', (req, res) => {
+  try {
+    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+    const user = req.user;
+
+    let maxCards = 3;
+    let isOwner = false;
+
+    if (user && (user.role === 'superadmin' || user.role === 'owner')) {
+      isOwner = true;
+      maxCards = -1;
+    } else {
+      const subscription = db.prepare('SELECT s.*, t.max_cards FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? AND s.status = ? ORDER BY s.end_date DESC LIMIT 1').get(tenantId, 'active');
+      if (subscription && subscription.max_cards) {
+        maxCards = subscription.max_cards;
+      }
+    }
+
+    const totalCards = db.prepare('SELECT COUNT(*) as count FROM dish_tech_cards WHERE tenant_id = ? AND is_active = 1').get(tenantId)?.count || 0;
+
+    res.json({
+      total: totalCards,
+      limit: maxCards,
+      isOwner,
+      remaining: maxCards === -1 ? -1 : Math.max(0, maxCards - totalCards)
+    });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.get('/api/tech-cards', (req, res) => {
   try {
     const { search, is_active, page = 1, limit = 50 } = req.query;
@@ -26,6 +55,28 @@ app.get('/api/tech-cards', (req, res) => {
     `).all(...params, parseInt(limit), offset);
 
     res.json({ items, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/tech-cards/export', (req, res) => {
+  try {
+    const cards = db.prepare(`SELECT * FROM dish_tech_cards WHERE tenant_id = current_tenant_id() ORDER BY dish_name`).all();
+    const ingredients = db.prepare('SELECT tci.*, tc.dish_name, ii.name as item_name FROM dish_tech_card_ingredients tci LEFT JOIN dish_tech_cards tc ON tc.id = tci.tech_card_id LEFT JOIN inventory_items ii ON ii.id = tci.item_id WHERE tci.tenant_id = current_tenant_id() ORDER BY tci.tech_card_id, tci.id').all();
+    try {
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const cardRows = cards.map(c => ({ ID: c.id, Блюдо: c.dish_name, Выход: c.output, Себестоимость: c.cost_price, Время: c.cooking_time, Технология: c.technology, Описание: c.description, Версия: c.version }));
+      const ingRows = ingredients.map(i => ({ Блюдо: i.dish_name, Ингредиент: i.item_name, Количество: i.quantity, Ед: i.unit, Цена: i.price_per_unit, Стоимость: i.cost }));
+      const ws1 = XLSX.utils.json_to_sheet(cardRows);
+      const ws2 = XLSX.utils.json_to_sheet(ingRows);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Техкарты');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Ингредиенты');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=tech-cards-${Date.now()}.xlsx`);
+      res.send(buf);
+    } catch {
+      res.json({ items: cards, ingredients });
+    }
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/tech-cards/:id', (req, res) => {
@@ -63,6 +114,23 @@ app.post('/api/tech-cards', (req, res) => {
   try {
     const { dish_id, dish_name, ingredients, technology, description, cooking_time, output, version, menu_category } = req.body;
     if (!dish_id) return res.status(400).json({ error: 'dish_id is required' });
+
+    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+
+    // Check subscription limit
+    const existingForThisDish = db.prepare('SELECT id FROM dish_tech_cards WHERE dish_id = ? AND is_active = 1').get(dish_id);
+    if (!existingForThisDish) {
+      const user = req.user;
+      if (!user || (user.role !== 'superadmin' && user.role !== 'owner')) {
+        const subscription = db.prepare('SELECT s.*, t.max_cards FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? AND s.status = ? ORDER BY s.end_date DESC LIMIT 1').get(tenantId, 'active');
+        const totalCards = db.prepare('SELECT COUNT(*) as count FROM dish_tech_cards WHERE tenant_id = ? AND is_active = 1').get(tenantId)?.count || 0;
+        const maxCards = subscription ? subscription.max_cards : 3;
+
+        if (maxCards !== -1 && totalCards >= maxCards) {
+          return res.status(403).json({ error: `Лимит техкарт исчерпан (${maxCards}). Оформите подписку для создания новых.` });
+        }
+      }
+    }
 
     const dish = db.prepare('SELECT id, name, price, cost FROM dishes WHERE id = ?').get(dish_id);
     if (!dish) return res.status(404).json({ error: 'Dish not found' });
@@ -425,28 +493,6 @@ app.post('/api/tech-card/:id/copy', (req, res) => {
     res.status(201).json(toCamelCase(card));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.get('/api/tech-cards/export', (req, res) => {
-  try {
-    const cards = db.prepare(`SELECT tc.*, ii.name as item_name FROM tech_cards tc LEFT JOIN inventory_items ii ON tc.item_id = ii.id WHERE tc.tenant_id = current_tenant_id() ORDER BY tc.name`).all();
-    const ingredients = db.prepare('SELECT * FROM tech_card_ingredients ORDER BY tech_card_id, sort_order').all();
-    try {
-      const XLSX = require('xlsx');
-      const wb = XLSX.utils.book_new();
-      const cardRows = cards.map(c => ({ ID: c.id, Номер: c.number, Название: c.name, Товар: c.item_name, Тип: c.type, Выход: c.output, Себестоимость: c.cost_price, 'Хол.потери%': c.cold_loss_percent, 'Терм.потери%': c.thermal_loss_percent, Упаковка: c.packaging_cost, 'Действ.с': c.valid_from, Магазин: c.store, is_active: c.is_active, Вес_брутто: c.gross_weight }));
-      const ingRows = ingredients.map(i => ({ 'ID техкарты': i.tech_card_id, Ингредиент: i.item_name, Колво: i.quantity, Ед: i.unit, Брутто: i.brutto, Нетто: i.netto, Цена: i.price_per_unit, Стоимость: i.cost }));
-      const ws1 = XLSX.utils.json_to_sheet(cardRows);
-      const ws2 = XLSX.utils.json_to_sheet(ingRows);
-      XLSX.utils.book_append_sheet(wb, ws1, 'Техкарты');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Ингредиенты');
-      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=tech-cards-${Date.now()}.xlsx`);
-      res.send(buf);
-    } catch {
-      res.json({ items: cards, ingredients });
-    }
-  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
-});
 app.post('/api/tech-cards/import', (req, res) => {
   try {
     const XLSX = require('xlsx');
@@ -602,6 +648,19 @@ app.post('/api/tech-cards/ai-save', (req, res) => {
     if (!dish_name) return res.status(400).json({ error: 'dish_name is required' });
 
     const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+
+    // Check subscription limit
+    const user = req.user;
+    if (user && user.role !== 'superadmin' && user.role !== 'owner') {
+      const subscription = db.prepare('SELECT s.*, t.max_cards FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? AND s.status = ? ORDER BY s.end_date DESC LIMIT 1').get(tenantId, 'active');
+      const totalCards = db.prepare('SELECT COUNT(*) as count FROM dish_tech_cards WHERE tenant_id = ? AND is_active = 1').get(tenantId)?.count || 0;
+      const maxCards = subscription ? subscription.max_cards : 3;
+
+      if (maxCards !== -1 && totalCards >= maxCards) {
+        return res.status(403).json({ error: `Лимит техкарт исчерпан (${maxCards}). Оформите подписку для создания новых.` });
+      }
+    }
+
     const aiService = require('../services/ai-tech-card.service');
 
     // Find or create menu item (dish) with category

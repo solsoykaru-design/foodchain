@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 import path from 'path';
 
 const app = (process.env.VITE_APP || '').trim();
@@ -13,6 +14,7 @@ const appConfig: Record<string, { title: string; viewport: string }> = {
   kitchen: { title: 'FoodChain — Кухня',         viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
   website: { title: 'FoodChain — Ресторан',       viewport: 'width=device-width, initial-scale=1.0' },
   kiosk:   { title: 'FoodChain — Терминал самообслуживания', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
+  techcard: { title: 'AI Техкарты', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
 };
 
 export default defineConfig({
@@ -20,6 +22,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    ...(app === 'techcard' ? [viteSingleFile()] : []),
     {
       name: 'html-transform',
       transformIndexHtml: {
@@ -38,6 +41,16 @@ export default defineConfig({
   build: {
     outDir: `dist-${app}`,
     chunkSizeWarningLimit: 1000000,
+    ...(app === 'techcard' ? {
+      cssCodeSplit: false,
+      assetsInlineLimit: 100000000,
+      rollupOptions: {
+        output: {
+          inlineDynamicImports: true,
+          manualChunks: undefined as any,
+        },
+      },
+    } : {}),
   },
   server: {
     host: '0.0.0.0',

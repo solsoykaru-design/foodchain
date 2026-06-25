@@ -3,23 +3,22 @@ services:
     name: foodchain
     env: node
     region: frankfurt
-    buildCommand: |
-      cd portal/frontend && npm ci && npm run build && cd ../.. &&
-      npm run build:website 2>/dev/null; npm run build:admin 2>/dev/null;
-      npm run build:guest 2>/dev/null; npm run build:courier 2>/dev/null;
-      npm run build:waiter 2>/dev/null; npm run build:kitchen 2>/dev/null
+    plan: free
+    buildCommand: npm install && npm run build:admin && npm run build:techcard
     startCommand: cd server && node index.js
-    healthCheckPath: /portal/api/health
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORTAL_MOUNTED
-        value: "true"
+      - key: PORT
+        value: 10000
       - key: JWT_SECRET
         generateValue: true
-      - key: JWT_REFRESH_SECRET
+      - key: SUPPLIER_JWT_SECRET
         generateValue: true
+      - key: DEEPSEEK_API_KEY
+        value: sk-DkmyNm89NGUxfY92RiMIc4aGiGk9SVeqE7a3TFUxLYilSnL6jg1RrC2XFL1VbpYu
       - key: ALLOWED_ORIGINS
-        value: https://foodchain.onrender.com,https://admin.foodchain.onrender.com
+        value: "*"
       - key: CORS_ORIGINS
-        value: https://foodchain.onrender.com,https://admin.foodchain.onrender.com
+        value: "*"
