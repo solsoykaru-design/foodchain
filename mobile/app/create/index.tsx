@@ -40,6 +40,11 @@ export default function CreateScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           dish_name: result.dish_name || dishName,
+          category: result.category || '',
+          temperature: result.temperature || '',
+          shelf_life: result.shelf_life || '',
+          technologist: result.technologist || '_____________________',
+          chef: result.chef || '_____________________',
           ingredients: result.ingredients,
           kbju: result.kbju_per_100g,
           output: result.output,
@@ -146,6 +151,21 @@ export default function CreateScreen() {
             </View>
           )}
 
+          {(result.temperature || result.shelf_life) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Условия подачи и хранения</Text>
+              {result.temperature ? <View style={styles.metaRow}><Text style={styles.metaLabel}>Температура подачи:</Text><Text style={styles.metaValue}>{result.temperature}</Text></View> : null}
+              {result.shelf_life ? <View style={styles.metaRow}><Text style={styles.metaLabel}>Срок годности:</Text><Text style={styles.metaValue}>{result.shelf_life}</Text></View> : null}
+            </View>
+          )}
+
+          {result.category ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Категория:</Text>
+              <Text style={styles.metaValue}>{result.category}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => { setResult(null); setDishName(''); }}>
               <Text style={styles.cancelText}>Изменить</Text>
@@ -183,6 +203,9 @@ const styles = StyleSheet.create({
   kbjuValue: { fontSize: 20, fontWeight: 'bold', color: '#e67e22' },
   kbjuLabel: { fontSize: 11, color: '#999', marginTop: 2 },
   meta: { fontSize: 13, color: '#666', marginTop: 4 },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  metaLabel: { fontSize: 13, color: '#666' },
+  metaValue: { fontSize: 13, color: '#333', fontWeight: '500' },
   technology: { fontSize: 14, color: '#444', lineHeight: 22 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
   cancelBtn: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 14, alignItems: 'center' },

@@ -9,6 +9,11 @@ import { useAuth, API_URL } from '../../services/auth';
 interface TechCard {
   id: number;
   dish_name: string;
+  category?: string;
+  temperature?: string;
+  shelf_life?: string;
+  technologist?: string;
+  chef?: string;
   ingredients: any[];
   kbju: any;
   output: number;
@@ -72,8 +77,11 @@ export default function CardScreen() {
           <h1>ТЕХНОЛОГИЧЕСКАЯ КАРТА</h1>
           <p><strong>Название:</strong> ${card.dish_name}</p>
           <p><strong>Дата:</strong> ${new Date(card.created_at).toLocaleDateString('ru-RU')}</p>
+          ${card.category ? `<p><strong>Категория:</strong> ${card.category}</p>` : ''}
           ${card.output > 0 ? `<p><strong>Выход:</strong> ${card.output} г</p>` : ''}
           ${card.cooking_time > 0 ? `<p><strong>Время приготовления:</strong> ${card.cooking_time} мин</p>` : ''}
+          ${card.temperature ? `<p><strong>Температура подачи:</strong> ${card.temperature}</p>` : ''}
+          ${card.shelf_life ? `<p><strong>Срок годности:</strong> ${card.shelf_life}</p>` : ''}
           
           <h2>Рецептура</h2>
           <table>
@@ -123,6 +131,11 @@ export default function CardScreen() {
             <h2>Технология приготовления</h2>
             <p>${card.technology.replace(/\n/g, '<br>')}</p>
           ` : ''}
+
+          <table style="margin-top: 30px; border: none;">
+            <tr><td style="border: none; width: 50%;"><strong>Технолог:</strong> ${card.technologist || '_____________________'}</td>
+            <td style="border: none;"><strong>Шеф-повар:</strong> ${card.chef || '_____________________'}</td></tr>
+          </table>
 
           <div class="footer">
             <p>Создано в AI Техкарты • ${new Date().toLocaleDateString('ru-RU')}</p>
@@ -235,6 +248,20 @@ export default function CardScreen() {
           </View>
         )}
 
+        {card.temperature ? (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Температура подачи:</Text>
+            <Text style={styles.infoValue}>{card.temperature}</Text>
+          </View>
+        ) : null}
+
+        {card.shelf_life ? (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Срок годности:</Text>
+            <Text style={styles.infoValue}>{card.shelf_life}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ингредиенты</Text>
           {card.ingredients.map((ing: any, i: number) => (
@@ -275,6 +302,18 @@ export default function CardScreen() {
             <Text style={styles.technology}>{card.technology}</Text>
           </View>
         )}
+
+        <View style={[styles.section, styles.signSection]}>
+          <Text style={styles.sectionTitle}>Подписи</Text>
+          <View style={styles.signRow}>
+            <Text style={styles.signLabel}>Технолог:</Text>
+            <Text style={styles.signValue}>{card.technologist || '_____________________'}</Text>
+          </View>
+          <View style={styles.signRow}>
+            <Text style={styles.signLabel}>Шеф-повар:</Text>
+            <Text style={styles.signValue}>{card.chef || '_____________________'}</Text>
+          </View>
+        </View>
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={handleShare} disabled={exporting}>
@@ -327,6 +366,10 @@ const styles = StyleSheet.create({
   kbjuValue: { fontSize: 20, fontWeight: 'bold', color: '#e67e22' },
   kbjuLabel: { fontSize: 11, color: '#999', marginTop: 2 },
   technology: { fontSize: 14, color: '#444', lineHeight: 22 },
+  signSection: { padding: 16 },
+  signRow: { flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  signLabel: { fontSize: 14, color: '#666', width: 100 },
+  signValue: { fontSize: 14, color: '#333', fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   actionBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center' },
   actionIcon: { fontSize: 24, marginBottom: 6 },

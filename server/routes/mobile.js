@@ -92,6 +92,11 @@ module.exports = function(app, db, config) {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     dish_name TEXT NOT NULL,
+    category TEXT DEFAULT '',
+    temperature TEXT DEFAULT '',
+    shelf_life TEXT DEFAULT '',
+    technologist TEXT DEFAULT '_____________________',
+    chef TEXT DEFAULT '_____________________',
     ingredients TEXT DEFAULT '[]',
     kbju TEXT DEFAULT '{}',
     output REAL DEFAULT 0,
@@ -101,6 +106,11 @@ module.exports = function(app, db, config) {
     source TEXT DEFAULT 'manual',
     created_at TEXT DEFAULT (datetime('now'))
   )`); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN category TEXT DEFAULT ''"); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN temperature TEXT DEFAULT ''"); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN shelf_life TEXT DEFAULT ''"); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN technologist TEXT DEFAULT '_____________________'"); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN chef TEXT DEFAULT '_____________________'"); } catch(e) {}
 
   try { db.exec(`CREATE TABLE IF NOT EXISTS mobile_payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -399,7 +409,7 @@ module.exports = function(app, db, config) {
 
   app.post('/api/mobile/tech-cards', requireAuth, (req, res) => {
     try {
-      const { dish_name, ingredients, kbju, output, technology, cooking_time, source } = req.body;
+      const { dish_name, ingredients, kbju, output, technology, cooking_time, source, category, temperature, shelf_life, technologist, chef } = req.body;
       if (!dish_name) return res.status(400).json({ error: 'Название блюда обязательно' });
 
       const user = db.prepare('SELECT * FROM mobile_users WHERE id = ?').get(req.mobileUser.userId);
@@ -419,8 +429,8 @@ module.exports = function(app, db, config) {
         db.prepare('UPDATE mobile_users SET free_attempts = free_attempts - 1 WHERE id = ?').run(req.mobileUser.userId);
       }
 
-      const info = db.prepare(`INSERT INTO mobile_tech_cards (user_id, dish_name, ingredients, kbju, output, technology, cooking_time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        req.mobileUser.userId, dish_name, JSON.stringify(ingredients || []), JSON.stringify(kbju || {}), output || 0, technology || '', cooking_time || 0, source || 'manual'
+      const info = db.prepare(`INSERT INTO mobile_tech_cards (user_id, dish_name, category, temperature, shelf_life, technologist, chef, ingredients, kbju, output, technology, cooking_time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        req.mobileUser.userId, dish_name, category || '', temperature || '', shelf_life || '', technologist || '_____________________', chef || '_____________________', JSON.stringify(ingredients || []), JSON.stringify(kbju || {}), output || 0, technology || '', cooking_time || 0, source || 'manual'
       );
 
       const card = db.prepare('SELECT * FROM mobile_tech_cards WHERE id = ?').get(info.lastInsertRowid);
@@ -445,7 +455,7 @@ module.exports = function(app, db, config) {
 
   app.put('/api/mobile/tech-cards/:id', requireAuth, (req, res) => {
     try {
-      const { dish_name, ingredients, kbju, output, technology, cooking_time } = req.body;
+      const { dish_name, ingredients, kbju, output, technology, cooking_time, category, temperature, shelf_life, technologist, chef } = req.body;
       const sets = []; const params = [];
       if (dish_name !== undefined) { sets.push('dish_name = ?'); params.push(dish_name); }
       if (ingredients !== undefined) { sets.push('ingredients = ?'); params.push(JSON.stringify(ingredients)); }
@@ -453,6 +463,11 @@ module.exports = function(app, db, config) {
       if (output !== undefined) { sets.push('output = ?'); params.push(output); }
       if (technology !== undefined) { sets.push('technology = ?'); params.push(technology); }
       if (cooking_time !== undefined) { sets.push('cooking_time = ?'); params.push(cooking_time); }
+      if (category !== undefined) { sets.push('category = ?'); params.push(category); }
+      if (temperature !== undefined) { sets.push('temperature = ?'); params.push(temperature); }
+      if (shelf_life !== undefined) { sets.push('shelf_life = ?'); params.push(shelf_life); }
+      if (technologist !== undefined) { sets.push('technologist = ?'); params.push(technologist); }
+      if (chef !== undefined) { sets.push('chef = ?'); params.push(chef); }
       if (sets.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
       params.push(req.params.id, req.mobileUser.userId);
       db.prepare(`UPDATE mobile_tech_cards SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
@@ -479,11 +494,16 @@ module.exports = function(app, db, config) {
 
       res.json({
         dish_name,
+        category: result.category || '',
         ingredients: result.ingredients,
         kbju_per_100g: result.kbju_per_100g || {},
         output: result.output || 300,
         technology: result.technology || '',
         cooking_time: result.cooking_time || 0,
+        temperature: result.temperature || '65–70 °С',
+        shelf_life: result.shelf_life || '24 ч при t=2…+6 °С',
+        technologist: result.technologist || '_____________________',
+        chef: result.chef || '_____________________',
         source: result.source || 'ai',
       });
     } catch (e) {

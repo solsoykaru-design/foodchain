@@ -4,6 +4,10 @@ interface PdfTechCard {
   dish_name: string;
   organization?: string;
   category?: string;
+  temperature?: string;
+  shelf_life?: string;
+  technologist?: string;
+  chef?: string;
   ingredients?: { name: string; quantity: number; unit: string }[];
   kbju?: { calories?: number; proteins?: number; fats?: number; carbs?: number };
   output?: number;
@@ -59,6 +63,8 @@ export async function generateTechCardPdf(card: PdfTechCard): Promise<string> {
     <tr><td style="width:30%"><strong>Наименование блюда:</strong></td><td>${card.dish_name}</td></tr>
     <tr><td><strong>Выход готового блюда:</strong></td><td>${totalWeight} г</td></tr>
     <tr><td><strong>Время приготовления:</strong></td><td>${card.cooking_time || '—'} мин</td></tr>
+    ${card.temperature ? `<tr><td><strong>Температура подачи:</strong></td><td>${card.temperature}</td></tr>` : ''}
+    ${card.shelf_life ? `<tr><td><strong>Срок годности:</strong></td><td>${card.shelf_life}</td></tr>` : ''}
     ${card.source ? `<tr><td><strong>Источник рецептуры:</strong></td><td>${card.source}</td></tr>` : ''}
   </table>
 
@@ -96,6 +102,13 @@ export async function generateTechCardPdf(card: PdfTechCard): Promise<string> {
     <div class="section-title">ТРЕБОВАНИЯ К СЫРЬЮ</div>
     <div class="tech-text">${card.description.replace(/\n/g, '<br>')}</div>
   ` : ''}
+
+  <table style="margin-top: 20px; border: none;">
+    <tr>
+      <td style="border: none; width: 50%;"><strong>Технолог:</strong> ${card.technologist || '_____________________'}</td>
+      <td style="border: none;"><strong>Шеф-повар:</strong> ${card.chef || '_____________________'}</td>
+    </tr>
+  </table>
 
   <div class="footer">
     Документ сгенерирован автоматически в приложении «AI Техкарты»<br>
