@@ -134,7 +134,7 @@ module.exports = function(app, db, config) {
       db.prepare('INSERT INTO mobile_codes (phone, code, purpose) VALUES (?, ?, ?)').run(phone, code, 'register');
       console.log(`[SMS] Код для ${phone}: ${code}`);
 
-      res.json({ success: true, message: 'Код отправлен', code: process.env.NODE_ENV !== 'production' ? code : undefined });
+      res.json({ success: true, message: 'Код отправлен', code });
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
 
