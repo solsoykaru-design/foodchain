@@ -626,4 +626,15 @@ module.exports = function(app, db, config) {
       res.json({ success: true });
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
+
+  // ─── Set unlimited access (admin) ─────────────────────
+  app.post('/api/mobile/admin/set-unlimited', (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) return res.status(400).json({ error: 'Телефон обязателен' });
+      const info = db.prepare("UPDATE mobile_users SET is_subscribed = 1, tariff = 'year', tariff_until = '2099-12-31', free_attempts = -1, updated_at = datetime('now') WHERE phone = ?").run(phone);
+      if (info.changes === 0) return res.status(404).json({ error: 'Пользователь не найден' });
+      res.json({ success: true, message: 'Безлимит активирован' });
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
 };
