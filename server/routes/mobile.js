@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mobile-app-secret-change-in-production';
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
