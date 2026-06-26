@@ -832,116 +832,60 @@ function queryLocalDB(dishName) {
     }
   }
 
-  // Auto-generate for unknown dishes
-  const words = dishName.trim().split(/\s+/);
-  const isSoup = /суп|бульон|солянка|уха|крем-|супчик/.test(key);
-  const isSalad = /салат|микс|винегрет/.test(key);
-  const isDessert = /десерт|пирож|торт|печень|кекс|пирог|крем|мусс/.test(key);
-  const isDrink = /напит|сок|чай|кофе|коктейль|морс|лимонад|компот/.test(key);
-  const isMeat = /мяс|стейк|котлет|отбив|шницель|антрекот|люля/.test(key);
-  const isFish = /рыб|форель|семг|лосос|треск|судак|щук/.test(key);
-  const isPasta = /паст|спагетти|макарон|лапш|равиоли/.test(key);
-
-  let ingredients, outputVal, kbju, tech, cookTime;
-
-  if (isSoup) {
-    ingredients = [
-      { name: `${dishName} основа`, quantity: 150, unit: 'г' },
-      { name: 'Картофель', quantity: 80, unit: 'г' },
-      { name: 'Морковь', quantity: 30, unit: 'г' },
-      { name: 'Лук репчатый', quantity: 30, unit: 'г' },
-      { name: 'Соль', quantity: 2, unit: 'г' },
-    ];
-    outputVal = 350;
-    kbju = { calories: 55, proteins: 3, fats: 2, carbs: 6 };
-    tech = `1. Приготовить основу для ${dishName.toLowerCase()}. 2. Добавить нарезанный кубиками картофель. 3. Обжарить лук с морковью, добавить в суп. 4. Посолить по вкусу. 5. Варить до готовности овощей.`;
-    cookTime = 40;
-  } else if (isSalad) {
-    ingredients = [
-      { name: `${dishName} основа`, quantity: 100, unit: 'г' },
-      { name: 'Огурцы свежие', quantity: 50, unit: 'г' },
-      { name: 'Помидоры', quantity: 50, unit: 'г' },
-      { name: 'Перец болгарский', quantity: 30, unit: 'г' },
-      { name: 'Зелень', quantity: 10, unit: 'г' },
-      { name: 'Масло растительное', quantity: 10, unit: 'г' },
-      { name: 'Соль', quantity: 1, unit: 'г' },
-    ];
-    outputVal = 200;
-    kbju = { calories: 90, proteins: 3, fats: 6, carbs: 6 };
-    tech = `1. Нарезать все ингредиенты для ${dishName.toLowerCase()}. 2. Смешать в глубокой миске. 3. Заправить маслом. 4. Посолить, перемешать.`;
-    cookTime = 10;
-  } else if (isDessert) {
-    ingredients = [
-      { name: 'Мука пшеничная', quantity: 150, unit: 'г' },
-      { name: 'Сахар', quantity: 80, unit: 'г' },
-      { name: 'Яйцо куриное', quantity: 40, unit: 'г' },
-      { name: 'Масло сливочное', quantity: 50, unit: 'г' },
-      { name: `Ароматизатор для ${dishName}`, quantity: 10, unit: 'г' },
-    ];
-    outputVal = 300;
-    kbju = { calories: 280, proteins: 5, fats: 12, carbs: 40 };
-    tech = `1. Смешать муку, сахар и размягчённое масло. 2. Добавить яйцо и ароматизатор. 3. Замесить тесто. 4. Выложить в форму. 5. Выпекать 30 минут при 180°C до золотистого цвета.`;
-    cookTime = 40;
-  } else if (isDrink) {
-    ingredients = [
-      { name: 'Вода', quantity: 250, unit: 'г' },
-      { name: 'Сахар', quantity: 15, unit: 'г' },
-      { name: `${dishName} основа`, quantity: 50, unit: 'г' },
-    ];
-    outputVal = 300;
-    kbju = { calories: 25, proteins: 0.2, fats: 0, carbs: 6 };
-    tech = `1. Смешать все ингредиенты. 2. Тщательно перемешать до полного растворения сахара. 3. Охладить до 4-6°C. 4. Подавать со льдом.`;
-    cookTime = 5;
-  } else if (isMeat) {
-    ingredients = [
-      { name: `${dishName} (мясо)`, quantity: 200, unit: 'г' },
-      { name: 'Соль', quantity: 2, unit: 'г' },
-      { name: 'Масло растительное', quantity: 15, unit: 'г' },
-      { name: 'Специи для мяса', quantity: 3, unit: 'г' },
-    ];
-    outputVal = 180;
-    kbju = { calories: 200, proteins: 18, fats: 14, carbs: 1 };
-    tech = `1. Мясо подготовить, посолить, поперчить. 2. Разогреть сковороду с маслом. 3. Обжарить с двух сторон до готовности. 4. Подавать с гарниром.`;
-    cookTime = 25;
-  } else if (isFish) {
-    ingredients = [
-      { name: `${dishName} (филе)`, quantity: 180, unit: 'г' },
-      { name: 'Мука пшеничная', quantity: 20, unit: 'г' },
-      { name: 'Масло растительное', quantity: 10, unit: 'г' },
-      { name: 'Соль', quantity: 2, unit: 'г' },
-      { name: 'Лимон', quantity: 10, unit: 'г' },
-    ];
-    outputVal = 160;
-    kbju = { calories: 140, proteins: 18, fats: 7, carbs: 2 };
-    tech = `1. Филе ${dishName.toLowerCase()} посолить, сбрызнуть лимоном. 2. Обвалять в муке. 3. Обжарить на растительном масле с двух сторон до золотистой корочки.`;
-    cookTime = 15;
-  } else if (isPasta) {
-    ingredients = [
-      { name: 'Макаронные изделия', quantity: 150, unit: 'г' },
-      { name: `${dishName} соус`, quantity: 80, unit: 'г' },
-      { name: 'Сыр твёрдый', quantity: 20, unit: 'г' },
-      { name: 'Соль', quantity: 2, unit: 'г' },
-    ];
-    outputVal = 280;
-    kbju = { calories: 200, proteins: 8, fats: 6, carbs: 30 };
-    tech = `1. Макаронные изделия отварить в подсоленной воде до готовности. 2. Приготовить соус для ${dishName.toLowerCase()}. 3. Смешать макароны с соусом. 4. Посыпать тёртым сыром.`;
-    cookTime = 20;
-  } else {
-    // Generic dish template
-    const totalQty = Math.round(150 + Math.random() * 100);
-    ingredients = [
-      { name: `${dishName} (основной)`, quantity: totalQty, unit: 'г' },
-      { name: 'Масло растительное', quantity: 10, unit: 'г' },
-      { name: 'Соль', quantity: 2, unit: 'г' },
-      { name: 'Специи', quantity: 2, unit: 'г' },
-    ];
-    outputVal = totalQty;
-    kbju = { calories: 120, proteins: 6, fats: 5, carbs: 12 };
-    tech = `1. Подготовить все ингредиенты для ${dishName.toLowerCase()}. 2. Смешать компоненты согласно рецептуре. 3. Довести до готовности. 4. Подавать порционно.`;
-    cookTime = 20;
+  // Auto-generate for unknown dishes — unique per dish name
+  function hashRange(name, min, max) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = ((h << 5) - h) + name.charCodeAt(i);
+    return min + Math.abs(h) % (max - min + 1);
   }
+  const cals = hashRange(key, 40, 350);
+  const prots = hashRange(key, 2, 25);
+  const fat = hashRange(key, 1, 20);
+  const carb = hashRange(key, 2, 45);
+  const out = hashRange(key, 150, 500);
 
-  return { ingredients, kbju_per_100g: kbju, output: outputVal, technology: tech, cooking_time: cookTime, source: 'local' };
+  const genericIngredients = [
+    { name: `${dishName} (основной)`, quantity: hashRange(key + 'a', 100, 300), unit: 'г' },
+    { name: 'Лук репчатый', quantity: hashRange(key + 'b', 20, 80), unit: 'г' },
+    { name: 'Масло растительное', quantity: hashRange(key + 'c', 5, 30), unit: 'г' },
+    { name: 'Соль', quantity: hashRange(key + 'd', 1, 5), unit: 'г' },
+    { name: 'Перец чёрный', quantity: hashRange(key + 'e', 1, 3), unit: 'г' },
+  ];
+  const dishLower = dishName.toLowerCase();
+
+  const extraPicks = [
+    { name: 'Морковь', qty: hashRange(key + 'f', 20, 60) },
+    { name: 'Чеснок', qty: hashRange(key + 'g', 2, 10) },
+    { name: 'Зелень', qty: hashRange(key + 'h', 5, 20) },
+    { name: 'Лимон', qty: hashRange(key + 'i', 5, 20) },
+    { name: 'Томатная паста', qty: hashRange(key + 'j', 10, 40) },
+    { name: 'Сливки', qty: hashRange(key + 'k', 30, 100) },
+    { name: 'Сыр твёрдый', qty: hashRange(key + 'l', 15, 50) },
+    { name: 'Яйцо куриное', qty: hashRange(key + 'm', 20, 60) },
+    { name: 'Мука пшеничная', qty: hashRange(key + 'n', 10, 50) },
+    { name: 'Сахар', qty: hashRange(key + 'o', 5, 30) },
+  ];
+  const extraCount = hashRange(key, 2, 3);
+  const selectedExtras = [];
+  for (let i = 0; i < extraCount; i++) {
+    const idx = hashRange(key + i, 0, extraPicks.length - 1);
+    if (!selectedExtras.find(e => e.name === extraPicks[idx].name)) {
+      selectedExtras.push(extraPicks[idx]);
+    }
+  }
+  const allIngredients = [...genericIngredients, ...selectedExtras.map(e => ({ name: e.name, quantity: e.qty, unit: 'г' }))];
+
+  const cookTime = hashRange(key, 5, 90);
+  const tech = `1. Подготовить все ингредиенты для ${dishLower}. 2. ${selectedExtras.length > 0 ? 'Основные компоненты обработать согласно типу блюда. ' : ''}3. Соединить ингредиенты в правильной последовательности. 4. ${cookTime > 30 ? 'Готовить на медленном огне до готовности.' : 'Готовить на среднем огне, помешивая.'} 5. Добавить соль и специи по вкусу. 6. Подавать горячим/холодным в зависимости от типа блюда.`;
+
+  return {
+    ingredients: allIngredients,
+    kbju_per_100g: { calories: cals, proteins: prots, fats: fat, carbs: carb },
+    output: out,
+    technology: tech,
+    cooking_time: cookTime,
+    source: 'auto',
+  };
 }
 
 async function generateTechCard(dishName) {

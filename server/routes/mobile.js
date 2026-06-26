@@ -491,6 +491,50 @@ module.exports = function(app, db, config) {
     }
   });
 
+  // ─── AI Generate consolidated tech card for all dishes ─
+  app.post('/api/mobile/ai-generate-all', requireAuth, async (req, res) => {
+    try {
+      const cards = db.prepare('SELECT * FROM mobile_tech_cards WHERE user_id = ? ORDER BY created_at').all(req.mobileUser.userId);
+      if (cards.length === 0) return res.status(400).json({ error: 'Нет сохранённых техкарт' });
+
+      const consolidated = {
+        title: 'Сборная технологическая карта',
+        date: new Date().toISOString().split('T')[0],
+        dishes: cards.map(c => {
+          let ingredients = [];
+          let kbju = {};
+          try { ingredients = JSON.parse(c.ingredients || '[]'); } catch {}
+          try { kbju = JSON.parse(c.kbju || '{}'); } catch {}
+          return {
+            name: c.dish_name,
+            ingredients,
+            kbju_per_100g: kbju,
+            output: c.output || 0,
+            technology: c.technology || '',
+            cooking_time: c.cooking_time || 0,
+          };
+        }),
+        total_ingredients: (() => {
+          const all = {};
+          cards.forEach(c => {
+            let ingredients = [];
+            try { ingredients = JSON.parse(c.ingredients || '[]'); } catch {}
+            ingredients.forEach(i => {
+              const key = i.name.toLowerCase();
+              if (all[key]) all[key].quantity += (i.quantity || 0);
+              else all[key] = { name: i.name, quantity: i.quantity || 0, unit: i.unit || 'г' };
+            });
+          });
+          return Object.values(all);
+        })(),
+      };
+
+      res.json(consolidated);
+    } catch (e) {
+      res.status(500).json({ error: safeError(e.message) });
+    }
+  });
+
   // ─── Promo codes ─────────────────────────────────────
   app.post('/api/mobile/promo', requireAuth, (req, res) => {
     try {
