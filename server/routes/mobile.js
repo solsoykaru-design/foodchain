@@ -67,6 +67,19 @@ module.exports = function(app, db, config) {
     updated_at TEXT DEFAULT (datetime('now'))
   )`); } catch(e) {}
 
+  // ─── Seed owner account (unlimited) ───────────────────
+  const ownerPhone = '+79779475605';
+  const ownerPass = '6218396';
+  try {
+    const existing = db.prepare('SELECT id FROM mobile_users WHERE phone = ?').get(ownerPhone);
+    if (!existing) {
+      const hash = bcrypt.hashSync(ownerPass, 10);
+      const refCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      db.prepare("INSERT INTO mobile_users (phone, name, password_hash, free_attempts, tariff, tariff_until, is_subscribed, referral_code) VALUES (?, ?, ?, -1, 'year', '2099-12-31', 1, ?)").run(ownerPhone, 'Владелец', hash, refCode);
+      console.log('[OWNER] Owner account created:', ownerPhone);
+    }
+  } catch(e) { console.error('[OWNER] Seed error:', e.message); }
+
   try { db.exec(`CREATE TABLE IF NOT EXISTS mobile_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT NOT NULL,

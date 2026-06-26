@@ -1,9 +1,22 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Slot, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../services/auth';
 import { ActivityIndicator, View } from 'react-native';
 
-function AuthLayout() {
+function RootLayoutNav() {
   const { user, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)');
+    } else if (user && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [user, isLoading, segments]);
 
   if (isLoading) {
     return (
@@ -13,29 +26,13 @@ function AuthLayout() {
     );
   }
 
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!user ? (
-        <Stack.Screen name="index" />
-      ) : (
-        <>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="create/index" />
-          <Stack.Screen name="create/manual" />
-          <Stack.Screen name="create/voice" />
-          <Stack.Screen name="card/[id]" />
-          <Stack.Screen name="subscription/index" />
-          <Stack.Screen name="support" />
-        </>
-      )}
-    </Stack>
-  );
+  return <Slot />;
 }
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <AuthLayout />
+      <RootLayoutNav />
     </AuthProvider>
   );
 }
