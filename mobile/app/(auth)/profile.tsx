@@ -6,7 +6,7 @@ import { useAuth } from '../../services/auth';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { refreshProfile } = useAuth();
   const [name, setName] = useState('');
   const [org, setOrg] = useState('');
   const [loading, setLoading] = useState(false);

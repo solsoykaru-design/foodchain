@@ -5,13 +5,13 @@ import { useAuth } from '../services/auth';
 
 export default function IndexRedirect() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
     if (user) router.replace('/(tabs)');
     else router.replace('/(auth)');
-  }, [user, loading]);
+  }, [user, isLoading]);
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' }}>

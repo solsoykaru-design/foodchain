@@ -4,7 +4,7 @@ module.exports = function(app, db, config) {
 
 app.get('/api/tech-cards/limit', (req, res) => {
   try {
-    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
+    const limitTenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
     const user = req.user;
 
     let maxCards = 3;
@@ -14,13 +14,13 @@ app.get('/api/tech-cards/limit', (req, res) => {
       isOwner = true;
       maxCards = -1;
     } else {
-      const subscription = db.prepare('SELECT s.*, t.max_cards FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? AND s.status = ? ORDER BY s.end_date DESC LIMIT 1').get(tenantId, 'active');
+      const subscription = db.prepare('SELECT s.*, t.max_cards FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? AND s.status = ? ORDER BY s.end_date DESC LIMIT 1').get(limitTenantId, 'active');
       if (subscription && subscription.max_cards) {
         maxCards = subscription.max_cards;
       }
     }
 
-    const totalCards = db.prepare('SELECT COUNT(*) as count FROM dish_tech_cards WHERE tenant_id = ? AND is_active = 1').get(tenantId)?.count || 0;
+    const totalCards = db.prepare('SELECT COUNT(*) as count FROM dish_tech_cards WHERE tenant_id = ? AND is_active = 1').get(limitTenantId)?.count || 0;
 
     res.json({
       total: totalCards,
@@ -143,7 +143,6 @@ app.post('/api/tech-cards', (req, res) => {
     }
 
     const aiService = require('../services/ai-tech-card.service');
-    const tenantId = db.prepare('SELECT current_tenant_id() as tid').get()?.tid || 1;
     const createdInvNames = [];
     const createdCategoryNames = new Set();
 

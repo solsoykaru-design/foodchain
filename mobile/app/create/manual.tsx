@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { aiSaveTechCard } from '../../services/api';
-
-const UNITS = ['г', 'кг', 'мл', 'л', 'шт'];
+import { useAuth, API_URL } from '../../services/auth';
 
 interface Ingredient {
   name: string;
@@ -12,134 +9,171 @@ interface Ingredient {
   unit: string;
 }
 
-export default function ManualScreen() {
+export default function ManualCreateScreen() {
+  const { token, refreshProfile } = useAuth();
   const router = useRouter();
   const [dishName, setDishName] = useState('');
-  const [category, setCategory] = useState('Общая');
-  const [output, setOutput] = useState('250');
-  const [cookingTime, setCookingTime] = useState('20');
-  const [calories, setCalories] = useState('0');
-  const [proteins, setProteins] = useState('0');
-  const [fats, setFats] = useState('0');
-  const [carbs, setCarbs] = useState('0');
-  const [technology, setTechnology] = useState('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', quantity: '', unit: 'г' }]);
+  const [output, setOutput] = useState('');
+  const [technology, setTechnology] = useState('');
+  const [cookingTime, setCookingTime] = useState('');
+  const [calories, setCalories] = useState('');
+  const [proteins, setProteins] = useState('');
+  const [fats, setFats] = useState('');
+  const [carbs, setCarbs] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const addIngredient = () => setIngredients(prev => [...prev, { name: '', quantity: '', unit: 'г' }]);
-  const removeIngredient = (idx: number) => setIngredients(prev => prev.filter((_, i) => i !== idx));
-  const updateIngredient = (idx: number, field: keyof Ingredient, value: string) => {
-    setIngredients(prev => prev.map((ing, i) => i === idx ? { ...ing, [field]: value } : ing));
+  const addIngredient = () => {
+    setIngredients([...ingredients, { name: '', quantity: '', unit: 'г' }]);
+  };
+
+  const updateIngredient = (index: number, field: keyof Ingredient, value: string) => {
+    const updated = [...ingredients];
+    updated[index] = { ...updated[index], [field]: value };
+    setIngredients(updated);
+  };
+
+  const removeIngredient = (index: number) => {
+    if (ingredients.length === 1) return;
+    setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
     if (!dishName.trim()) { Alert.alert('Ошибка', 'Введите название блюда'); return; }
+    const validIngs = ingredients.filter(i => i.name.trim());
+    if (validIngs.length === 0) { Alert.alert('Ошибка', 'Добавьте хотя бы один ингредиент'); return; }
+
     setSaving(true);
     try {
-      const ings = ingredients.filter(i => i.name.trim()).map(i => ({
-        name: i.name.trim(),
-        quantity: parseFloat(i.quantity) || 0,
-        unit: i.unit,
-      }));
-      await aiSaveTechCard({
-        dish_name: dishName.trim(),
-        menu_category: category,
-        ingredients: ings,
-        kbju_per_100g: { calories: parseFloat(calories) || 0, proteins: parseFloat(proteins) || 0, fats: parseFloat(fats) || 0, carbs: parseFloat(carbs) || 0 },
-        output: parseFloat(output) || 250,
-        technology,
-        cooking_time: parseInt(cookingTime) || 20,
+      const res = await fetch(`${API_URL}/api/mobile/tech-cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          dish_name: dishName.trim(),
+          ingredients: validIngs.map(i => ({ name: i.name, quantity: parseFloat(i.quantity) || 0, unit: i.unit })),
+          kbju: { calories: parseFloat(calories) || 0, proteins: parseFloat(proteins) || 0, fats: parseFloat(fats) || 0, carbs: parseFloat(carbs) || 0 },
+          output: parseFloat(output) || 0,
+          technology: technology.trim(),
+          cooking_time: parseInt(cookingTime) || 0,
+          source: 'manual',
+        }),
       });
-      Alert.alert('Готово', 'Техкарта создана!', [{ text: 'OK', onPress: () => router.back() }]);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка сохранения');
+      
+      await refreshProfile();
+      Alert.alert('Успех', 'Техкарта создана!', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e: any) {
       Alert.alert('Ошибка', e.message);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <SafeAreaView style={s.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.flex}>
-        <ScrollView contentContainerStyle={s.scroll}>
-          <TouchableOpacity onPress={() => router.back()} style={s.back}><Text style={s.backText}>← Назад</Text></TouchableOpacity>
-          <Text style={s.title}>Ручной ввод</Text>
-          <Text style={s.subtitle}>Заполните все поля техкарты</Text>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>← Назад</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Ручной ввод</Text>
+        <View style={{ width: 60 }} />
+      </View>
 
-          <Text style={s.fieldLabel}>Название блюда *</Text>
-          <TextInput value={dishName} onChangeText={setDishName} placeholder="Например: Салат Цезарь" style={s.input} />
+      <View style={styles.section}>
+        <Text style={styles.label}>Название блюда *</Text>
+        <TextInput style={styles.input} placeholder="Например: Салат Цезарь" value={dishName} onChangeText={setDishName} placeholderTextColor="#999" />
+      </View>
 
-          <Text style={s.fieldLabel}>Категория</Text>
-          <TextInput value={category} onChangeText={setCategory} placeholder="Общая" style={s.input} />
-
-          <View style={s.row}>
-            <View style={s.half}>
-              <Text style={s.fieldLabel}>Выход, г</Text>
-              <TextInput value={output} onChangeText={setOutput} keyboardType="decimal-pad" style={s.input} />
-            </View>
-            <View style={s.half}>
-              <Text style={s.fieldLabel}>Время готовки, мин</Text>
-              <TextInput value={cookingTime} onChangeText={setCookingTime} keyboardType="number-pad" style={s.input} />
-            </View>
+      <View style={styles.section}>
+        <Text style={styles.label}>Ингредиенты *</Text>
+        {ingredients.map((ing, i) => (
+          <View key={i} style={styles.ingRow}>
+            <TextInput style={[styles.input, styles.ingName]} placeholder="Название" value={ing.name} onChangeText={v => updateIngredient(i, 'name', v)} placeholderTextColor="#999" />
+            <TextInput style={[styles.input, styles.ingQty]} placeholder="Кол-во" value={ing.quantity} onChangeText={v => updateIngredient(i, 'quantity', v)} keyboardType="decimal-pad" placeholderTextColor="#999" />
+            <TouchableOpacity style={styles.unitBtn} onPress={() => {
+              const units = ['г', 'кг', 'мл', 'л', 'шт'];
+              const idx = units.indexOf(ing.unit);
+              updateIngredient(i, 'unit', units[(idx + 1) % units.length]);
+            }}>
+              <Text style={styles.unitText}>{ing.unit}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => removeIngredient(i)} style={styles.removeBtn}>
+              <Text style={styles.removeText}>✕</Text>
+            </TouchableOpacity>
           </View>
+        ))}
+        <TouchableOpacity style={styles.addBtn} onPress={addIngredient}>
+          <Text style={styles.addText}>+ Добавить ингредиент</Text>
+        </TouchableOpacity>
+      </View>
 
-          <Text style={s.sectionTitle}>КБЖУ на 100г</Text>
-          <View style={s.row}>
-            <View style={s.quarter}><TextInput value={calories} onChangeText={setCalories} keyboardType="decimal-pad" placeholder="ккал" style={s.input} /></View>
-            <View style={s.quarter}><TextInput value={proteins} onChangeText={setProteins} keyboardType="decimal-pad" placeholder="Белки" style={s.input} /></View>
-            <View style={s.quarter}><TextInput value={fats} onChangeText={setFats} keyboardType="decimal-pad" placeholder="Жиры" style={s.input} /></View>
-            <View style={s.quarter}><TextInput value={carbs} onChangeText={setCarbs} keyboardType="decimal-pad" placeholder="Углеводы" style={s.input} /></View>
+      <View style={styles.section}>
+        <Text style={styles.label}>Выход блюда (г)</Text>
+        <TextInput style={styles.input} placeholder="300" value={output} onChangeText={setOutput} keyboardType="decimal-pad" placeholderTextColor="#999" />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.label}>КБЖУ (на 100г)</Text>
+        <View style={styles.kbjuRow}>
+          <View style={styles.kbjuInput}>
+            <Text style={styles.kbjuLabel}>Ккал</Text>
+            <TextInput style={styles.input} placeholder="0" value={calories} onChangeText={setCalories} keyboardType="decimal-pad" placeholderTextColor="#999" />
           </View>
+          <View style={styles.kbjuInput}>
+            <Text style={styles.kbjuLabel}>Белки</Text>
+            <TextInput style={styles.input} placeholder="0" value={proteins} onChangeText={setProteins} keyboardType="decimal-pad" placeholderTextColor="#999" />
+          </View>
+          <View style={styles.kbjuInput}>
+            <Text style={styles.kbjuLabel}>Жиры</Text>
+            <TextInput style={styles.input} placeholder="0" value={fats} onChangeText={setFats} keyboardType="decimal-pad" placeholderTextColor="#999" />
+          </View>
+          <View style={styles.kbjuInput}>
+            <Text style={styles.kbjuLabel}>Углеводы</Text>
+            <TextInput style={styles.input} placeholder="0" value={carbs} onChangeText={setCarbs} keyboardType="decimal-pad" placeholderTextColor="#999" />
+          </View>
+        </View>
+      </View>
 
-          <Text style={s.sectionTitle}>Ингредиенты</Text>
-          {ingredients.map((ing, idx) => (
-            <View key={idx} style={s.ingRow}>
-              <TextInput value={ing.name} onChangeText={t => updateIngredient(idx, 'name', t)} placeholder="Название" style={s.ingNameInput} />
-              <TextInput value={ing.quantity} onChangeText={t => updateIngredient(idx, 'quantity', t)} keyboardType="decimal-pad" placeholder="0" style={s.ingQtyInput} />
-              <TouchableOpacity onPress={() => {
-                const units = [...UNITS];
-                const cur = units.indexOf(ing.unit);
-                updateIngredient(idx, 'unit', units[(cur + 1) % units.length]);
-              }} style={s.unitBtn}><Text style={s.unitText}>{ing.unit}</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => removeIngredient(idx)} style={s.removeBtn}><Text style={s.removeText}>✕</Text></TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity onPress={addIngredient} style={s.addBtn}><Text style={s.addBtnText}>+ Добавить ингредиент</Text></TouchableOpacity>
+      <View style={styles.section}>
+        <Text style={styles.label}>Время приготовления (мин)</Text>
+        <TextInput style={styles.input} placeholder="30" value={cookingTime} onChangeText={setCookingTime} keyboardType="number-pad" placeholderTextColor="#999" />
+      </View>
 
-          <Text style={s.sectionTitle}>Технология приготовления</Text>
-          <TextInput value={technology} onChangeText={setTechnology} placeholder="Пошаговое описание..." style={s.techInput} multiline numberOfLines={6} />
+      <View style={styles.section}>
+        <Text style={styles.label}>Технология приготовления</Text>
+        <TextInput style={[styles.input, styles.textarea]} placeholder="Опишите пошагово..." value={technology} onChangeText={setTechnology} multiline numberOfLines={6} placeholderTextColor="#999" textAlignVertical="top" />
+      </View>
 
-          <TouchableOpacity onPress={handleSave} disabled={saving} style={s.saveBtn}>
-            <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить техкарту'}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+        <Text style={styles.saveText}>{saving ? 'Сохранение...' : '💾 Сохранить техкарту'}</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  flex: { flex: 1 },
-  scroll: { padding: 16, paddingBottom: 40 },
-  back: { paddingVertical: 8, marginBottom: 8 },
-  backText: { color: '#3b82f6', fontSize: 14 },
-  title: { fontSize: 22, fontWeight: '700', color: '#18181b' },
-  subtitle: { fontSize: 13, color: '#71717a', marginTop: 4, marginBottom: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#18181b', marginBottom: 10, marginTop: 16 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', color: '#71717a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  input: { backgroundColor: 'white', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#18181b', marginBottom: 12 },
-  row: { flexDirection: 'row', gap: 10 },
-  half: { flex: 1 },
-  quarter: { flex: 1 },
-  ingRow: { flexDirection: 'row', gap: 6, marginBottom: 8, alignItems: 'center' },
-  ingNameInput: { flex: 1, backgroundColor: 'white', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#18181b' },
-  ingQtyInput: { width: 60, backgroundColor: 'white', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 8, fontSize: 13, color: '#18181b', textAlign: 'center' },
-  unitBtn: { backgroundColor: '#f4f4f5', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  unitText: { fontSize: 13, fontWeight: '500', color: '#52525b' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, backgroundColor: '#fff' },
+  backBtn: { padding: 8 },
+  backText: { fontSize: 16, color: '#e67e22' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
+  section: { backgroundColor: '#fff', margin: 12, padding: 16, borderRadius: 12 },
+  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fafafa' },
+  textarea: { height: 120 },
+  ingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  ingName: { flex: 2 },
+  ingQty: { flex: 1, width: 70 },
+  unitBtn: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, backgroundColor: '#f0f0f0', minWidth: 45, alignItems: 'center' },
+  unitText: { fontSize: 14, fontWeight: '600', color: '#666' },
   removeBtn: { padding: 8 },
-  removeText: { fontSize: 14, color: '#ef4444' },
-  addBtn: { paddingVertical: 10, marginBottom: 4 },
-  addBtnText: { fontSize: 13, color: '#3b82f6', fontWeight: '500' },
-  techInput: { backgroundColor: 'white', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: '#18181b', textAlignVertical: 'top', minHeight: 120 },
-  saveBtn: { backgroundColor: '#10b981', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  saveBtnText: { color: 'white', fontWeight: '700', fontSize: 16 },
+  removeText: { fontSize: 18, color: '#e74c3c' },
+  addBtn: { borderWidth: 1, borderColor: '#e67e22', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 4 },
+  addText: { color: '#e67e22', fontSize: 14, fontWeight: '600' },
+  kbjuRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  kbjuInput: { flex: 1, minWidth: 70 },
+  kbjuLabel: { fontSize: 12, color: '#666', marginBottom: 4, textAlign: 'center' },
+  saveBtn: { backgroundColor: '#4caf50', margin: 16, borderRadius: 12, padding: 16, alignItems: 'center' },
+  saveText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

@@ -75,14 +75,24 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 const app = express();
 const server = http.createServer(app);
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000,http://localhost:4000,https://portal.foodchain.uz,https://admin.foodchain.uz').split(',').map(s => s.trim());
+// Увеличиваем timeout для длинных запросов
+server.timeout = 120000;
+server.keepAliveTimeout = 120000;
+
+// Заголовки для keep-alive
+app.use((req, res, next) => {
+  res.setHeader('Connection', 'keep-alive');
+  next();
+});
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: true,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
+app.use(cors(corsOptions));
 const io = new Server(server, { cors: corsOptions });
 
 
@@ -99,7 +109,22 @@ const authLimiter = rateLimit({
 });
 
 app.use(cors(corsOptions));
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
+
+// Middleware для мобильных клиентов - отключаем helmet для /api/mobile
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/mobile')) {
+    // Для мобильных API не используем helmet
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Keep-Alive', 'timeout=120');
+    return next();
+  }
+  // Для остальных используем helmet
+  helmet({ 
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })(req, res, next);
+});
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/staff/login', authLimiter);

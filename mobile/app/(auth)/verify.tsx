@@ -7,7 +7,7 @@ import { useAuth } from '../../services/auth';
 export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { verifyRegister } = useAuth();
   const [code, setCode] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(60);
@@ -34,7 +34,7 @@ export default function VerifyScreen() {
     if (c.length < 4) return;
     setLoading(true);
     try {
-      await signIn(phone!, c);
+      await verifyRegister(phone!, c, '');
       router.replace('/(tabs)');
     } catch (e: any) {
       Alert.alert('Ошибка', e.message);

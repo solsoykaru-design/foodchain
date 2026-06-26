@@ -21,7 +21,7 @@ const PLAN_PRICES: Record<string, { name: string; price: number }> = {
 export default function PaymentScreen() {
   const { planId } = useLocalSearchParams<{ planId: string }>();
   const router = useRouter();
-  const { refresh } = useAuth();
+  const { refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const pollRef = useRef<any>(null);
@@ -40,7 +40,7 @@ export default function PaymentScreen() {
         const status = await api.get(`/api/mobile/payments/${paymentId}/status`);
         if (status.status === 'paid') {
           clearInterval(pollRef.current);
-          await refresh();
+          await refreshProfile();
           Alert.alert('Оплачено!', 'Подписка активирована', [{ text: 'OK', onPress: () => router.back() }]);
         }
       } catch {}
@@ -80,7 +80,7 @@ export default function PaymentScreen() {
                 paymentId: paymentData.paymentId,
                 status: 'success',
               });
-              await refresh();
+          await refreshProfile();
               Alert.alert('Проверяем...', 'Подписка будет активирована после подтверждения платежа');
             } catch (e: any) {
               Alert.alert('Ошибка', e.message);

@@ -1,140 +1,192 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { aiGenerateTechCard } from '../../services/api';
+import { useAuth, API_URL } from '../../services/auth';
 
-export default function CreateByNameScreen() {
+export default function CreateScreen() {
+  const { token, refreshProfile } = useAuth();
   const router = useRouter();
   const [dishName, setDishName] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   const handleGenerate = async () => {
     if (!dishName.trim()) { Alert.alert('Ошибка', 'Введите название блюда'); return; }
     setLoading(true);
     setResult(null);
     try {
-      const data = await aiGenerateTechCard(dishName.trim());
+      const res = await fetch(`${API_URL}/api/mobile/ai-generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dish_name: dishName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка генерации');
       setResult(data);
     } catch (e: any) {
       Alert.alert('Ошибка', e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const totalMatch = (result?.matched_ingredients?.length || 0) + (result?.unmatched_ingredients?.length || 0);
+  const handleSave = async () => {
+    if (!result) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/api/mobile/tech-cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          dish_name: result.dish_name || dishName,
+          ingredients: result.ingredients,
+          kbju: result.kbju_per_100g,
+          output: result.output,
+          technology: result.technology,
+          cooking_time: result.cooking_time,
+          source: result.source || 'ai',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка сохранения');
+      
+      await refreshProfile();
+      Alert.alert('Успех', `Техкарта создана! ${data.freeAttemptsLeft !== undefined ? `Осталось попыток: ${data.freeAttemptsLeft}` : ''}`, [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Ошибка', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={s.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.flex}>
-        <ScrollView contentContainerStyle={s.scroll}>
-          <TouchableOpacity onPress={() => router.back()} style={s.back}><Text style={s.backText}>← Назад</Text></TouchableOpacity>
-          <Text style={s.title}>Создать по названию</Text>
-          <Text style={s.subtitle}>AI определит ингредиенты, КБЖУ и технологию</Text>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>← Назад</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>AI Генерация</Text>
+        <View style={{ width: 60 }} />
+      </View>
 
-          <TextInput
-            value={dishName}
-            onChangeText={setDishName}
-            placeholder="Например: Салат Цезарь, Борщ..."
-            style={s.input}
-            autoFocus
-          />
+      <View style={styles.form}>
+        <Text style={styles.label}>Название блюда</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Например: Салат Цезарь, Борщ, Карбонара..."
+          value={dishName}
+          onChangeText={setDishName}
+          placeholderTextColor="#999"
+          editable={!result}
+        />
 
-          <TouchableOpacity onPress={handleGenerate} disabled={loading} style={s.button}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={s.buttonText}>Сгенерировать</Text>}
+        {!result && (
+          <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.generateBtnText}>✨ Сгенерировать</Text>
+            )}
           </TouchableOpacity>
+        )}
+      </View>
 
-          {result && (
-            <View style={s.card}>
-              <View style={s.cardHeader}>
-                <Text style={s.cardTitle}>{dishName}</Text>
-                <Text style={s.source}>Источник: {result.source}</Text>
+      {result && (
+        <View style={styles.result}>
+          <Text style={styles.resultTitle}>{result.dish_name || dishName}</Text>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ингредиенты</Text>
+            {result.ingredients?.map((ing: any, i: number) => (
+              <View key={i} style={styles.ingRow}>
+                <Text style={styles.ingName}>{ing.name}</Text>
+                <Text style={styles.ingQty}>{ing.quantity}{ing.unit}</Text>
               </View>
+            ))}
+          </View>
 
-              <View style={s.section}>
-                <Text style={s.label}>КБЖУ на 100г</Text>
-                <View style={s.badgeRow}>
-                  <View style={s.badge}><Text style={s.badgeText}>🔥 {result.kbju_per_100g.calories} ккал</Text></View>
-                  <View style={s.badge}><Text style={s.badgeText}>Б {result.kbju_per_100g.proteins}г</Text></View>
-                  <View style={s.badge}><Text style={s.badgeText}>Ж {result.kbju_per_100g.fats}г</Text></View>
-                  <View style={s.badge}><Text style={s.badgeText}>У {result.kbju_per_100g.carbs}г</Text></View>
+          {result.kbju_per_100g && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>КБЖУ (на 100г)</Text>
+              <View style={styles.kbjuRow}>
+                <View style={styles.kbjuItem}>
+                  <Text style={styles.kbjuValue}>{result.kbju_per_100g.calories || 0}</Text>
+                  <Text style={styles.kbjuLabel}>Ккал</Text>
                 </View>
-              </View>
-
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Выход: {result.output}г</Text>
-                <Text style={s.infoLabel}>Время: {result.cooking_time} мин</Text>
-                {totalMatch > 0 && <Text style={s.infoLabel}>Ингредиентов: {totalMatch}</Text>}
-              </View>
-
-              <View style={s.section}>
-                <Text style={s.label}>Ингредиенты</Text>
-                {(result.matched_ingredients?.length || result.unmatched_ingredients?.length
-                  ? [...(result.matched_ingredients || []), ...(result.unmatched_ingredients || [])]
-                  : (result.ingredients || [])
-                ).map((ing: any, i: number) => (
-                  <View key={i} style={s.ingRow}>
-                    <Text style={s.ingName}>{ing.item_name || ing.name}</Text>
-                    <Text style={s.ingQty}>{ing.quantity}{ing.unit}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {result.technology ? (
-                <View style={s.section}>
-                  <Text style={s.label}>Технология</Text>
-                  <Text style={s.techText}>{result.technology}</Text>
+                <View style={styles.kbjuItem}>
+                  <Text style={styles.kbjuValue}>{result.kbju_per_100g.proteins || 0}</Text>
+                  <Text style={styles.kbjuLabel}>Белки</Text>
                 </View>
-              ) : null}
-
-              <View style={s.actions}>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: '/save', params: { dishName, result: JSON.stringify(result) } })}
-                  style={s.saveBtn}
-                >
-                  <Text style={s.saveBtnText}>Сохранить техкарту</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setResult(null); setDishName(''); }} style={s.resetBtn}>
-                  <Text style={s.resetText}>Создать ещё</Text>
-                </TouchableOpacity>
+                <View style={styles.kbjuItem}>
+                  <Text style={styles.kbjuValue}>{result.kbju_per_100g.fats || 0}</Text>
+                  <Text style={styles.kbjuLabel}>Жиры</Text>
+                </View>
+                <View style={styles.kbjuItem}>
+                  <Text style={styles.kbjuValue}>{result.kbju_per_100g.carbs || 0}</Text>
+                  <Text style={styles.kbjuLabel}>Углеводы</Text>
+                </View>
               </View>
             </View>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          {result.output > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Выход: {result.output}г</Text>
+              {result.cooking_time > 0 && <Text style={styles.meta}>Время: {result.cooking_time} мин</Text>}
+            </View>
+          )}
+
+          {result.technology && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Технология приготовления</Text>
+              <Text style={styles.technology}>{result.technology}</Text>
+            </View>
+          )}
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { setResult(null); setDishName(''); }}>
+              <Text style={styles.cancelText}>Изменить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>💾 Сохранить</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  flex: { flex: 1 },
-  scroll: { padding: 16, paddingBottom: 40 },
-  back: { paddingVertical: 8, marginBottom: 8 },
-  backText: { color: '#3b82f6', fontSize: 14 },
-  title: { fontSize: 22, fontWeight: '700', color: '#18181b' },
-  subtitle: { fontSize: 13, color: '#71717a', marginTop: 4, marginBottom: 20 },
-  input: { backgroundColor: 'white', borderWidth: 1, borderColor: '#e4e4e7', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: '#18181b', marginBottom: 12 },
-  button: { backgroundColor: '#3b82f6', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginBottom: 20 },
-  buttonText: { color: 'white', fontWeight: '700', fontSize: 16 },
-  card: { backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: '#e4e4e7', overflow: 'hidden' },
-  cardHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f4f4f5' },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#18181b' },
-  source: { fontSize: 11, color: '#a1a1aa', marginTop: 2 },
-  section: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f4f4f5' },
-  label: { fontSize: 11, fontWeight: '600', color: '#71717a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  badgeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  badge: { backgroundColor: '#f4f4f5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  badgeText: { fontSize: 12, fontWeight: '500', color: '#52525b' },
-  infoRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f4f4f5', gap: 16 },
-  infoLabel: { fontSize: 12, color: '#52525b' },
-  ingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#fafafa' },
-  ingName: { flex: 1, fontSize: 14, color: '#3f3f46' },
-  ingQty: { fontSize: 14, fontWeight: '500', color: '#27272a' },
-  techText: { fontSize: 13, color: '#52525b', lineHeight: 20 },
-  actions: { padding: 16, gap: 8 },
-  saveBtn: { backgroundColor: '#10b981', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  saveBtnText: { color: 'white', fontWeight: '700', fontSize: 16 },
-  resetBtn: { alignItems: 'center', paddingVertical: 8 },
-  resetText: { color: '#3b82f6', fontSize: 14 },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, backgroundColor: '#fff' },
+  backBtn: { padding: 8 },
+  backText: { fontSize: 16, color: '#e67e22' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
+  form: { padding: 20 },
+  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 14, fontSize: 16, backgroundColor: '#fff' },
+  generateBtn: { backgroundColor: '#e67e22', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
+  generateBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  result: { padding: 20 },
+  resultTitle: { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 16 },
+  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  ingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  ingName: { fontSize: 14, color: '#333', flex: 1 },
+  ingQty: { fontSize: 14, color: '#666', fontWeight: '500' },
+  kbjuRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  kbjuItem: { alignItems: 'center' },
+  kbjuValue: { fontSize: 20, fontWeight: 'bold', color: '#e67e22' },
+  kbjuLabel: { fontSize: 11, color: '#999', marginTop: 2 },
+  meta: { fontSize: 13, color: '#666', marginTop: 4 },
+  technology: { fontSize: 14, color: '#444', lineHeight: 22 },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  cancelBtn: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 14, alignItems: 'center' },
+  cancelText: { color: '#666', fontSize: 15, fontWeight: '600' },
+  saveBtn: { flex: 1, backgroundColor: '#4caf50', borderRadius: 12, padding: 14, alignItems: 'center' },
+  saveText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 });

@@ -1,250 +1,338 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Share, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { api } from '../../services/api';
-import { generateTechCardPdf } from '../../services/pdf';
-import { sharePdf, printPdf } from '../../services/share';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { useAuth, API_URL } from '../../services/auth';
+
+interface TechCard {
+  id: number;
+  dish_name: string;
+  ingredients: any[];
+  kbju: any;
+  output: number;
+  technology: string;
+  cooking_time: number;
+  created_at: string;
+}
 
 export default function CardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { token, user } = useAuth();
   const router = useRouter();
-  const [tc, setTc] = useState<any>(null);
+  const [card, setCard] = useState<TechCard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    api.get(`/api/mobile/tech-cards/${id}`).then(setTc).catch(() => Alert.alert('Ошибка', 'Не удалось загрузить')).finally(() => setLoading(false));
-  }, [id]);
+  useEffect(() => { loadCard(); }, [id]);
 
-  const handlePdf = async () => {
-    if (!tc) return;
-    setPdfLoading(true);
+  const loadCard = async () => {
     try {
-      const uri = await generateTechCardPdf({
-        dish_name: tc.dish_name,
-        organization: tc.organization,
-        category: tc.category,
-        ingredients: tc.ingredients,
-        kbju: tc.kbju || tc.kbju_per_100g,
-        output: tc.output,
-        cooking_time: tc.cooking_time,
-        technology: tc.technology,
-        description: tc.description,
-        cost_price: tc.cost_price,
-        portions: tc.portions,
-        source: tc.source,
+      const res = await fetch(`${API_URL}/api/mobile/tech-cards/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      Alert.alert('Готово', 'PDF создан. Хотите открыть?', [
-        { text: 'Отмена', style: 'cancel' },
-        { text: 'Поделиться', onPress: () => sharePdf(uri, `${tc.dish_name}.pdf`) },
-        { text: 'Печать', onPress: () => printPdf(uri) },
-      ]);
+      if (res.ok) {
+        const data = await res.json();
+        setCard(data);
+      }
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось загрузить техкарту');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generatePDF = async () => {
+    if (!card) return;
+    setExporting(true);
+    try {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+            h1 { color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px; }
+            h2 { color: #333; margin-top: 20px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .kbju { display: flex; gap: 20px; margin: 10px 0; }
+            .kbju-item { text-align: center; }
+            .kbju-value { font-size: 18px; font-weight: bold; color: #e67e22; }
+            .kbju-label { font-size: 10px; color: #666; }
+            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 48px; color: rgba(230, 126, 34, 0.2); font-weight: bold; pointer-events: none; }
+            .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }
+          </style>
+        </head>
+        <body>
+          ${!user?.isSubscribed ? '<div class="watermark">ДЕМО</div>' : ''}
+          <h1>ТЕХНОЛОГИЧЕСКАЯ КАРТА</h1>
+          <p><strong>Название:</strong> ${card.dish_name}</p>
+          <p><strong>Дата:</strong> ${new Date(card.created_at).toLocaleDateString('ru-RU')}</p>
+          ${card.output > 0 ? `<p><strong>Выход:</strong> ${card.output} г</p>` : ''}
+          ${card.cooking_time > 0 ? `<p><strong>Время приготовления:</strong> ${card.cooking_time} мин</p>` : ''}
+          
+          <h2>Рецептура</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Ингредиент</th>
+                <th>Количество</th>
+                <th>Ед. изм.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${card.ingredients.map((ing: any, i: number) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${ing.name}</td>
+                  <td>${ing.quantity}</td>
+                  <td>${ing.unit}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          ${card.kbju && (card.kbju.calories || card.kbju.proteins || card.kbju.fats || card.kbju.carbs) ? `
+            <h2>Пищевая ценность (на 100г)</h2>
+            <div class="kbju">
+              <div class="kbju-item">
+                <div class="kbju-value">${card.kbju.calories || 0}</div>
+                <div class="kbju-label">Ккал</div>
+              </div>
+              <div class="kbju-item">
+                <div class="kbju-value">${card.kbju.proteins || 0}</div>
+                <div class="kbju-label">Белки, г</div>
+              </div>
+              <div class="kbju-item">
+                <div class="kbju-value">${card.kbju.fats || 0}</div>
+                <div class="kbju-label">Жиры, г</div>
+              </div>
+              <div class="kbju-item">
+                <div class="kbju-value">${card.kbju.carbs || 0}</div>
+                <div class="kbju-label">Углеводы, г</div>
+              </div>
+            </div>
+          ` : ''}
+
+          ${card.technology ? `
+            <h2>Технология приготовления</h2>
+            <p>${card.technology.replace(/\n/g, '<br>')}</p>
+          ` : ''}
+
+          <div class="footer">
+            <p>Создано в AI Техкарты • ${new Date().toLocaleDateString('ru-RU')}</p>
+            ${!user?.isSubscribed ? '<p style="color: #e67e22; font-weight: bold;">Демо-версия. Оформите подписку для PDF без водяных знаков.</p>' : ''}
+          </div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      return uri;
     } catch (e: any) {
-      Alert.alert('Ошибка PDF', e.message);
-    } finally { setPdfLoading(false); }
+      Alert.alert('Ошибка', 'Не удалось создать PDF');
+      return null;
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleShare = async () => {
-    if (!tc) return;
-    setPdfLoading(true);
+    const uri = await generatePDF();
+    if (!uri) return;
+    
     try {
-      const uri = await generateTechCardPdf({
-        dish_name: tc.dish_name,
-        organization: tc.organization,
-        ingredients: tc.ingredients,
-        kbju: tc.kbju || tc.kbju_per_100g,
-        output: tc.output,
-        cooking_time: tc.cooking_time,
-        technology: tc.technology,
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: card?.dish_name || 'Техкарта',
       });
-      await sharePdf(uri, `${tc.dish_name}.pdf`);
-    } catch (e: any) {
-      Alert.alert('Ошибка', e.message);
-    } finally { setPdfLoading(false); }
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось поделиться');
+    }
   };
 
   const handlePrint = async () => {
-    if (!tc) return;
-    setPdfLoading(true);
+    const uri = await generatePDF();
+    if (!uri) return;
+    
     try {
-      const uri = await generateTechCardPdf({
-        dish_name: tc.dish_name,
-        organization: tc.organization,
-        ingredients: tc.ingredients,
-        kbju: tc.kbju || tc.kbju_per_100g,
-        output: tc.output,
-        cooking_time: tc.cooking_time,
-        technology: tc.technology,
-      });
-      await printPdf(uri);
-    } catch (e: any) {
-      Alert.alert('Ошибка печати', e.message);
-    } finally { setPdfLoading(false); }
+      await Print.printAsync({ uri });
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось распечатать');
+    }
   };
 
   const handleDelete = () => {
-    Alert.alert('Удалить техкарту', 'Вы уверены?', [
+    Alert.alert('Удалить техкарту?', 'Это действие нельзя отменить', [
       { text: 'Отмена', style: 'cancel' },
-      { text: 'Удалить', style: 'destructive', onPress: async () => {
-        try { await api.delete(`/api/mobile/tech-cards/${id}`); router.back(); } catch (e: any) { Alert.alert('Ошибка', e.message); }
-      }},
+      { text: 'Удалить', style: 'destructive', onPress: deleteCard },
     ]);
   };
 
-  if (loading) return (
-    <SafeAreaView style={s.center}><ActivityIndicator size="large" color="#3b82f6" /></SafeAreaView>
-  );
+  const deleteCard = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/mobile/tech-cards/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        Alert.alert('Успех', 'Техкарта удалена', [{ text: 'OK', onPress: () => router.back() }]);
+      }
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось удалить');
+    }
+  };
 
-  if (!tc) return (
-    <SafeAreaView style={s.center}><Text style={s.errorText}>Техкарта не найдена</Text></SafeAreaView>
-  );
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#e67e22" />
+      </View>
+    );
+  }
 
-  const ings = tc.ingredients || [];
-  const kbju = tc.kbju || tc.kbju_per_100g || {};
+  if (!card) {
+    return (
+      <View style={styles.error}>
+        <Text style={styles.errorText}>Техкарта не найдена</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>Назад</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll}>
-        <TouchableOpacity onPress={() => router.back()} style={s.back}><Text style={s.backText}>← Назад</Text></TouchableOpacity>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>← Назад</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Техкарта</Text>
+        <View style={{ width: 60 }} />
+      </View>
 
-        <View style={s.header}>
-          <Text style={s.title}>{tc.dish_name}</Text>
-          <View style={s.metaRow}>
-            {tc.category ? <Text style={s.meta}>{tc.category}</Text> : null}
-            <Text style={s.meta}>Выход: {tc.output || '—'}г</Text>
-            <Text style={s.meta}>Время: {tc.cooking_time || '—'} мин</Text>
+      <View style={styles.content}>
+        <Text style={styles.dishName}>{card.dish_name}</Text>
+        <Text style={styles.date}>{new Date(card.created_at).toLocaleDateString('ru-RU')}</Text>
+
+        {card.output > 0 && (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Выход:</Text>
+            <Text style={styles.infoValue}>{card.output} г</Text>
           </View>
+        )}
+
+        {card.cooking_time > 0 && (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Время:</Text>
+            <Text style={styles.infoValue}>{card.cooking_time} мин</Text>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ингредиенты</Text>
+          {card.ingredients.map((ing: any, i: number) => (
+            <View key={i} style={styles.ingRow}>
+              <Text style={styles.ingName}>{ing.name}</Text>
+              <Text style={styles.ingQty}>{ing.quantity} {ing.unit}</Text>
+            </View>
+          ))}
         </View>
 
-        {kbju.calories !== undefined && (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>КБЖУ на 100г</Text>
-            <View style={s.badgeRow}>
-              <View style={s.badge}><Text style={s.badgeText}>🔥 {kbju.calories || 0} ккал</Text></View>
-              <View style={s.badge}><Text style={s.badgeText}>Б {kbju.proteins || 0}г</Text></View>
-              <View style={s.badge}><Text style={s.badgeText}>Ж {kbju.fats || 0}г</Text></View>
-              <View style={s.badge}><Text style={s.badgeText}>У {kbju.carbs || 0}г</Text></View>
-            </View>
-          </View>
-        )}
-
-        {tc.cost_price > 0 && (
-          <View style={s.costBox}>
-            <Text style={s.costLabel}>Себестоимость</Text>
-            <Text style={s.costValue}>{tc.cost_price} ₽</Text>
-            {tc.portions > 1 && <Text style={s.costPerPortion}>{tc.cost_price} ₽ / {tc.portions} порц.</Text>}
-          </View>
-        )}
-
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>Ингредиенты ({ings.length})</Text>
-          {ings.length === 0 ? (
-            <Text style={s.emptyText}>Нет ингредиентов</Text>
-          ) : (
-            <View style={s.table}>
-              <View style={s.tableHeader}>
-                <Text style={[s.tableCell, s.nameCol]}>Название</Text>
-                <Text style={[s.tableCell, s.qtyCol, s.textCenter]}>Кол-во</Text>
-                <Text style={[s.tableCell, s.unitCol, s.textCenter]}>Ед.</Text>
+        {card.kbju && (card.kbju.calories || card.kbju.proteins || card.kbju.fats || card.kbju.carbs) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>КБЖУ (на 100г)</Text>
+            <View style={styles.kbjuRow}>
+              <View style={styles.kbjuItem}>
+                <Text style={styles.kbjuValue}>{card.kbju.calories || 0}</Text>
+                <Text style={styles.kbjuLabel}>Ккал</Text>
               </View>
-              {ings.map((ing: any, i: number) => (
-                <View key={i} style={s.tableRow}>
-                  <Text style={[s.tableCell, s.nameCol]}>{ing.item_name || ing.name}</Text>
-                  <Text style={[s.tableCell, s.qtyCol, s.textCenter]}>{ing.quantity || 0}</Text>
-                  <Text style={[s.tableCell, s.unitCol, s.textCenter]}>{ing.unit || 'г'}</Text>
-                </View>
-              ))}
+              <View style={styles.kbjuItem}>
+                <Text style={styles.kbjuValue}>{card.kbju.proteins || 0}</Text>
+                <Text style={styles.kbjuLabel}>Белки</Text>
+              </View>
+              <View style={styles.kbjuItem}>
+                <Text style={styles.kbjuValue}>{card.kbju.fats || 0}</Text>
+                <Text style={styles.kbjuLabel}>Жиры</Text>
+              </View>
+              <View style={styles.kbjuItem}>
+                <Text style={styles.kbjuValue}>{card.kbju.carbs || 0}</Text>
+                <Text style={styles.kbjuLabel}>Углеводы</Text>
+              </View>
             </View>
-          )}
+          </View>
+        )}
+
+        {card.technology && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Технология приготовления</Text>
+            <Text style={styles.technology}>{card.technology}</Text>
+          </View>
+        )}
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleShare} disabled={exporting}>
+            <Text style={styles.actionIcon}>📤</Text>
+            <Text style={styles.actionText}>Поделиться</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={handlePrint} disabled={exporting}>
+            <Text style={styles.actionIcon}>🖨️</Text>
+            <Text style={styles.actionText}>Печать</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={handleDelete}>
+            <Text style={styles.actionIcon}>🗑️</Text>
+            <Text style={styles.actionText}>Удалить</Text>
+          </TouchableOpacity>
         </View>
 
-        {tc.technology ? (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>Технология приготовления</Text>
-            <Text style={s.techText}>{tc.technology}</Text>
+        {!user?.isSubscribed && (
+          <View style={styles.watermark}>
+            <Text style={styles.watermarkText}>🔒 Демо-версия</Text>
+            <Text style={styles.watermarkSubtext}>Оформите подписку для PDF без водяных знаков</Text>
           </View>
-        ) : null}
-
-        {tc.description ? (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>Требования к сырью</Text>
-            <Text style={s.techText}>{tc.description}</Text>
-          </View>
-        ) : null}
-
-        <View style={s.actions}>
-          {pdfLoading ? (
-            <View style={s.loadingBox}>
-              <ActivityIndicator size="small" color="#3b82f6" />
-              <Text style={s.loadingText}>Генерация PDF...</Text>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity onPress={handlePdf} style={s.actionBtn}>
-                <Text style={s.actionIcon}>📄</Text>
-                <Text style={s.actionLabel}>PDF</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handlePrint} style={s.actionBtn}>
-                <Text style={s.actionIcon}>🖨️</Text>
-                <Text style={s.actionLabel}>Печать</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleShare} style={s.actionBtn}>
-                <Text style={s.actionIcon}>📤</Text>
-                <Text style={s.actionLabel}>Поделиться</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push({ pathname: '/save', params: { dishName: tc.dish_name, result: JSON.stringify(tc) } })} style={s.actionBtn}>
-                <Text style={s.actionIcon}>✏️</Text>
-                <Text style={s.actionLabel}>Править</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={[s.actionBtn, s.deleteBtn]}>
-                <Text style={s.actionIcon}>🗑️</Text>
-                <Text style={[s.actionLabel, s.deleteLabel]}>Удалить</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' },
-  scroll: { padding: 16, paddingBottom: 40 },
-  back: { paddingVertical: 8, marginBottom: 8 },
-  backText: { color: '#3b82f6', fontSize: 14 },
-  errorText: { color: '#ef4444', fontSize: 15 },
-  header: { marginBottom: 16 },
-  title: { fontSize: 22, fontWeight: '700', color: '#18181b' },
-  metaRow: { flexDirection: 'row', gap: 12, marginTop: 8, flexWrap: 'wrap' },
-  meta: { fontSize: 12, color: '#71717a' },
-  section: { backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: '#e4e4e7', padding: 16, marginBottom: 12 },
-  sectionLabel: { fontSize: 11, fontWeight: '600', color: '#71717a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
-  badgeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  badge: { backgroundColor: '#f4f4f5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  badgeText: { fontSize: 12, fontWeight: '500', color: '#52525b' },
-  costBox: { backgroundColor: '#ecfdf5', borderRadius: 14, borderWidth: 1, borderColor: '#a7f3d0', padding: 16, marginBottom: 12 },
-  costLabel: { fontSize: 11, fontWeight: '600', color: '#059669', textTransform: 'uppercase', letterSpacing: 0.5 },
-  costValue: { fontSize: 20, fontWeight: '700', color: '#059669', marginTop: 4 },
-  costPerPortion: { fontSize: 12, color: '#059669', marginTop: 2 },
-  emptyText: { fontSize: 13, color: '#a1a1aa' },
-  table: {},
-  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#f4f4f5', paddingBottom: 6, marginBottom: 4 },
-  tableRow: { flexDirection: 'row', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#fafafa' },
-  tableCell: { fontSize: 13, color: '#52525b' },
-  nameCol: { flex: 1 },
-  qtyCol: { width: 48 },
-  unitCol: { width: 36 },
-  textCenter: { textAlign: 'center' },
-  techText: { fontSize: 13, color: '#52525b', lineHeight: 20 },
-  actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 },
-  actionBtn: { flex: 1, minWidth: 56, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e4e4e7', padding: 10, alignItems: 'center' },
-  actionIcon: { fontSize: 20, marginBottom: 2 },
-  actionLabel: { fontSize: 10, color: '#52525b' },
-  deleteBtn: { borderColor: '#fecaca' },
-  deleteLabel: { color: '#ef4444' },
-  loadingBox: { flex: 1, alignItems: 'center', padding: 16 },
-  loadingText: { fontSize: 11, color: '#71717a', marginTop: 8 },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  error: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontSize: 16, color: '#666', marginBottom: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, backgroundColor: '#fff' },
+  backBtn: { padding: 8 },
+  backText: { fontSize: 16, color: '#e67e22' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
+  content: { padding: 16 },
+  dishName: { fontSize: 24, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 8 },
+  date: { fontSize: 13, color: '#999', marginBottom: 16 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 8 },
+  infoLabel: { fontSize: 14, color: '#666' },
+  infoValue: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
+  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  ingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  ingName: { fontSize: 14, color: '#333', flex: 1 },
+  ingQty: { fontSize: 14, color: '#666', fontWeight: '500' },
+  kbjuRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  kbjuItem: { alignItems: 'center' },
+  kbjuValue: { fontSize: 20, fontWeight: 'bold', color: '#e67e22' },
+  kbjuLabel: { fontSize: 11, color: '#999', marginTop: 2 },
+  technology: { fontSize: 14, color: '#444', lineHeight: 22 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actionBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center' },
+  actionIcon: { fontSize: 24, marginBottom: 6 },
+  actionText: { fontSize: 12, color: '#333', fontWeight: '600' },
+  deleteBtn: { backgroundColor: '#ffebee' },
+  watermark: { backgroundColor: '#fff3e0', borderRadius: 12, padding: 16, marginTop: 16, alignItems: 'center' },
+  watermarkText: { fontSize: 16, fontWeight: 'bold', color: '#e67e22', marginBottom: 4 },
+  watermarkSubtext: { fontSize: 12, color: '#666', textAlign: 'center' },
 });
