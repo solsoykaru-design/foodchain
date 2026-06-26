@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'https://foodchain.onrender.com';
+const API_URL = 'https://foodchain-qpxh.onrender.com';
 
 interface User {
   id: number;
