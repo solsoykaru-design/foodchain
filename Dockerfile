@@ -39,6 +39,9 @@ FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
 
+# Cache buster — change this value to force a fresh build
+COPY .build-id* /dev/null
+
 # Copy node_modules (production only)
 COPY --from=builder /app/node_modules node_modules/
 COPY --from=builder /app/server/node_modules server/node_modules/
