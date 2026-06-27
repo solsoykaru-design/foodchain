@@ -606,33 +606,41 @@ app.get('/api/tech-cards/:id/steps', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
-// ─── AI Debug: test OpenCode connection ─────────────────
+// ─── AI Debug: reproduce exact queryOpenCode call ──────
 app.get('/api/ai-test', async (req, res) => {
   const key = process.env.OPENCODE_API_KEY || '';
   const results = [];
-  for (const model of ['north-mini-code-free', 'deepseek-v4-flash-free', 'mimo-v2.5-free']) {
-      const s = Date.now();
-      try {
-        const prompt = model.includes('deepseek')
-          ? `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию).
-Верни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:
-{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`
-          : 'Say OK and return JSON: {"ok":true}';
-        const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: model.includes('deepseek') ? 2000 : 50 }),
-          signal: AbortSignal.timeout(90000),
-        });
-        const t = await r.text();
-        let contentPreview = '', keys = '';
-        try { const j = JSON.parse(t); const m = j.choices?.[0]?.message || {}; keys = Object.keys(m).join(','); const full = m.content || m.reasoning || m.reasoning_content || ''; contentPreview = full.substring(0, 500) + '...LAST200:' + full.substring(Math.max(0, full.length - 200)); } catch { contentPreview = '(parse error): ' + t.substring(0, 100); }
-        results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, total_len: t.length, keys, content: contentPreview });
-      } catch (e) {
-        results.push({ model, time: Date.now() - s, error: e.message });
+  for (const model of ['deepseek-v4-flash-free', 'north-mini-code-free']) {
+    const s = Date.now();
+    try {
+      const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
+      const prompt = isReasoning
+        ? `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию).\n\nВерни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:\n{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`
+        : 'Say OK';
+      const body = JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: isReasoning ? 3000 : 1000 });
+      const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body,
+        signal: AbortSignal.timeout(90000),
+      });
+      const t = await r.text();
+      const j = JSON.parse(t);
+      const msg = j.choices?.[0]?.message || {};
+      const text = msg.content || msg.reasoning_content || msg.reasoning || '';
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      let jsonPart = '';
+      let parseOk = false;
+      if (start !== -1 && end !== -1) {
+        try { jsonPart = text.slice(start, end + 1); JSON.parse(jsonPart); parseOk = true; } catch {}
       }
+      results.push({ model, time: Date.now() - s, status: r.status, hasContent: !!text, contentLen: text.length, startIdx: start, endIdx: end, parseOk, content: text.substring(0, 200) + '...mid...' + text.substring(Math.max(0, text.length - 300)) });
+    } catch (e) {
+      results.push({ model, time: Date.now() - s, error: e.message });
+    }
   }
-  res.json({ key_prefix: key.substring(0, 8) + '...', results });
+  res.json({ results });
 });
 
 // ─── AI Generate Tech Card ──────────────────────────────
