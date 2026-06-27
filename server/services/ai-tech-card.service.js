@@ -183,20 +183,22 @@ async function queryOllama(dishName) {
   return result;
 }
 
-async function queryOpenCode(dishName) {
+async function queryOpenCode(dishName, modelName) {
   if (!OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY not configured');
   if (OPENCODE_API_KEY.length < 10) throw new Error('Invalid API key');
 
+  const model = modelName || OPENCODE_MODEL;
   const category = detectCategory(dishName);
   const prompt = PROMPT_TEMPLATE.replace(/\{name\}/g, dishName).replace(/\{category\}/g, category);
+  const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
   const body = JSON.stringify({
-    model: OPENCODE_MODEL,
+    model,
     messages: [
       { role: 'system', content: 'Ты — русскоязычный технолог общественного питания. Все названия ингредиентов пиши ТОЛЬКО на русском языке. Ответ давай ТОЛЬКО в формате JSON.' },
       { role: 'user', content: prompt }
     ],
-    temperature: 0.85,
-    max_tokens: 2500,
+    temperature: 0.1,
+    max_tokens: isReasoning ? 8192 : 3000,
   });
 
   const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
@@ -206,11 +208,11 @@ async function queryOpenCode(dishName) {
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: 25000,
+    timeout: isReasoning ? 120000 : 60000,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
-  if (!text) throw new Error('Empty response from OpenCode');
+  if (!text) throw new Error(`Empty response from OpenCode (${model})`);
 
   const result = parseAIResponse(text, 'opencode');
   result.category = result.category || category;
@@ -1858,7 +1860,7 @@ async function generateTechCard(dishName) {
 
   return await Promise.race([
     generateTechCardInner(dishName, errors),
-    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 28000)),
+    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 120000)),
   ]);
 }
 
@@ -1872,12 +1874,15 @@ async function generateTechCardInner(dishName, errors) {
     errors.push({ source: 'themealdb', error: e.message });
   }
 
-  // Try OpenCode Zen (free DeepSeek V4 Flash)
-  try {
-    const result = await queryOpenCode(dishName);
-    return result;
-  } catch (e) {
-    errors.push({ source: 'opencode', error: e.message });
+  // Try OpenCode Zen (all free models, from fastest to slowest)
+  const opencodeModels = ['deepseek-v4-flash-free', 'big-pickle', 'mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free'];
+  for (const model of opencodeModels) {
+    try {
+      const result = await queryOpenCode(dishName, model);
+      return result;
+    } catch (e) {
+      errors.push({ source: `opencode/${model}`, error: e.message });
+    }
   }
 
   // Try DeepSeek (direct API)

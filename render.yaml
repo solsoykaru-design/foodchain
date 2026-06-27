@@ -17,7 +17,11 @@ services:
       - key: SUPPLIER_JWT_SECRET
         generateValue: true
       - key: DEEPSEEK_API_KEY
-        value: sk-DkmyNm89NGUxfY92RiMIc4aGiGk9SVeqE7a3TFUxLYilSnL6jg1RrC2XFL1VbpYu
+        value: ""
+      - key: OPENCODE_API_KEY
+        value: sk-Qh0LRmRShhI6TTd2KA3PoNiiaMKCg6OJvBfsY9qVb3JyPgBSrZS6HO22B6a0HblV
+      - key: OPENCODE_MODEL
+        value: deepseek-v4-flash-free
       - key: ALLOWED_ORIGINS
         value: "*"
       - key: CORS_ORIGINS
