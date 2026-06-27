@@ -1,12 +1,10 @@
-const https = require('https');
-const http = require('http');
-
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 const OPENCODE_API_KEY = process.env.OPENCODE_API_KEY || process.env.DEEPSEEK_API_KEY || '';
 const OPENCODE_MODEL = process.env.OPENCODE_MODEL || 'north-mini-code-free';
+const OPENCODE_TIMEOUT = parseInt(process.env.OPENCODE_TIMEOUT || '25000', 10);
 
 function detectCategory(name) {
   const key = name.toLowerCase().trim();
@@ -41,28 +39,22 @@ const PROMPT_TEMPLATE = `Ты — профессиональный технол�
 Пример ответа для "Ролл с обожженным лососем":
 {"ingredients":[{"name":"Рис для роллов (отварной)","quantity":110,"unit":"г"},{"name":"Нори (лист)","quantity":2,"unit":"г"},{"name":"Дайкон маринованный (п/ф)","quantity":20,"unit":"г"},{"name":"Сыр сливочный (п/ф)","quantity":30,"unit":"г"},{"name":"Лук зелёный (п/ф)","quantity":2,"unit":"г"},{"name":"Лосось без кожи (филе, п/ф)","quantity":80,"unit":"г"},{"name":"Арахис жареный (п/ф, украшение)","quantity":10,"unit":"г"},{"name":"Сахар тростниковый (п/ф)","quantity":2,"unit":"г"}],"kbju_per_100g":{"calories":190,"proteins":12,"fats":8,"carbs":22},"output":220,"technology":"1. На нори выложить рис, дайкон, сливочный сыр, зелёный лук. Скрутить ролл.\\n2. Ролл обернуть слайсами лосося.\\n3. Посыпать тростниковым сахаром, обжечь газовой горелкой до карамелизации.\\n4. Посыпать жареным арахисом, нарезать на 8 частей.","cooking_time":20,"temperature":"20–22 °С","shelf_life":"24 ч при t=2…+6 °С"}`;
 
-function fetchJSON(url, options = {}) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const mod = u.protocol === 'https:' ? https : http;
-    const timedOut = { current: false };
-    const req = mod.request(url, { method: options.method || 'GET', headers: options.headers || { 'Content-Type': 'application/json' }, timeout: options.timeout || 15000 }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        if (timedOut.current) return;
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch { reject(new Error(`Invalid JSON: ${data.slice(0, 200)}`)); }
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
-        }
-      });
+async function fetchJSON(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || 15000);
+  try {
+    const res = await fetch(url, {
+      method: options.method || 'GET',
+      headers: options.headers || { 'Content-Type': 'application/json' },
+      body: options.body,
+      signal: controller.signal,
     });
-    req.on('error', (e) => { if (!timedOut.current) { timedOut.current = true; reject(e); } });
-    req.on('timeout', () => { timedOut.current = true; req.destroy(); reject(new Error('Timeout')); });
-    if (options.body) req.write(options.body);
-    req.end();
-  });
+    const text = await res.text();
+    if (res.ok) return JSON.parse(text);
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function queryTheMealDB(dishName) {
@@ -202,14 +194,14 @@ async function queryOpenCode(dishName, modelName) {
     max_tokens: isReasoning ? 4000 : 1500,
   });
 
-  const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
+  const data = await fetchJSON('https://opencode.ai/api/zen/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: isReasoning ? 65000 : 20000,
+    timeout: isReasoning ? 65000 : OPENCODE_TIMEOUT,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
@@ -1876,13 +1868,15 @@ async function generateTechCardInner(dishName, errors) {
   }
 
   // Try OpenCode Zen (all free models, from fastest to slowest)
-  const opencodeModels = ['mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free', 'deepseek-v4-flash-free', 'big-pickle'];
-  for (const model of opencodeModels) {
-    try {
-      const result = await queryOpenCode(dishName, model);
-      return result;
-    } catch (e) {
-      errors.push({ source: `opencode/${model}`, error: e.message });
+  if (OPENCODE_API_KEY && OPENCODE_API_KEY.length > 10) {
+    const opencodeModels = ['mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free', 'deepseek-v4-flash-free', 'big-pickle'];
+    for (const model of opencodeModels) {
+      try {
+        const result = await queryOpenCode(dishName, model);
+        return result;
+      } catch (e) {
+        errors.push({ source: `opencode/${model}`, error: e.message });
+      }
     }
   }
 

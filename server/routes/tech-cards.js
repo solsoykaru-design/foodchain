@@ -635,7 +635,7 @@ app.post('/api/tech-cards/ai-generate', async (req, res) => {
   } catch (e) {
     const aiService = require('../services/ai-tech-card.service');
     aiService.logAIRequest(db, 'generate', req.body?.dish_name, null, e.message || e);
-    const msg = e.errors ? `Не удалось сгенерировать техкарту. TheMealDB: ${e.errors[0]?.error || 'ошибка'}. DeepSeek: ${e.errors[1]?.error || 'недоступен'}. Ollama: ${e.errors[2]?.error || 'недоступен'}.` : (e.message || 'Ошибка генерации');
+    const msg = e.errors ? `Не удалось сгенерировать техкарту. TheMealDB: ${e.errors[0]?.error || 'ошибка'}. OpenCode: ${e.errors.slice(1,6).map(x => `${x.source}: ${x.error}`).join('; ') || 'недоступен'}.` : (e.message || 'Ошибка генерации');
     res.status(500).json({ error: msg });
   }
 });
