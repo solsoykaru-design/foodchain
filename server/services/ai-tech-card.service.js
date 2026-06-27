@@ -178,7 +178,7 @@ async function queryOpenCode(dishName, modelName) {
       { role: 'user', content: prompt }
     ],
     temperature: 0.1,
-    max_tokens: isReasoning ? 2000 : 1000,
+    max_tokens: isReasoning ? 4000 : 1000,
   });
 
   const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
