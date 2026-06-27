@@ -625,8 +625,9 @@ app.get('/api/ai-test', async (req, res) => {
           signal: AbortSignal.timeout(90000),
         });
         const t = await r.text();
-        const preview = model.includes('deepseek') ? (t.length > 200 ? t.slice(0, 100) + '...total:' + t.length : t.slice(0, 100)) : t.slice(0, 100);
-        results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, text: preview });
+        let contentPreview = '';
+        try { const j = JSON.parse(t); contentPreview = (j.choices?.[0]?.message?.content || '(no content)').substring(0, 300); } catch { contentPreview = '(parse error): ' + t.substring(0, 100); }
+        results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, total_len: t.length, content: contentPreview });
       } catch (e) {
         results.push({ model, time: Date.now() - s, error: e.message });
       }
