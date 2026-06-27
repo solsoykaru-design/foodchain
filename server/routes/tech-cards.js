@@ -612,16 +612,16 @@ app.get('/api/ai-test', async (req, res) => {
   const results = [];
   for (const model of ['north-mini-code-free', 'deepseek-v4-flash-free', 'mimo-v2.5-free']) {
       const s = Date.now();
-      const longPrompt = `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию) как в реальных сборниках рецептур.
-Верни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:
-{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число}
-Пример ответа для "Ролл с обожженным лососем":
-{"ingredients":[{"name":"Рис для роллов (отварной)","quantity":110,"unit":"г"},{"name":"Нори (лист)","quantity":2,"unit":"г"}],"kbju_per_100g":{"calories":190,"proteins":12,"fats":8,"carbs":22},"output":220,"technology":"1. На нори выложить рис. Скрутить ролл.\\n2. Обжечь газовой горелкой.","cooking_time":20}`;
       try {
+        const prompt = model.includes('deepseek')
+          ? `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию).
+Верни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:
+{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`
+          : 'Say OK and return JSON: {"ok":true}';
         const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: [{ role: 'user', content: model.includes('deepseek') ? longPrompt : 'Say OK' }], temperature: 0.1, max_tokens: model.includes('deepseek') ? 4000 : 50 }),
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: model.includes('deepseek') ? 2000 : 50 }),
           signal: AbortSignal.timeout(90000),
         });
         const t = await r.text();
