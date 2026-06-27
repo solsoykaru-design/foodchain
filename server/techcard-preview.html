@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Технологическая карта — Борщ</title>
+  <style>
+    @page { margin: 0; }
+    body { margin: 0; padding: 0; font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; color: #fff; font-size: 10px; line-height: 1.5; }
+    .page { width: 210mm; min-height: 297mm; background: #0d0d0d; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ── Gradient overlay ── */
+    .bg-grad { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 20% 30%, #1a1a2e 0%, #0d0d0d 70%); z-index: 0; }
+    .bg-pattern { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.005) 40px, rgba(255,255,255,0.005) 41px); z-index: 1; }
+
+    /* ── Content ── */
+    .content { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; padding: 0; }
+
+    /* ── Top hero ── */
+    .hero { position: relative; padding: 14mm 18mm 10mm; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .hero .accent-line { position: absolute; top: 0; left: 18mm; width: 30mm; height: 2px; background: #f39c12; }
+    .hero .pre { font-size: 7px; text-transform: uppercase; letter-spacing: 4px; color: rgba(255,255,255,0.3); margin-bottom: 4mm; }
+    .hero .pre span { color: #f39c12; }
+    .hero .dish { font-size: 48px; font-weight: 700; letter-spacing: -1px; line-height: 1; margin-bottom: 2mm; }
+    .hero .dish .light { font-weight: 200; color: rgba(255,255,255,0.5); }
+    .hero .dish .gold { color: #f39c12; }
+    .hero .sub-line { display: flex; gap: 8mm; align-items: center; margin-top: 3mm; }
+    .hero .sub-line .cat { font-size: 8px; text-transform: uppercase; letter-spacing: 3px; color: rgba(255,255,255,0.3); }
+    .hero .sub-line .div-dot { width: 3px; height: 3px; border-radius: 50%; background: #f39c12; }
+    .hero .sub-line .date { font-size: 8px; color: rgba(255,255,255,0.2); }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .stat-item { flex: 1; text-align: center; padding: 5mm 2mm; }
+    .stat-item + .stat-item { border-left: 1px solid rgba(255,255,255,0.05); }
+    .stat-item .sv { font-size: 18px; font-weight: 700; color: #f39c12; }
+    .stat-item .sv .ss { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.3); }
+    .stat-item .sl { font-size: 6px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.25); margin-top: 1mm; }
+
+    /* ── Two columns ── */
+    .cols { display: flex; flex: 1; }
+    .col { width: 50%; padding: 8mm 18mm; box-sizing: border-box; }
+    .col-a { }
+    .col-b { border-left: 1px solid rgba(255,255,255,0.06); }
+
+    /* ── Section ── */
+    .sec { margin-bottom: 7mm; }
+    .sec-head { font-size: 7px; text-transform: uppercase; letter-spacing: 3px; color: rgba(255,255,255,0.3); margin-bottom: 4mm; }
+    .sec-head .hl { display: inline-block; width: 8mm; height: 1px; background: #f39c12; vertical-align: middle; margin-right: 3mm; }
+
+    /* ── Ingredients ── */
+    .ingr-list { }
+    .ingr-li { display: flex; justify-content: space-between; padding: 2mm 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 9.5px; }
+    .ingr-li .in { color: rgba(255,255,255,0.35); font-size: 8px; width: 16px; }
+    .ingr-li .nm { flex: 1; }
+    .ingr-li .qt { font-weight: 600; color: rgba(255,255,255,0.7); }
+    .ingr-li .un { color: rgba(255,255,255,0.2); margin-left: 2mm; }
+
+    /* ── KBJU ── */
+    .kbju-cards { display: flex; gap: 3mm; flex-wrap: wrap; }
+    .kj-card { flex: 1; min-width: 40px; background: rgba(255,255,255,0.04); border-radius: 4px; padding: 3mm 2mm; text-align: center; border: 1px solid rgba(255,255,255,0.06); }
+    .kj-card .kv { font-size: 16px; font-weight: 700; color: #f39c12; }
+    .kj-card .kl { font-size: 6px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.25); margin-top: 1mm; }
+
+    /* ── Technology ── */
+    .tech-steps { counter-reset: ts; }
+    .tech-st { counter-increment: ts; display: flex; gap: 3mm; padding: 1.8mm 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 9px; color: rgba(255,255,255,0.6); line-height: 1.6; }
+    .tech-st::before { content: counter(ts); color: #f39c12; font-weight: 700; font-size: 8px; width: 12px; flex-shrink: 0; }
+
+    /* ── Signatures ── */
+    .sign-row { display: flex; gap: 12mm; margin-top: 8mm; padding-top: 4mm; border-top: 1px solid rgba(255,255,255,0.08); }
+    .sign-row .sf { flex: 1; }
+    .sign-row .sf .slbl { font-size: 6px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.2); margin-bottom: 1mm; }
+    .sign-row .sf .sline { border-bottom: 1px solid rgba(255,255,255,0.3); height: 16px; }
+
+    /* ── Footer ── */
+    .footer { text-align: center; padding: 5mm 18mm; font-size: 6.5px; color: rgba(255,255,255,0.1); letter-spacing: 3px; text-transform: uppercase; border-top: 1px solid rgba(255,255,255,0.04); }
+    .footer span { color: #f39c12; }
+
+    /* ── Watermark ── */
+    .watermark { position: fixed; bottom: 30mm; right: 10mm; font-size: 100px; color: rgba(243, 156, 18, 0.03); font-weight: 900; pointer-events: none; z-index: 1; white-space: nowrap; letter-spacing: 6px; transform: rotate(-5deg); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="bg-grad"></div>
+    <div class="bg-pattern"></div>
+    <div class="watermark">ДЕМО</div>
+
+    <div class="content">
+      <!-- Hero -->
+      <div class="hero">
+        <div class="accent-line"></div>
+        <div class="pre"><span>✦</span> Технологическая карта</div>
+        <div class="dish">Борщ <span class="light">—</span> <span class="gold">суп</span></div>
+        <div class="sub-line">
+          <span class="cat">Традиционная русская кухня</span>
+          <span class="div-dot"></span>
+          <span class="date">27.06.2026</span>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-bar">
+        <div class="stat-item"><div class="sv">350 <span class="ss">г</span></div><div class="sl">Выход</div></div>
+        <div class="stat-item"><div class="sv">60 <span class="ss">мин</span></div><div class="sl">Время</div></div>
+        <div class="stat-item"><div class="sv">65–70 <span class="ss">°С</span></div><div class="sl">Температура</div></div>
+        <div class="stat-item"><div class="sv">24 <span class="ss">ч</span></div><div class="sl">Срок годности</div></div>
+      </div>
+
+      <!-- Columns -->
+      <div class="cols">
+        <!-- Left -->
+        <div class="col col-a">
+          <div class="sec">
+            <div class="sec-head"><span class="hl"></span>Ингредиенты</div>
+            <div class="ingr-list">
+              <div class="ingr-li"><span class="in">01</span><span class="nm">Свекла</span><span class="qt">150</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">02</span><span class="nm">Капуста белокочанная</span><span class="qt">100</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">03</span><span class="nm">Картофель</span><span class="qt">120</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">04</span><span class="nm">Морковь</span><span class="qt">50</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">05</span><span class="nm">Лук репчатый</span><span class="qt">50</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">06</span><span class="nm">Томатная паста</span><span class="qt">20</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">07</span><span class="nm">Говядина</span><span class="qt">100</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">08</span><span class="nm">Чеснок</span><span class="qt">5</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">09</span><span class="nm">Растительное масло</span><span class="qt">10</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">10</span><span class="nm">Соль</span><span class="qt">2</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">11</span><span class="nm">Сахар</span><span class="qt">5</span><span class="un">г</span></div>
+              <div class="ingr-li"><span class="in">12</span><span class="nm">Уксус</span><span class="qt">3</span><span class="un">г</span></div>
+            </div>
+          </div>
+
+          <div class="sign-row">
+            <div class="sf"><div class="slbl">Технолог</div><div class="sline"></div></div>
+            <div class="sf"><div class="slbl">Шеф-повар</div><div class="sline"></div></div>
+          </div>
+        </div>
+
+        <!-- Right -->
+        <div class="col col-b">
+          <div class="sec">
+            <div class="sec-head"><span class="hl"></span>Пищевая ценность</div>
+            <div style="font-size:6.5px;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:2px;margin-bottom:3mm;">на 100 грамм</div>
+            <div class="kbju-cards">
+              <div class="kj-card"><div class="kv">85</div><div class="kl">Ккал</div></div>
+              <div class="kj-card"><div class="kv">4</div><div class="kl">Белки</div></div>
+              <div class="kj-card"><div class="kv">3</div><div class="kl">Жиры</div></div>
+              <div class="kj-card"><div class="kv">10</div><div class="kl">Углеводы</div></div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head"><span class="hl"></span>Технология</div>
+            <div class="tech-steps">
+              <div class="tech-st">Сварить говяжий бульон</div>
+              <div class="tech-st">Свеклу натереть, потушить с уксусом и сахаром</div>
+              <div class="tech-st">Картофель нарезать кубиком, добавить в бульон</div>
+              <div class="tech-st">Капусту нашинковать, добавить к картофелю</div>
+              <div class="tech-st">Лук и морковь обжарить с томатной пастой</div>
+              <div class="tech-st">Добавить зажарку и свеклу в суп</div>
+              <div class="tech-st">Добавить чеснок, соль, варить до готовности</div>
+              <div class="tech-st">Дать настояться 15 минут перед подачей</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">Создано в <span>AI Техкарты</span> • Демо-версия</div>
+    </div>
+  </div>
+</body>
+</html>

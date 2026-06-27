@@ -12,6 +12,7 @@ interface User {
   isSubscribed: boolean;
   tariffUntil: string | null;
   referralCode: string;
+  pdfVariant: number;
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ interface AuthContextType {
   resetPassword: (phone: string, code: string, newPassword: string) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  updatePdfVariant: (variant: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -122,6 +124,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updatePdfVariant = async (variant: number) => {
+    if (!token) return;
+    try {
+      const v = Math.max(1, Math.min(6, variant));
+      const res = await fetch(`${API_URL}/api/mobile/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pdf_variant: v }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+        await AsyncStorage.setItem('auth_user', JSON.stringify(data));
+      }
+    } catch (e) {
+      console.error('Update pdfVariant error:', e);
+    }
+  };
+
   const refreshProfile = async () => {
     if (!token) return;
     try {
@@ -139,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, verifyRegister, forgotPassword, resetPassword, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, verifyRegister, forgotPassword, resetPassword, logout, refreshProfile, updatePdfVariant }}>
       {children}
     </AuthContext.Provider>
   );

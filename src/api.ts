@@ -1312,6 +1312,10 @@ export async function getWaiterTables(): Promise<any[]> { return request('/api/w
 export async function seatTable(tableId: number, waiterId: number, waiterName: string, guestCount?: number): Promise<any> {
   return request('/api/waiter/seated', { method: 'POST', body: JSON.stringify({ tableId, waiterId, waiterName, guestCount }) });
 }
+export async function voiceOrder(text: string): Promise<any> {
+  return request('/api/mobile/voice-order', { method: 'POST', body: JSON.stringify({ text }) });
+}
+
 export async function createDineInOrder(data: any): Promise<any> {
   return request('/api/waiter/orders', { method: 'POST', body: JSON.stringify(data) });
 }

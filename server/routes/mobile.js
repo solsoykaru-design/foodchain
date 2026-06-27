@@ -61,11 +61,13 @@ module.exports = function(app, db, config) {
     tariff TEXT DEFAULT 'free',
     tariff_until TEXT,
     is_subscribed INTEGER DEFAULT 0,
-    referral_code TEXT UNIQUE,
+      referral_code TEXT UNIQUE,
     referred_by INTEGER DEFAULT NULL,
+    pdf_variant INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   )`); } catch(e) {}
+  try { db.exec("ALTER TABLE mobile_users ADD COLUMN pdf_variant INTEGER DEFAULT 1"); } catch(e) {}
 
   // ─── Seed owner account (unlimited) ───────────────────
   const ownerPhone = '+79779475605';
@@ -111,6 +113,30 @@ module.exports = function(app, db, config) {
   try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN shelf_life TEXT DEFAULT ''"); } catch(e) {}
   try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN technologist TEXT DEFAULT '_____________________'"); } catch(e) {}
   try { db.exec("ALTER TABLE mobile_tech_cards ADD COLUMN chef TEXT DEFAULT '_____________________'"); } catch(e) {}
+
+  try { db.exec(`CREATE TABLE IF NOT EXISTS dish_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    cuisine TEXT DEFAULT '',
+    category TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    temperature TEXT DEFAULT '',
+    shelf_life TEXT DEFAULT '',
+    output REAL DEFAULT 0,
+    cooking_time INTEGER DEFAULT 0,
+    calories REAL DEFAULT 0,
+    proteins REAL DEFAULT 0,
+    fats REAL DEFAULT 0,
+    carbs REAL DEFAULT 0,
+    technology TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  )`); } catch(e) {}
+
+  // Auto-seed dish_catalog if empty
+  try {
+    const { seedDishCatalog } = require('../seed-dishes');
+    seedDishCatalog(db);
+  } catch(e) { console.error('[dish_catalog] seed error:', e.message); }
 
   try { db.exec(`CREATE TABLE IF NOT EXISTS mobile_payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -295,18 +321,23 @@ module.exports = function(app, db, config) {
         freeAttempts: user.free_attempts, tariff: user.tariff,
         isSubscribed: !!user.is_subscribed, tariffUntil: user.tariff_until,
         referralCode: user.referral_code,
+        pdfVariant: user.pdf_variant || 1,
       });
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
 
   app.put('/api/mobile/profile', requireAuth, (req, res) => {
     try {
-      const { name } = req.body;
+      const { name, pdf_variant } = req.body;
       if (name !== undefined) {
         db.prepare("UPDATE mobile_users SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, req.mobileUser.userId);
       }
+      if (pdf_variant !== undefined) {
+        const v = Math.max(1, Math.min(6, parseInt(pdf_variant) || 1));
+        db.prepare("UPDATE mobile_users SET pdf_variant = ?, updated_at = datetime('now') WHERE id = ?").run(v, req.mobileUser.userId);
+      }
       const user = db.prepare('SELECT * FROM mobile_users WHERE id = ?').get(req.mobileUser.userId);
-      res.json({ id: user.id, phone: user.phone, name: user.name, freeAttempts: user.free_attempts, tariff: user.tariff, isSubscribed: !!user.is_subscribed, tariffUntil: user.tariff_until });
+      res.json({ id: user.id, phone: user.phone, name: user.name, freeAttempts: user.free_attempts, tariff: user.tariff, isSubscribed: !!user.is_subscribed, tariffUntil: user.tariff_until, pdfVariant: user.pdf_variant || 1 });
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
 
@@ -318,7 +349,14 @@ module.exports = function(app, db, config) {
   // ─── Check access ────────────────────────────────────
   app.get('/api/mobile/check-access', requireAuth, (req, res) => {
     try {
-      const user = db.prepare('SELECT * FROM mobile_users WHERE id = ?').get(req.mobileUser.userId);
+      let user = db.prepare('SELECT * FROM mobile_users WHERE id = ?').get(req.mobileUser.userId);
+      
+      // Auto-correct expired subscription (same as profile endpoint)
+      if (user.is_subscribed && user.tariff_until && new Date(user.tariff_until) < new Date()) {
+        db.prepare("UPDATE mobile_users SET is_subscribed = 0, tariff = 'free', updated_at = datetime('now') WHERE id = ?").run(user.id);
+        user = db.prepare('SELECT * FROM mobile_users WHERE id = ?').get(req.mobileUser.userId);
+      }
+
       const tariff = TARIFFS[user.tariff] || TARIFFS.free;
       
       let canCreate = false;
@@ -687,6 +725,35 @@ module.exports = function(app, db, config) {
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
 
+  // ─── Dish catalog (5000 dishes) ──────────────────────
+  app.get('/api/mobile/catalog', (req, res) => {
+    try {
+      const { search, category, cuisine, page = 1, limit = 50 } = req.query;
+      let sql = 'SELECT * FROM dish_catalog WHERE 1=1';
+      const params = [];
+      if (search) { sql += ' AND name LIKE ?'; params.push(`%${search}%`); }
+      if (category) { sql += ' AND category = ?'; params.push(category); }
+      if (cuisine) { sql += ' AND cuisine = ?'; params.push(cuisine); }
+      const total = db.prepare(`SELECT COUNT(*) as c FROM dish_catalog WHERE 1=1${search?' AND name LIKE ?':''}${category?' AND category = ?':''}${cuisine?' AND cuisine = ?':''}`).get(...params)?.c || 0;
+      const items = db.prepare(`${sql} ORDER BY name ASC LIMIT ? OFFSET ?`).all(...params, parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+      res.json({ items, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
+
+  app.get('/api/mobile/catalog/categories', (req, res) => {
+    try {
+      const cats = db.prepare('SELECT category, COUNT(*) as count FROM dish_catalog GROUP BY category ORDER BY category').all();
+      res.json(cats);
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
+
+  app.get('/api/mobile/catalog/cuisines', (req, res) => {
+    try {
+      const cuis = db.prepare('SELECT cuisine, COUNT(*) as count FROM dish_catalog GROUP BY cuisine ORDER BY cuisine').all();
+      res.json(cuis);
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
+
   // ─── Admin: Create promo code ────────────────────────
   app.post('/api/mobile/admin/promo', requireAuth, (req, res) => {
     try {
@@ -712,6 +779,106 @@ module.exports = function(app, db, config) {
       const info = db.prepare("UPDATE mobile_users SET is_subscribed = 1, tariff = 'year', tariff_until = '2099-12-31', free_attempts = -1, updated_at = datetime('now') WHERE phone = ?").run(phone);
       if (info.changes === 0) return res.status(404).json({ error: 'Пользователь не найден' });
       res.json({ success: true, message: 'Безлимит активирован' });
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
+
+  // ─── Voice Order: AI парсинг голосового текста ─────────
+  const VOICE_ORDER_PROMPT = `Ты — система распознавания заказов в ресторане. Извлеки из текста официанта структурированный заказ.
+
+Правила распознавания:
+- "Ник X" или "официант X" → waiter_nick
+- "стол N" → table_number
+- Названия блюд и напитков → items[].name
+- "добавить X", "с X" → items[].modifiers
+- "без X" → items[].exclude
+- "N шт" или "N порции" → items[].quantity
+- Объём напитка (0.5л, 0.3л) → items[].modifiers
+
+Верни ТОЛЬКО JSON:
+{
+  "waiter_nick": "имя или null",
+  "table_number": число или null,
+  "items": [
+    {"name": "название", "quantity": 1, "modifiers": ["добавки"], "exclude": ["без чего"]}
+  ],
+  "unrecognized": ["что не удалось распознать"]
+}`;
+
+  app.post('/api/mobile/voice-order', async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || !text.trim()) return res.status(400).json({ error: 'Текст обязателен' });
+
+      const aiService = require('../services/ai-tech-card.service');
+      const model = process.env.OPENCODE_MODEL || 'deepseek-v4-flash-free';
+      const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
+
+      const body = JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'Output ONLY the requested JSON. No explanations, no markdown, no extra text.' },
+          { role: 'user', content: VOICE_ORDER_PROMPT + '\n\nТекст официанта:\n"' + text.trim() + '"' },
+        ],
+        temperature: 0.1,
+        max_tokens: isReasoning ? 4096 : 1500,
+      });
+
+      const controller = new AbortController();
+      const timeoutMs = isReasoning ? 30000 : 15000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      let parsed;
+      try {
+        const apiRes = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENCODE_API_KEY}` },
+          body,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const textData = await apiRes.text();
+        if (!apiRes.ok) throw new Error(`AI API error: ${apiRes.status}`);
+
+        const json = JSON.parse(textData);
+        const content = json.choices?.[0]?.message?.content || json.choices?.[0]?.message?.reasoning_content || '';
+        const start = content.indexOf('{');
+        const end = content.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error('No JSON in response');
+        parsed = JSON.parse(content.slice(start, end + 1));
+      } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') return res.status(504).json({ error: 'AI не ответил вовремя', raw_text: text });
+        return res.status(422).json({ error: 'Не удалось распознать заказ: ' + e.message, raw_text: text });
+      }
+
+      // Match dish names against menu
+      const menuDishes = db.prepare('SELECT id, name, price, category_id FROM dishes').all();
+      const catalogDishes = db.prepare('SELECT name, category FROM dish_catalog').all();
+      const allDishNames = new Set([
+        ...menuDishes.map(d => d.name.toLowerCase()),
+        ...catalogDishes.map(d => d.name.toLowerCase()),
+      ]);
+
+      const items = (parsed.items || []).map(item => {
+        const lowerName = item.name.toLowerCase();
+        const matched = menuDishes.find(d => d.name.toLowerCase() === lowerName)
+          || menuDishes.find(d => lowerName.includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(lowerName));
+        return {
+          ...item,
+          menu_match: matched ? { id: matched.id, name: matched.name, price: matched.price } : null,
+          found: !!matched,
+        };
+      });
+
+      res.json({
+        success: true,
+        parsed,
+        items,
+        table_number: parsed.table_number,
+        waiter_nick: parsed.waiter_nick,
+        unrecognized: parsed.unrecognized || [],
+        raw_text: text,
+        timestamp: new Date().toISOString(),
+      });
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
   });
 };

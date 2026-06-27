@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid                TEXT NOT NULL UNIQUE,
   name                TEXT NOT NULL,
+  nickname            TEXT,
   inn                 TEXT NOT NULL,
   phone               TEXT NOT NULL,
   address             TEXT,

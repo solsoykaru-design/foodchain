@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
@@ -43,6 +43,8 @@ export default function SubscriptionScreen() {
   const [loading, setLoading] = useState(false);
   const [payment, setPayment] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+
+  useEffect(() => { refreshProfile(); }, []);
 
   const handleSubscribe = async (tariffKey: string) => {
     setLoading(true);

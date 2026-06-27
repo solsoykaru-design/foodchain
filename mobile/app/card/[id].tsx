@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Share, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { useAuth, API_URL } from '../../services/auth';
+import { getPdfHtml } from '../../services/pdf';
 
 interface TechCard {
   id: number;
@@ -52,98 +54,20 @@ export default function CardScreen() {
     if (!card) return;
     setExporting(true);
     try {
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-            h1 { color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px; }
-            h2 { color: #333; margin-top: 20px; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; font-weight: bold; }
-            .kbju { display: flex; gap: 20px; margin: 10px 0; }
-            .kbju-item { text-align: center; }
-            .kbju-value { font-size: 18px; font-weight: bold; color: #e67e22; }
-            .kbju-label { font-size: 10px; color: #666; }
-            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 48px; color: rgba(230, 126, 34, 0.2); font-weight: bold; pointer-events: none; }
-            .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }
-          </style>
-        </head>
-        <body>
-          ${!user?.isSubscribed ? '<div class="watermark">ДЕМО</div>' : ''}
-          <h1>ТЕХНОЛОГИЧЕСКАЯ КАРТА</h1>
-          <p><strong>Название:</strong> ${card.dish_name}</p>
-          <p><strong>Дата:</strong> ${new Date(card.created_at).toLocaleDateString('ru-RU')}</p>
-          ${card.category ? `<p><strong>Категория:</strong> ${card.category}</p>` : ''}
-          ${card.output > 0 ? `<p><strong>Выход:</strong> ${card.output} г</p>` : ''}
-          ${card.cooking_time > 0 ? `<p><strong>Время приготовления:</strong> ${card.cooking_time} мин</p>` : ''}
-          ${card.temperature ? `<p><strong>Температура подачи:</strong> ${card.temperature}</p>` : ''}
-          ${card.shelf_life ? `<p><strong>Срок годности:</strong> ${card.shelf_life}</p>` : ''}
-          
-          <h2>Рецептура</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>№</th>
-                <th>Ингредиент</th>
-                <th>Количество</th>
-                <th>Ед. изм.</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${card.ingredients.map((ing: any, i: number) => `
-                <tr>
-                  <td>${i + 1}</td>
-                  <td>${ing.name}</td>
-                  <td>${ing.quantity}</td>
-                  <td>${ing.unit}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          ${card.kbju && (card.kbju.calories || card.kbju.proteins || card.kbju.fats || card.kbju.carbs) ? `
-            <h2>Пищевая ценность (на 100г)</h2>
-            <div class="kbju">
-              <div class="kbju-item">
-                <div class="kbju-value">${card.kbju.calories || 0}</div>
-                <div class="kbju-label">Ккал</div>
-              </div>
-              <div class="kbju-item">
-                <div class="kbju-value">${card.kbju.proteins || 0}</div>
-                <div class="kbju-label">Белки, г</div>
-              </div>
-              <div class="kbju-item">
-                <div class="kbju-value">${card.kbju.fats || 0}</div>
-                <div class="kbju-label">Жиры, г</div>
-              </div>
-              <div class="kbju-item">
-                <div class="kbju-value">${card.kbju.carbs || 0}</div>
-                <div class="kbju-label">Углеводы, г</div>
-              </div>
-            </div>
-          ` : ''}
-
-          ${card.technology ? `
-            <h2>Технология приготовления</h2>
-            <p>${card.technology.replace(/\n/g, '<br>')}</p>
-          ` : ''}
-
-          <table style="margin-top: 30px; border: none;">
-            <tr><td style="border: none; width: 50%;"><strong>Технолог:</strong> ${card.technologist || '_____________________'}</td>
-            <td style="border: none;"><strong>Шеф-повар:</strong> ${card.chef || '_____________________'}</td></tr>
-          </table>
-
-          <div class="footer">
-            <p>Создано в AI Техкарты • ${new Date().toLocaleDateString('ru-RU')}</p>
-            ${!user?.isSubscribed ? '<p style="color: #e67e22; font-weight: bold;">Демо-версия. Оформите подписку для PDF без водяных знаков.</p>' : ''}
-          </div>
-        </body>
-        </html>
-      `;
+      const html = getPdfHtml({
+        dish_name: card.dish_name,
+        category: card.category,
+        temperature: card.temperature,
+        shelf_life: card.shelf_life,
+        technologist: card.technologist,
+        chef: card.chef,
+        ingredients: card.ingredients.map((i: any) => ({ name: i.name, quantity: i.quantity, unit: i.unit })),
+        kbju: { calories: card.kbju?.calories, proteins: card.kbju?.proteins, fats: card.kbju?.fats, carbs: card.kbju?.carbs },
+        output: card.output,
+        cooking_time: card.cooking_time,
+        technology: card.technology,
+        isSubscribed: !!user?.isSubscribed,
+      }, user?.pdfVariant || 1);
 
       const { uri } = await Print.printToFileAsync({ html });
       return uri;
@@ -177,6 +101,31 @@ export default function CardScreen() {
       await Print.printAsync({ uri });
     } catch (e) {
       Alert.alert('Ошибка', 'Не удалось распечатать');
+    }
+  };
+
+  const handleSave = async () => {
+    const uri = await generatePDF();
+    if (!uri) return;
+
+    try {
+      if (Platform.OS === 'android') {
+        const base64 = await StorageAccessFramework.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!perm.granted) { return; }
+        const name = (card?.dish_name || 'techcard').replace(/[<>:"/\\|?*]/g, '_');
+        const destUri = await StorageAccessFramework.createFileAsync(perm.directoryUri, name, 'application/pdf');
+        await StorageAccessFramework.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        Alert.alert('Сохранено', 'PDF сохранён в выбранную папку');
+      } else {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Сохранить PDF' });
+        } else {
+          Alert.alert('Сохранено', 'PDF готов');
+        }
+      }
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось сохранить PDF. Попробуйте «Поделиться»');
     }
   };
 
@@ -221,7 +170,7 @@ export default function CardScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>← Назад</Text>
@@ -320,6 +269,10 @@ export default function CardScreen() {
             <Text style={styles.actionIcon}>📤</Text>
             <Text style={styles.actionText}>Поделиться</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleSave} disabled={exporting}>
+            <Text style={styles.actionIcon}>💾</Text>
+            <Text style={styles.actionText}>Сохранить</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={handlePrint} disabled={exporting}>
             <Text style={styles.actionIcon}>🖨️</Text>
             <Text style={styles.actionText}>Печать</Text>
@@ -343,6 +296,7 @@ export default function CardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
+  scrollContent: { flexGrow: 1, paddingBottom: 60 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { fontSize: 16, color: '#666', marginBottom: 16 },

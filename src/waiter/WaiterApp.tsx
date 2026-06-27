@@ -15,6 +15,7 @@ import OrderHistory from './components/OrderHistory';
 import KitchenChat from './components/KitchenChat';
 import WaiterChat from './components/WaiterChat';
 import QuickTemplates from './components/QuickTemplates';
+import VoiceOrder from './components/VoiceOrder';
 import { useWaiterSocket } from './hooks/useWaiterSocket';
 import type { ChatInfo } from '../types';
 
@@ -29,6 +30,7 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [tableCardOpen, setTableCardOpen] = useState(false);
+  const [voiceOrderOpen, setVoiceOrderOpen] = useState(false);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
@@ -277,6 +279,26 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
           onClose={() => { setTableCardOpen(false); setSelectedTable(null); }}
           onAddOrder={() => { setTab('menu'); setTableCardOpen(false); }}
           onRefresh={() => { loadTables(); loadChecks(); }}
+        />
+      )}
+
+      {/* Voice Order FAB */}
+      <button onClick={() => setVoiceOrderOpen(true)}
+        className="fixed bottom-20 right-4 z-50 w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center shadow-xl shadow-orange-500/30 active:scale-95">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+
+      {/* Voice Order Modal */}
+      {voiceOrderOpen && (
+        <VoiceOrder
+          user={user}
+          onOrderCreated={() => { loadChecks(); loadTables(); }}
+          onClose={() => setVoiceOrderOpen(false)}
         />
       )}
 

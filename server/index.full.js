@@ -1006,7 +1006,21 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS telegram_bot_log (
   CREATE TABLE IF NOT EXISTS foodchain_portal_tenants (
     id INTEGER PRIMARY KEY,
     name TEXT,
-    allow_create_branches INTEGER DEFAULT 0
+    nickname TEXT,
+    address TEXT,
+    phone TEXT,
+    lat REAL DEFAULT 0,
+    lng REAL DEFAULT 0,
+    photo_url TEXT,
+    is_active INTEGER DEFAULT 1,
+    allow_create_branches INTEGER DEFAULT 0,
+    access_mode TEXT DEFAULT 'development',
+    base_currency TEXT DEFAULT 'RUB',
+    branding TEXT,
+    site_settings TEXT,
+    app_settings TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
   );
 
   INSERT OR IGNORE INTO system_settings (key, value, group_name, type) VALUES ('app_name', 'FoodChain Admin', 'general', 'text');
@@ -1265,6 +1279,17 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS telegram_bot_log (
 `);
 
 // ─── Schema migrations ───────────────────────────────────────────
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN nickname TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN address TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN phone TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN lat REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN lng REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN photo_url TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN access_mode TEXT DEFAULT 'development'`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN base_currency TEXT DEFAULT 'RUB'`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN branding TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN site_settings TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN app_settings TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE menu_categories ADD COLUMN image_url TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE inventory_items ADD COLUMN current_balance REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN username TEXT`); } catch(e) {}
@@ -1671,6 +1696,17 @@ db.exec(`
 `);
 
 // ─── Schema migrations ───────────────────────────────────────────
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN nickname TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN address TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN phone TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN lat REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN lng REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN photo_url TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN access_mode TEXT DEFAULT 'development'`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN base_currency TEXT DEFAULT 'RUB'`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN branding TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN site_settings TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN app_settings TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE menu_categories ADD COLUMN image_url TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE inventory_items ADD COLUMN current_balance REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN username TEXT`); } catch(e) {}

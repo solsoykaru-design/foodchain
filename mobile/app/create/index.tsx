@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth, API_URL } from '../../services/auth';
 
 export default function CreateScreen() {
   const { token, refreshProfile } = useAuth();
   const router = useRouter();
-  const [dishName, setDishName] = useState('');
+  const params = useLocalSearchParams<{ dish_name?: string }>();
+  const [dishName, setDishName] = useState(params?.dish_name || '');
+  useEffect(() => { if (params?.dish_name) setDishName(params.dish_name); }, [params?.dish_name]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [saving, setSaving] = useState(false);

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, API_URL } from '../../services/auth';
+import { VARIANT_NAMES, VARIANT_COLORS } from '../../services/pdf';
 
 export default function ProfileScreen() {
-  const { user, token, logout, refreshProfile } = useAuth();
+  const { user, token, logout, refreshProfile, updatePdfVariant } = useAuth();
   const router = useRouter();
   const [name, setName] = useState(user?.name || '');
   const [promoCode, setPromoCode] = useState('');
@@ -122,6 +123,29 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Дизайн PDF</Text>
+          <Text style={styles.refInfo}>Выберите оформление для техкарты</Text>
+          <View style={styles.variantGrid}>
+            {VARIANT_NAMES.map((name, i) => {
+              const v = i + 1;
+              const active = (user?.pdfVariant || 1) === v;
+              return (
+                <TouchableOpacity
+                  key={v}
+                  style={[styles.variantCard, active && styles.variantCardActive]}
+                  onPress={() => updatePdfVariant(v)}
+                >
+                  <View style={[styles.variantPreview, { backgroundColor: VARIANT_COLORS[i] }]}>
+                    <Text style={styles.variantNum}>{v}</Text>
+                  </View>
+                  <Text style={[styles.variantName, active && styles.variantNameActive]}>{name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Промокод</Text>
           <TextInput style={styles.input} value={promoCode} onChangeText={setPromoCode} placeholder="Введите промокод" placeholderTextColor="#999" autoCapitalize="characters" />
           <TouchableOpacity style={styles.promoBtn} onPress={handleApplyPromo}>
@@ -187,4 +211,11 @@ const styles = StyleSheet.create({
   refBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   logoutBtn: { backgroundColor: '#ffebee', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
   logoutText: { color: '#e74c3c', fontSize: 15, fontWeight: '600' },
+  variantGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  variantCard: { width: '30%', alignItems: 'center', padding: 8, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', backgroundColor: '#fafafa' },
+  variantCardActive: { borderColor: '#e67e22', backgroundColor: '#fff3e0' },
+  variantPreview: { width: '100%', aspectRatio: 0.7, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  variantNum: { fontSize: 18, fontWeight: 'bold', color: '#fff', opacity: 0.8 },
+  variantName: { fontSize: 9, color: '#666', textAlign: 'center' },
+  variantNameActive: { color: '#e67e22', fontWeight: '600' },
 });
