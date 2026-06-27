@@ -4,8 +4,8 @@ services:
     env: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && cd server && npm install && cd .. && VITE_APP=admin ./node_modules/.bin/vite build && VITE_APP=techcard ./node_modules/.bin/vite build
-    startCommand: cd server && node index.js
+    buildCommand: npm install && cd server && npm install && cd .. && VITE_APP=admin ./node_modules/.bin/vite build && VITE_APP=techcard ./node_modules/.bin/vite build && VITE_APP=waiter ./node_modules/.bin/vite build
+    startCommand: cd server && node restore-backup.cjs && node index.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -26,3 +26,7 @@ services:
         value: "*"
       - key: CORS_ORIGINS
         value: "*"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false

@@ -28,6 +28,7 @@ const autoWriteoffService = require(path.join(__dirname, 'services', 'auto-write
 const costingService = require(path.join(__dirname, 'services', 'costing.service.js'));
 const { seedDemoData } = require(path.join(__dirname, 'services', 'seed-demo-data.service.js'));
 const supplierPortal = require(path.join(__dirname, 'services', 'supplier-portal.service.js'));
+const backup = require(path.join(__dirname, 'backup.js'));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'foodchain-staff-secret';
 const PORTAL_SYNC_KEY = process.env.PORTAL_SYNC_KEY || 'portal-sync-key-123';
@@ -1912,6 +1913,9 @@ try { db.exec(`ALTER TABLE users ADD COLUMN last_order_date TEXT`); } catch(e) {
 try { db.exec(`ALTER TABLE menu_categories ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE dishes ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE inventory_transactions ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
+
+// ─── Backup ────────────────────────────────────────────────────────
+backup.init(db);
 
 // ─── Validate Status Transition ──────────────────────────────────
 function validateTransition(orderId, fromStatus, toStatus) {
@@ -4381,6 +4385,11 @@ require('./routes/yuma-import.js')(app, db, config);
 require('./routes/mobile.js')(app, db, { safeError });
 require('./routes/mobile-push.js')(app, db, { safeError });
 
+// ─── Backup endpoints ────────────────────────────────────────────
+app.post('/api/backup', (req, res) => {
+  backup.doBackup(db).then(() => res.json({ success: true })).catch(e => res.status(500).json({ error: e.message }));
+});
+
 // ─── Seed superadmin ────────────────────────────────────────────
 try { db.exec(`ALTER TABLE users ADD COLUMN login TEXT`); } catch(e) {}
 let superadmin = null;
@@ -4416,6 +4425,7 @@ server.listen(PORT, '0.0.0.0', () => {
 // ─── Graceful shutdown ──────────────────────────────────────────
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down…');
+  backup.stop();
   terminalIntegration.shutdownRetries();
   autoWriteoffService.shutdown();
   costingService.shutdown();
