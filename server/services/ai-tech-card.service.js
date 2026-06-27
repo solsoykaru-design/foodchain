@@ -189,15 +189,17 @@ async function queryOpenCode(dishName, modelName) {
 
   const model = modelName || OPENCODE_MODEL;
   const category = detectCategory(dishName);
-  const prompt = PROMPT_TEMPLATE.replace(/\{name\}/g, dishName).replace(/\{category\}/g, category);
   const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
+  const prompt = isReasoning
+    ? PROMPT_TEMPLATE.replace(/\{name\}/g, dishName).replace(/\{category\}/g, category)
+    : `Create a tech card for "${dishName}" (category: ${category}). Return ONLY valid JSON: { "ingredients": [{ "name": "ingredient name in Russian", "quantity": grams, "unit": "g" }], "kbju_per_100g": { "calories": 0, "proteins": 0, "fats": 0, "carbs": 0 }, "output": grams, "technology": "steps", "cooking_time": minutes }. All ingredient names MUST be in Russian. Response must be ONLY JSON.`;
   const body = JSON.stringify({
     model,
     messages: [
       { role: 'user', content: prompt }
     ],
     temperature: 0.1,
-    max_tokens: isReasoning ? 4000 : 2000,
+    max_tokens: isReasoning ? 4000 : 1500,
   });
 
   const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
@@ -207,7 +209,7 @@ async function queryOpenCode(dishName, modelName) {
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: isReasoning ? 65000 : 15000,
+    timeout: isReasoning ? 65000 : 20000,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
@@ -1874,7 +1876,7 @@ async function generateTechCardInner(dishName, errors) {
   }
 
   // Try OpenCode Zen (all free models, from fastest to slowest)
-  const opencodeModels = ['deepseek-v4-flash-free', 'big-pickle', 'mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free'];
+  const opencodeModels = ['mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free', 'deepseek-v4-flash-free', 'big-pickle'];
   for (const model of opencodeModels) {
     try {
       const result = await queryOpenCode(dishName, model);
