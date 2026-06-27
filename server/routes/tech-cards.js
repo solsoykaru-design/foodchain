@@ -611,19 +611,25 @@ app.get('/api/ai-test', async (req, res) => {
   const key = process.env.OPENCODE_API_KEY || '';
   const results = [];
   for (const model of ['north-mini-code-free', 'deepseek-v4-flash-free', 'mimo-v2.5-free']) {
-    const s = Date.now();
-    try {
-      const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Say OK and return JSON: {"ok":true}' }], max_tokens: 50 }),
-        signal: AbortSignal.timeout(30000),
-      });
-      const t = await r.text();
-      results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, text: t.slice(0, 100) });
-    } catch (e) {
-      results.push({ model, time: Date.now() - s, error: e.message });
-    }
+      const s = Date.now();
+      const longPrompt = `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию) как в реальных сборниках рецептур.
+Верни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:
+{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число}
+Пример ответа для "Ролл с обожженным лососем":
+{"ingredients":[{"name":"Рис для роллов (отварной)","quantity":110,"unit":"г"},{"name":"Нори (лист)","quantity":2,"unit":"г"}],"kbju_per_100g":{"calories":190,"proteins":12,"fats":8,"carbs":22},"output":220,"technology":"1. На нори выложить рис. Скрутить ролл.\\n2. Обжечь газовой горелкой.","cooking_time":20}`;
+      try {
+        const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: model.includes('deepseek') ? longPrompt : 'Say OK' }], temperature: 0.1, max_tokens: model.includes('deepseek') ? 4000 : 50 }),
+          signal: AbortSignal.timeout(90000),
+        });
+        const t = await r.text();
+        const preview = model.includes('deepseek') ? (t.length > 200 ? t.slice(0, 100) + '...total:' + t.length : t.slice(0, 100)) : t.slice(0, 100);
+        results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, text: preview });
+      } catch (e) {
+        results.push({ model, time: Date.now() - s, error: e.message });
+      }
   }
   res.json({ key_prefix: key.substring(0, 8) + '...', results });
 });
