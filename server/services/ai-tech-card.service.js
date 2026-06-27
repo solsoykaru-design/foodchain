@@ -194,7 +194,7 @@ async function queryOpenCode(dishName, modelName) {
     max_tokens: isReasoning ? 4000 : 1500,
   });
 
-  const data = await fetchJSON('https://opencode.ai/api/zen/v1/chat/completions', {
+  const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
