@@ -298,6 +298,7 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
         <VoiceOrder
           user={user}
           tables={tables}
+          dishes={dishes}
           onOrderCreated={() => { loadChecks(); loadTables(); }}
           onClose={() => setVoiceOrderOpen(false)}
         />
