@@ -134,7 +134,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/releases', express.static(path.join(__dirname, 'releases')));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: {
+      OPENCODE_API_KEY: (process.env.OPENCODE_API_KEY || '').substring(0, 8) + '...',
+      OPENCODE_MODEL: process.env.OPENCODE_MODEL || 'not set',
+      DEEPSEEK_API_KEY: (process.env.DEEPSEEK_API_KEY || '').substring(0, 5) + '...',
+    }
+  });
 });
 
 const guestDist = path.join(__dirname, '..', 'dist-guest');
