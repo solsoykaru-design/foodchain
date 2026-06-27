@@ -203,38 +203,29 @@ async function queryOpenCode(dishName, modelName) {
 }
 
 function parseAIResponse(text, source) {
-  let json = text.trim();
-  if (json.startsWith('```')) {
-    json = json.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+  let raw = text.trim();
+  if (raw.startsWith('```')) {
+    raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
   }
 
-  // Find the first valid JSON object `{...}`
-  let parsed = null;
-  let start = -1;
-  let depth = 0;
-  for (let i = 0; i < json.length; i++) {
-    if (json[i] === '{') {
-      if (start === -1) start = i;
-      depth++;
-    } else if (json[i] === '}') {
-      depth--;
-      if (depth === 0 && start !== -1) {
-        try {
-          parsed = JSON.parse(json.slice(start, i + 1));
-          break;
-        } catch {}
-        start = -1;
-      }
-    }
+  // Try to find valid JSON by progressively cleaning
+  function tryParse(str) {
+    const s = str.indexOf('{');
+    const e = str.lastIndexOf('}');
+    if (s === -1 || e === -1) return null;
+    const candidate = str.slice(s, e + 1);
+    try { return JSON.parse(candidate); } catch {}
+    // Try cleaning: remove lines that don't contain `:`
+    const lines = candidate.split('\n').filter(l => l.includes(':') || /^[\s,{}[\]"]+$/.test(l) || /^\s*$/.test(l));
+    try { return JSON.parse(lines.join('\n')); } catch {}
+    // Try removing non-JSON text between array elements
+    const cleaned = candidate.replace(/,\s*[^,{[\]:"]+[^,}\]]+/g, ',');
+    try { return JSON.parse(cleaned); } catch {}
+    return null;
   }
 
-  if (!parsed) {
-    // fallback: find outermost braces
-    const s = json.indexOf('{');
-    const e = json.lastIndexOf('}');
-    if (s !== -1 && e !== -1) parsed = JSON.parse(json.slice(s, e + 1));
-    else throw new Error('No JSON found in response');
-  }
+  let parsed = tryParse(raw);
+  if (!parsed) throw new Error('No valid JSON found in response');
 
   const ingredients = (parsed.ingredients || []).map(i => ({
     name: i.name || i.ingredient || '',
