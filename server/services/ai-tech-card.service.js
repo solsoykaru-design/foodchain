@@ -191,7 +191,8 @@ async function queryOpenCode(dishName, modelName) {
     timeout: isReasoning ? 85000 : OPENCODE_TIMEOUT,
   });
 
-  const text = data.choices?.[0]?.message?.content || '';
+  const msg = data.choices?.[0]?.message || {};
+  const text = msg.content || msg.reasoning_content || msg.reasoning || '';
   if (!text) throw new Error(`Empty response from OpenCode (${model})`);
 
   const result = parseAIResponse(text, 'opencode');
