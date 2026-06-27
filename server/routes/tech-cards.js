@@ -626,7 +626,7 @@ app.get('/api/ai-test', async (req, res) => {
         });
         const t = await r.text();
         let contentPreview = '', keys = '';
-        try { const j = JSON.parse(t); const m = j.choices?.[0]?.message || {}; keys = Object.keys(m).join(','); contentPreview = (m.content || m.reasoning || m.reasoning_content || '(none)').substring(0, 400); } catch { contentPreview = '(parse error): ' + t.substring(0, 100); }
+        try { const j = JSON.parse(t); const m = j.choices?.[0]?.message || {}; keys = Object.keys(m).join(','); const full = m.content || m.reasoning || m.reasoning_content || ''; contentPreview = full.substring(0, 500) + '...LAST200:' + full.substring(Math.max(0, full.length - 200)); } catch { contentPreview = '(parse error): ' + t.substring(0, 100); }
         results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, total_len: t.length, keys, content: contentPreview });
       } catch (e) {
         results.push({ model, time: Date.now() - s, error: e.message });
