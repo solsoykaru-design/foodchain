@@ -178,7 +178,7 @@ async function queryOpenCode(dishName, modelName) {
       { role: 'user', content: prompt }
     ],
     temperature: 0.1,
-    max_tokens: isReasoning ? 4000 : 1000,
+    max_tokens: isReasoning ? 3000 : 1000,
   });
 
   const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
@@ -1841,7 +1841,7 @@ async function generateTechCard(dishName) {
 
   return await Promise.race([
     generateTechCardInner(dishName, errors),
-    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 95000)),
+    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 85000)),
   ]);
 }
 
