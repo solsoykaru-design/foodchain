@@ -208,13 +208,33 @@ function parseAIResponse(text, source) {
     json = json.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
   }
 
-  const start = json.indexOf('{');
-  const end = json.lastIndexOf('}');
-  if (start !== -1 && end !== -1) {
-    json = json.slice(start, end + 1);
+  // Find the first valid JSON object `{...}`
+  let parsed = null;
+  let start = -1;
+  let depth = 0;
+  for (let i = 0; i < json.length; i++) {
+    if (json[i] === '{') {
+      if (start === -1) start = i;
+      depth++;
+    } else if (json[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try {
+          parsed = JSON.parse(json.slice(start, i + 1));
+          break;
+        } catch {}
+        start = -1;
+      }
+    }
   }
 
-  const parsed = JSON.parse(json);
+  if (!parsed) {
+    // fallback: find outermost braces
+    const s = json.indexOf('{');
+    const e = json.lastIndexOf('}');
+    if (s !== -1 && e !== -1) parsed = JSON.parse(json.slice(s, e + 1));
+    else throw new Error('No JSON found in response');
+  }
 
   const ingredients = (parsed.ingredients || []).map(i => ({
     name: i.name || i.ingredient || '',
@@ -246,7 +266,7 @@ function parseAIResponse(text, source) {
     technology: techText || 'Технология не указана',
     cooking_time: parseInt(parsed.cooking_time || parsed.cookingTime || parsed.cook_time || 0) || 20,
     temperature: parsed.temperature || parsed.serving_temperature || '65–70 °С',
-    shelf_life: parsed.shelf_life || parsed.shelfLife || parsed.shelf_life_hours ? `${parsed.shelf_life_hours} ч при t=2…+6 °С` : '24 ч при t=2…+6 °С',
+    shelf_life: parsed.shelf_life || parsed.shelfLife || (parsed.shelf_life_hours ? `${parsed.shelf_life_hours} ч при t=2…+6 °С` : '24 ч при t=2…+6 °С'),
     category: parsed.category || '',
     technologist: parsed.technologist || '_____________________',
     chef: parsed.chef || '_____________________',
