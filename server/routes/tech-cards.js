@@ -606,6 +606,28 @@ app.get('/api/tech-cards/:id/steps', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
+// ─── AI Debug: test OpenCode connection ─────────────────
+app.get('/api/ai-test', async (req, res) => {
+  const key = process.env.OPENCODE_API_KEY || '';
+  const results = [];
+  for (const model of ['north-mini-code-free', 'deepseek-v4-flash-free', 'mimo-v2.5-free']) {
+    const s = Date.now();
+    try {
+      const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Say OK and return JSON: {"ok":true}' }], max_tokens: 50 }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const t = await r.text();
+      results.push({ model, time: Date.now() - s, status: r.status, ok: r.ok, text: t.slice(0, 100) });
+    } catch (e) {
+      results.push({ model, time: Date.now() - s, error: e.message });
+    }
+  }
+  res.json({ key_prefix: key.substring(0, 8) + '...', results });
+});
+
 // ─── AI Generate Tech Card ──────────────────────────────
 app.post('/api/tech-cards/ai-generate', async (req, res) => {
   try {
