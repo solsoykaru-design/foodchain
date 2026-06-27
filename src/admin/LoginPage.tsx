@@ -3,7 +3,7 @@ import { Shield, Lock, User, Smartphone, Store, Server } from 'lucide-react';
 import * as api from '../api';
 
 const SAVED_TENANT = localStorage.getItem('foodchain_last_tenant') || '';
-const SAVED_SERVER_URL = localStorage.getItem('foodchain_api_url') || '';
+const SAVED_SERVER_URL = localStorage.getItem('foodchain_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '');
 
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [tenantName, setTenantName] = useState(SAVED_TENANT);
@@ -30,11 +30,11 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   useEffect(() => {
     const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-    if (isNative || !SAVED_SERVER_URL) setShowServerUrl(true);
+    if (isNative) setShowServerUrl(true);
   }, []);
 
   const handleLogin = async () => {
-    if (!serverUrl.trim() && !SAVED_SERVER_URL) {
+    if (!serverUrl.trim() && !SAVED_SERVER_URL && !window.location.hostname.includes('localhost') && window.location.hostname !== '127.0.0.1') {
       setError('Укажите адрес сервера (нажмите на иконку слева внизу)');
       return;
     }
