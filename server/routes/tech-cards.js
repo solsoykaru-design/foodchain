@@ -610,7 +610,7 @@ app.get('/api/tech-cards/:id/steps', (req, res) => {
 app.get('/api/ai-test', async (req, res) => {
   const key = process.env.OPENCODE_API_KEY || '';
   const results = [];
-  for (const model of ['deepseek-v4-flash-free', 'north-mini-code-free', 'mimo-v2.5-free']) {
+  for (const model of ['north-mini-code-free']) {
     const s = Date.now();
     try {
       const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
