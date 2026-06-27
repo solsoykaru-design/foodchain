@@ -668,6 +668,7 @@ app.post('/api/tech-cards/ai-generate', async (req, res) => {
       technology: result.technology,
       cooking_time: result.cooking_time,
       source: result.source,
+      errors: result.errors,
     });
   } catch (e) {
     const aiService = require('../services/ai-tech-card.service');
