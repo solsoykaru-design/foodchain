@@ -1629,8 +1629,13 @@ const WS_MAX_RECONNECT_DELAY = 30000;
 export function connectWebSocket(onMessage?: (data: any) => void) {
   if (ws && ws.readyState === WebSocket.OPEN) return;
   try {
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
-    const wsUrl = apiBase.replace(/^http/, 'ws');
+    function getWsUrl(): string {
+      const stored = localStorage.getItem('foodchain_api_url');
+      if (stored && stored.trim()) return stored.replace(/^http/, 'ws');
+      const loc = window.location;
+      return (loc.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + loc.host;
+    }
+    const wsUrl = getWsUrl();
     ws = new WebSocket(wsUrl);
     ws.onmessage = (e) => {
       try {

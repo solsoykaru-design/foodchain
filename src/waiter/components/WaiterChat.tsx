@@ -27,7 +27,12 @@ interface StaffMsg {
   messageType?: 'text' | 'location'; locationData?: { lat: number; lng: number; address?: string };
 }
 
-const WS_URL = localStorage.getItem('foodchain_api_url')?.replace(/^http/, 'ws') || 'ws://localhost:4000';
+function getWsUrl(): string {
+  const stored = localStorage.getItem('foodchain_api_url');
+  if (stored && stored.trim()) return stored.replace(/^http/, 'ws');
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${window.location.host}`;
+}
 
 const QUICK_REPLIES = [
   { label: 'Заказ готов', key: 'ready' },
@@ -75,7 +80,7 @@ export default function WaiterChat({ user, onUnreadChange }: { user: any; onUnre
 
   const connectWs = () => {
     if (wsRef.current) wsRef.current.close();
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(getWsUrl());
     wsRef.current = ws;
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'subscribe:waiter', waiterId: user.id }));

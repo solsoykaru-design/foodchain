@@ -47,7 +47,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     if (!isOnline) return;
     setSyncStatus('syncing');
     try {
-      const API_BASE = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+      const API_BASE = localStorage.getItem('foodchain_api_url') || '';
       const token = localStorage.getItem('fc_token') || '';
       const res = await fetch(`${API_BASE}/api/offline/sync`, {
         method: 'POST',
@@ -88,7 +88,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     if (retrying) return;
     setRetrying(true);
     try {
-      const API_BASE = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+      const API_BASE = localStorage.getItem('foodchain_api_url') || '';
       const token = localStorage.getItem('fc_token') || localStorage.getItem('foodchain_waiter_token') || '';
       const authHeaders: Record<string, string> = {};
       if (token) authHeaders['Authorization'] = `Bearer ${token}`;

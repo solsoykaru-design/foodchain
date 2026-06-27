@@ -818,6 +818,40 @@ module.exports = function(app, db, config) {
   "unrecognized": ["что не удалось распознать"]
 }`;
 
+  function fallbackParse(text) {
+    const result = { command: 'order', waiter_nick: null, table_number: null, check_id: null, items: [], unrecognized: [] };
+    // Try to extract table number
+    const tableMatch = text.match(/стол\s*(\d+)/i);
+    if (tableMatch) result.table_number = parseInt(tableMatch[1]);
+    // Try to extract check number
+    const checkMatch = text.match(/чек\s*(\d+)/i);
+    if (checkMatch) result.check_id = parseInt(checkMatch[1]);
+    // Try to extract waiter nick
+    const nickMatch = text.match(/(?:ник|официант)\s*(\S+)/i);
+    if (nickMatch) result.waiter_nick = nickMatch[1];
+    // Try to extract dish items — assume line items or comma-separated
+    const lines = text.split(/[,\n;]/).map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (/стол|официант|ник|чек|подтвер|заново|отмен|помощ/i.test(line)) continue;
+      const qtyMatch = line.match(/(\d+)\s*(шт|порц)/i);
+      result.items.push({
+        name: line.replace(/(\d+\s*(шт|порц))/i, '').trim(),
+        quantity: qtyMatch ? parseInt(qtyMatch[1]) : 1,
+        modifiers: [],
+        exclude: [],
+      });
+    }
+    // Detect command from text
+    if (/подтвер|принят|да|верно/i.test(text)) result.command = 'confirm';
+    else if (/опла/i.test(text)) result.command = 'pay';
+    else if (/закры|расчет/i.test(text)) result.command = 'close';
+    else if (/отмен/i.test(text)) result.command = 'cancel';
+    else if (/возвра/i.test(text)) result.command = 'refund';
+    else if (/помощ|что.ты.умеешь|команд/i.test(text)) result.command = 'help';
+    else result.command = 'order';
+    return result;
+  }
+
   app.post('/api/mobile/voice-order', async (req, res) => {
     try {
       const { text } = req.body;
@@ -826,6 +860,7 @@ module.exports = function(app, db, config) {
       const aiService = require('../services/ai-tech-card.service');
       const model = process.env.OPENCODE_MODEL || 'deepseek-v4-flash-free';
       const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
+      const apiKey = process.env.OPENCODE_API_KEY || '';
 
       const body = JSON.stringify({
         model,
@@ -842,9 +877,10 @@ module.exports = function(app, db, config) {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       let parsed;
       try {
+        if (!apiKey) throw new Error('API key not configured');
         const apiRes = await fetch('https://opencode.ai/zen/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENCODE_API_KEY}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
           body,
           signal: controller.signal,
         });
@@ -856,12 +892,17 @@ module.exports = function(app, db, config) {
         const content = json.choices?.[0]?.message?.content || json.choices?.[0]?.message?.reasoning_content || '';
         const start = content.indexOf('{');
         const end = content.lastIndexOf('}');
-        if (start === -1 || end === -1) throw new Error('No JSON in response');
-        parsed = JSON.parse(content.slice(start, end + 1));
+        if (start === -1 || end === -1) {
+          // Fallback: try to parse table number and items from raw text
+          parsed = fallbackParse(text);
+        } else {
+          parsed = JSON.parse(content.slice(start, end + 1));
+        }
       } catch (e) {
         clearTimeout(timeoutId);
         if (e.name === 'AbortError') return res.status(504).json({ error: 'AI не ответил вовремя', raw_text: text });
-        return res.status(422).json({ error: 'Не удалось распознать заказ: ' + e.message, raw_text: text });
+        // Fallback parse
+        parsed = fallbackParse(text);
       }
 
       // Match dish names against menu

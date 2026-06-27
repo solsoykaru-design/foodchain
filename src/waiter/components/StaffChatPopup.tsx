@@ -3,7 +3,12 @@ import { Send, X, Image as ImageIcon, Loader, MapPin, MessageSquare, AlertTriang
 import * as api from '../../api';
 import type { StaffChat, StaffChatMessage } from '../../types';
 
-const WS_URL = localStorage.getItem('foodchain_api_url')?.replace(/^http/, 'ws') || 'ws://localhost:4000';
+function getWsUrl(): string {
+  const stored = localStorage.getItem('foodchain_api_url');
+  if (stored && stored.trim()) return stored.replace(/^http/, 'ws');
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${window.location.host}`;
+}
 
 const QUICK_REPLIES = [
   { label: 'Передан', key: 'transferred' },
@@ -38,7 +43,7 @@ export default function StaffChatPopup({ orderId, orderNumber, courierId, courie
 
   useEffect(() => {
     initChat();
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(getWsUrl());
     wsRef.current = ws;
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'subscribe:waiter', waiterId }));

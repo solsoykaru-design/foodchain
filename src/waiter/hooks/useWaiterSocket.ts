@@ -2,7 +2,16 @@ import { useEffect, useRef } from 'react';
 
 type WsHandler = (data: any) => void;
 
-const API_BASE = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+function getWsUrl(): string {
+  const stored = localStorage.getItem('foodchain_api_url');
+  if (stored && stored.trim()) {
+    return stored.replace(/^http/, 'ws');
+  }
+  // Same-origin: use current page's origin
+  const loc = window.location;
+  const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${loc.host}`;
+}
 
 export function useWaiterSocket(handlers: Record<string, WsHandler>) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -14,7 +23,7 @@ export function useWaiterSocket(handlers: Record<string, WsHandler>) {
     const connect = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
       try {
-        const wsUrl = API_BASE.replace(/^http/, 'ws');
+        const wsUrl = getWsUrl();
         const ws = new WebSocket(wsUrl);
         ws.onmessage = (e) => {
           try {

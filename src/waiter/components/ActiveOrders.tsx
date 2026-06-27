@@ -59,7 +59,7 @@ function TerminalPayButton({ order, onRefresh }: { order: Order; onRefresh: () =
     setStatus('pending');
     setErrorMsg('');
     try {
-      const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+      const apiBase = localStorage.getItem('foodchain_api_url') || '';
       const token = localStorage.getItem('fc_token') || localStorage.getItem('foodchain_waiter_token') || '';
       const res = await fetch(`${apiBase}/api/terminal/pay`, {
         method: 'POST',
@@ -157,7 +157,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
   // Load Yandex Maps JS API
   useEffect(() => {
     if (typeof ymaps !== 'undefined') { setYmapsLoaded(true); return; }
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+    const apiBase = localStorage.getItem('foodchain_api_url') || '';
     fetch(apiBase + '/api/settings').then(r => r.json()).then(settings => {
       const key = settings.yandex_maps_api_key || '';
       const script = document.createElement('script');
@@ -193,7 +193,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
   const returnWsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
+    const apiBase = localStorage.getItem('foodchain_api_url') || '';
     const wsUrl = apiBase.replace(/^http/, 'ws');
     const ws = new WebSocket(wsUrl);
     returnWsRef.current = ws;
