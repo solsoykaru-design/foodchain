@@ -169,10 +169,11 @@ async function queryOpenCode(dishName, modelName) {
   const body = JSON.stringify({
     model,
     messages: [
+      { role: 'system', content: 'You are a JSON-only assistant. NEVER include explanations, reasoning, or any text outside the JSON. Output ONLY the requested JSON object, nothing else.' },
       { role: 'user', content: prompt }
     ],
     temperature: 0.1,
-    max_tokens: isReasoning ? 3000 : 1000,
+    max_tokens: isReasoning ? 3000 : 1500,
   });
 
   const controller = new AbortController();
