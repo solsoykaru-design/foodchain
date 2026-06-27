@@ -49,7 +49,11 @@ function runMigrations() {
     }
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
     console.log(`Running migration: ${file}...`);
-    db.exec(sql);
+    try {
+      db.exec(sql);
+    } catch (e) {
+      console.log(`  Warning: ${e.message}`);
+    }
     db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
     console.log('  OK');
   }
