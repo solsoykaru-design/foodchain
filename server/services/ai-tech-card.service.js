@@ -176,8 +176,10 @@ async function queryOpenCode(dishName, modelName) {
   });
 
   const controller = new AbortController();
-  const data = await Promise.race([
-    fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
+  const timeoutMs = isReasoning ? 85000 : OPENCODE_TIMEOUT;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -185,17 +187,19 @@ async function queryOpenCode(dishName, modelName) {
       },
       body,
       signal: controller.signal,
-    }),
-    new Promise((_, reject) => setTimeout(() => { controller.abort(); reject(new Error('Timeout')); }, isReasoning ? 85000 : OPENCODE_TIMEOUT)),
-  ]);
-
-  const msg = data.choices?.[0]?.message || {};
-  const text = msg.content || msg.reasoning_content || msg.reasoning || '';
-  if (!text) throw new Error(`Empty response from OpenCode (${model})`);
-
-  const result = parseAIResponse(text, 'opencode');
-  result.category = result.category || category;
-  return result;
+    });
+    const msg = data.choices?.[0]?.message || {};
+    const text = msg.content || msg.reasoning_content || msg.reasoning || '';
+    if (!text) throw new Error(`Empty response from OpenCode (${model})`);
+    const result = parseAIResponse(text, 'opencode');
+    result.category = result.category || category;
+    return result;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Timeout');
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function parseAIResponse(text, source) {
