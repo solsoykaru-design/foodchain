@@ -1,14 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, Lock, User, Smartphone, Store, Server } from 'lucide-react';
+import { Shield, Lock, User, Smartphone, Store } from 'lucide-react';
 import * as api from '../api';
 
 const SAVED_TENANT = localStorage.getItem('foodchain_last_tenant') || '';
-const SAVED_SERVER_URL = localStorage.getItem('foodchain_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:4000' : '');
+
+const defaultServerUrl = () => {
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:4000';
+  return '';
+};
+
+const apiUrl = localStorage.getItem('foodchain_api_url') || defaultServerUrl();
+if (!localStorage.getItem('foodchain_api_url')) localStorage.setItem('foodchain_api_url', apiUrl);
 
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [tenantName, setTenantName] = useState(SAVED_TENANT);
-  const [serverUrl, setServerUrl] = useState(SAVED_SERVER_URL);
-  const [showServerUrl, setShowServerUrl] = useState(false);
   const [username, setUsername] = useState(localStorage.getItem('foodchain_last_login') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,23 +34,13 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  useEffect(() => {
-    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-    if (isNative) setShowServerUrl(true);
-  }, []);
-
   const handleLogin = async () => {
-    if (!serverUrl.trim() && !SAVED_SERVER_URL && !window.location.hostname.includes('localhost') && window.location.hostname !== '127.0.0.1') {
-      setError('Укажите адрес сервера (нажмите на иконку слева внизу)');
-      return;
-    }
     if (!tenantName.trim() || !username.trim() || !password) {
       setError('Заполните все поля');
       return;
     }
     setError('');
     setLoading(true);
-    localStorage.setItem('foodchain_api_url', serverUrl.trim());
     try {
       const res = await api.tenantLogin(tenantName.trim(), username.trim(), password);
       if (res.require2fa) {
@@ -56,7 +52,6 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       }
       completeLogin(res.user, res.token);
     } catch (e: any) {
-      // fallback: try old admin-login for superadmin
       try {
         const res = await api.adminLogin(username, password);
         const user = res.user || res;
@@ -112,12 +107,6 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
 
         {!show2FA ? (
           <div className="space-y-3">
-            {showServerUrl && (
-              <div className="relative">
-                <Server size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input type="text" value={serverUrl} onChange={e => { setServerUrl(e.target.value); localStorage.setItem('foodchain_api_url', e.target.value); }} placeholder="https://ваш-сервер.ру" className="w-full pl-10 pr-4 py-3 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white" />
-              </div>
-            )}
             <div className="relative" ref={ref}>
               <Store size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input type="text" value={tenantName} onChange={async e => {
@@ -153,9 +142,6 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             <button onClick={handleLogin} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white font-bold py-3 rounded-xl transition-colors">{loading ? 'Вход...' : 'Войти'}</button>
             <div className="flex items-center justify-between mt-2">
-              <button onClick={() => setShowServerUrl(!showServerUrl)} className="text-xs text-zinc-400 hover:text-blue-500 flex items-center gap-1">
-                <Server size={12} /> {showServerUrl ? 'Скрыть URL сервера' : 'URL сервера'}
-              </button>
               <a href="#" onClick={e => { e.preventDefault(); setError('Обратитесь к администратору вашего ресторана для сброса пароля'); }} className="text-xs text-zinc-400 hover:text-blue-500">Забыли пароль?</a>
             </div>
           </div>
