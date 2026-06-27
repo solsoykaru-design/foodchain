@@ -1869,7 +1869,7 @@ async function generateTechCardInner(dishName, errors) {
 
   // Try OpenCode Zen (all free models, from fastest to slowest)
   if (OPENCODE_API_KEY && OPENCODE_API_KEY.length > 10) {
-    const opencodeModels = ['mimo-v2.5-free', 'nemotron-3-ultra-free', 'north-mini-code-free', 'deepseek-v4-flash-free', 'big-pickle'];
+    const opencodeModels = ['deepseek-v4-flash-free', 'big-pickle', 'north-mini-code-free', 'nemotron-3-ultra-free', 'mimo-v2.5-free'];
     for (const model of opencodeModels) {
       try {
         const result = await queryOpenCode(dishName, model);
