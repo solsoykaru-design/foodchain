@@ -610,13 +610,14 @@ app.get('/api/tech-cards/:id/steps', (req, res) => {
 app.get('/api/ai-test', async (req, res) => {
   const key = process.env.OPENCODE_API_KEY || '';
   const results = [];
-  for (const model of ['deepseek-v4-flash-free', 'north-mini-code-free']) {
+  for (const model of ['deepseek-v4-flash-free', 'north-mini-code-free', 'mimo-v2.5-free']) {
     const s = Date.now();
     try {
       const isReasoning = model === 'deepseek-v4-flash-free' || model === 'big-pickle';
+      const englishPrompt = `Create a tech card for "Борщ" (category: Суп). Return ONLY valid JSON: { "ingredients": [{ "name": "ingredient name in Russian", "quantity": grams, "unit": "g" }], "kbju_per_100g": { "calories": 0, "proteins": 0, "fats": 0, "carbs": 0 }, "output": grams, "technology": "steps", "cooking_time": minutes }. All ingredient names MUST be in Russian. Response must be ONLY JSON.`;
       const prompt = isReasoning
         ? `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «Борщ». Категория блюда: Суп. Используй классические ингредиенты и их граммовку (нетто на 1 порцию).\n\nВерни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:\n{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`
-        : 'Say OK';
+        : englishPrompt;
       const body = JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: isReasoning ? 3000 : 1000 });
       const r = await fetch('https://opencode.ai/zen/v1/chat/completions', {
         method: 'POST',
@@ -625,17 +626,13 @@ app.get('/api/ai-test', async (req, res) => {
         signal: AbortSignal.timeout(90000),
       });
       const t = await r.text();
-      const j = JSON.parse(t);
-      const msg = j.choices?.[0]?.message || {};
-      const text = msg.content || msg.reasoning_content || msg.reasoning || '';
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      let jsonPart = '';
-      let parseOk = false;
-      if (start !== -1 && end !== -1) {
-        try { jsonPart = text.slice(start, end + 1); JSON.parse(jsonPart); parseOk = true; } catch {}
-      }
-      results.push({ model, time: Date.now() - s, status: r.status, hasContent: !!text, contentLen: text.length, startIdx: start, endIdx: end, parseOk, content: text.substring(0, 200) + '...mid...' + text.substring(Math.max(0, text.length - 300)) });
+      let fullContent = '(parse error)';
+      try {
+        const j = JSON.parse(t);
+        const msg = j.choices?.[0]?.message || {};
+        fullContent = msg.content || msg.reasoning_content || msg.reasoning || '(empty)';
+      } catch { fullContent = '(response parse error): ' + t.substring(0, 200); }
+      results.push({ model, time: Date.now() - s, status: r.status, fullContent: fullContent.substring(0, 2000) });
     } catch (e) {
       results.push({ model, time: Date.now() - s, error: e.message });
     }
