@@ -21,23 +21,10 @@ function detectCategory(name) {
   return 'Основное блюдо';
 }
 
-const PROMPT_TEMPLATE = `Ты — профессиональный технолог общественного питания. Составь технологическую карту для блюда «{name}». Категория блюда: {category}. Используй классические ингредиенты и их граммовку (нетто на 1 порцию) как в реальных сборниках рецептур.
+const PROMPT_TEMPLATE = `Ты — технолог общепита. Составь техкарту для блюда «{name}» (категория: {category}). Используй классические ингредиенты и граммовку нетто на 1 порцию.
 
-Верни ТОЛЬКО JSON без лишнего текста, без markdown, без комментариев, строго по схеме:
-{
-  "ingredients": [
-    { "name": "Название ингредиента", "quantity": число в граммах, "unit": "г" }
-  ],
-  "kbju_per_100g": { "calories": число, "proteins": число, "fats": число, "carbs": число },
-  "output": число (выход готового блюда в граммах),
-  "technology": "Пошаговая технология приготовления (каждый шаг с новой строки с номером)",
-  "cooking_time": число (время приготовления в минутах),
-  "temperature": "Температура подачи (например, 65–70 °С или 20–22 °С)",
-  "shelf_life": "Срок годности (например, 24 ч при t=2…+6 °С)"
-}
-
-Пример ответа для "Ролл с обожженным лососем":
-{"ingredients":[{"name":"Рис для роллов (отварной)","quantity":110,"unit":"г"},{"name":"Нори (лист)","quantity":2,"unit":"г"},{"name":"Дайкон маринованный (п/ф)","quantity":20,"unit":"г"},{"name":"Сыр сливочный (п/ф)","quantity":30,"unit":"г"},{"name":"Лук зелёный (п/ф)","quantity":2,"unit":"г"},{"name":"Лосось без кожи (филе, п/ф)","quantity":80,"unit":"г"},{"name":"Арахис жареный (п/ф, украшение)","quantity":10,"unit":"г"},{"name":"Сахар тростниковый (п/ф)","quantity":2,"unit":"г"}],"kbju_per_100g":{"calories":190,"proteins":12,"fats":8,"carbs":22},"output":220,"technology":"1. На нори выложить рис, дайкон, сливочный сыр, зелёный лук. Скрутить ролл.\\n2. Ролл обернуть слайсами лосося.\\n3. Посыпать тростниковым сахаром, обжечь газовой горелкой до карамелизации.\\n4. Посыпать жареным арахисом, нарезать на 8 частей.","cooking_time":20,"temperature":"20–22 °С","shelf_life":"24 ч при t=2…+6 °С"}`;
+Верни ТОЛЬКО JSON без лишнего текста и markdown:
+{"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`;
 
 async function fetchJSON(url, options = {}) {
   const controller = new AbortController();
@@ -191,7 +178,7 @@ async function queryOpenCode(dishName, modelName) {
       { role: 'user', content: prompt }
     ],
     temperature: 0.1,
-    max_tokens: isReasoning ? 4000 : 1500,
+    max_tokens: isReasoning ? 2000 : 1000,
   });
 
   const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
