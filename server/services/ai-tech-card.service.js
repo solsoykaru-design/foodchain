@@ -27,21 +27,15 @@ const PROMPT_TEMPLATE = `Ты — профессиональный технол�
 {"ingredients":[{"name":"Название ингредиента","quantity":число в граммах,"unit":"г"}],"kbju_per_100g":{"calories":число,"proteins":число,"fats":число,"carbs":число},"output":число,"technology":"Пошаговая технология","cooking_time":число,"temperature":"Температура подачи","shelf_life":"Срок годности"}`;
 
 async function fetchJSON(url, options = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeout || 15000);
-  try {
-    const res = await fetch(url, {
-      method: options.method || 'GET',
-      headers: options.headers || { 'Content-Type': 'application/json' },
-      body: options.body,
-      signal: controller.signal,
-    });
-    const text = await res.text();
-    if (res.ok) return JSON.parse(text);
-    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
+  const res = await fetch(url, {
+    method: options.method || 'GET',
+    headers: options.headers || { 'Content-Type': 'application/json' },
+    body: options.body,
+    signal: options.signal || null,
+  });
+  const text = await res.text();
+  if (res.ok) return JSON.parse(text);
+  throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
 }
 
 async function queryTheMealDB(dishName) {
@@ -181,15 +175,19 @@ async function queryOpenCode(dishName, modelName) {
     max_tokens: isReasoning ? 3000 : 1000,
   });
 
-  const data = await fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENCODE_API_KEY}`,
-    },
-    body,
-    timeout: isReasoning ? 85000 : OPENCODE_TIMEOUT,
-  });
+  const controller = new AbortController();
+  const data = await Promise.race([
+    fetchJSON('https://opencode.ai/zen/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENCODE_API_KEY}`,
+      },
+      body,
+      signal: controller.signal,
+    }),
+    new Promise((_, reject) => setTimeout(() => { controller.abort(); reject(new Error('Timeout')); }, isReasoning ? 85000 : OPENCODE_TIMEOUT)),
+  ]);
 
   const msg = data.choices?.[0]?.message || {};
   const text = msg.content || msg.reasoning_content || msg.reasoning || '';
