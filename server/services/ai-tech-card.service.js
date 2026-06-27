@@ -207,7 +207,7 @@ async function queryOpenCode(dishName, modelName) {
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: isReasoning ? 60000 : 15000,
+    timeout: isReasoning ? 90000 : 15000,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
@@ -1859,7 +1859,7 @@ async function generateTechCard(dishName) {
 
   return await Promise.race([
     generateTechCardInner(dishName, errors),
-    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 90000)),
+    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 150000)),
   ]);
 }
 
