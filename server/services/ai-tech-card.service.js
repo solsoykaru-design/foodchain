@@ -1853,13 +1853,15 @@ async function generateTechCardInner(dishName, errors) {
     errors.push({ source: 'themealdb', error: e.message });
   }
 
-  // Try OpenCode Zen (deepseek handles Russian best)
+  // Try OpenCode Zen (deepseek handles Russian best, retry up to 3 times)
   if (OPENCODE_API_KEY && OPENCODE_API_KEY.length > 10) {
-    try {
-      const result = await queryOpenCode(dishName, 'deepseek-v4-flash-free');
-      return result;
-    } catch (e) {
-      errors.push({ source: 'opencode/deepseek-v4-flash-free', error: e.message });
+    for (let i = 0; i < 3; i++) {
+      try {
+        const result = await queryOpenCode(dishName, 'deepseek-v4-flash-free');
+        return result;
+      } catch (e) {
+        errors.push({ source: `opencode/deepseek-v4-flash-free#${i + 1}`, error: e.message });
+      }
     }
   }
 
@@ -1880,7 +1882,9 @@ async function generateTechCardInner(dishName, errors) {
   }
 
   // Fallback: local recipe DB (always works)
-  return queryLocalDB(dishName);
+  const localResult = queryLocalDB(dishName);
+  localResult.errors = errors.map(e => `${e.source}: ${e.error}`);
+  return localResult;
 }
 
 function matchIngredientsWithStock(ingredients, db, tenantId) {
