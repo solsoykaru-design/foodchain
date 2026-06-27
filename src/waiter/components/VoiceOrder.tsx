@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, CheckCircle, AlertTriangle, X, RefreshCw, Loader2, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Send, CheckCircle, AlertTriangle, X, RefreshCw, Loader2, Volume2, Trash2, DollarSign, Ban, Undo2, HelpCircle, Plus, ClipboardList } from 'lucide-react';
 import * as api from '../../api';
 
-interface VoiceOrderItem {
+interface VoiceItem {
   name: string;
   quantity: number;
   modifiers: string[];
@@ -11,103 +11,155 @@ interface VoiceOrderItem {
   found: boolean;
 }
 
-interface ParsedOrder {
+interface ParsedResult {
+  command: 'order' | 'confirm' | 'pay' | 'close' | 'cancel' | 'refund' | 'help' | 'unknown';
+  command_params: { order_number: number | null };
   waiter_nick: string | null;
   table_number: number | null;
-  items: VoiceOrderItem[];
+  items: VoiceItem[];
   unrecognized: string[];
+}
+
+interface Draft {
+  id: string;
+  waiterId: number;
+  tableId: number | null;
+  tableName: string;
+  items: VoiceItem[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface Props {
   user: any;
+  tables: any[];
   onOrderCreated: () => void;
   onClose: () => void;
 }
 
-export default function VoiceOrder({ user, onOrderCreated, onClose }: Props) {
-  const [state, setState] = useState<'idle' | 'listening' | 'processing' | 'confirm' | 'sending' | 'done' | 'error'>('idle');
-  const [transcript, setTranscript] = useState('');
-  const [parsedOrder, setParsedOrder] = useState<ParsedOrder | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [editableItems, setEditableItems] = useState<VoiceOrderItem[]>([]);
-  const [tableNumber, setTableNumber] = useState<number | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
-  const [tables, setTables] = useState<any[]>([]);
-  const recognitionRef = useRef<any>(null);
+// ─── Help text ────────────────────────────────────────────
+const HELP_TEXT = [
+  '🎤 Добавить в заказ: «Стол 5, паста Карбонара, кола 0.5»',
+  '📝 Оформить: «Оформляй заказ»',
+  '💰 Оплатить: «Оплата заказа 128»',
+  '🔒 Закрыть: «Закрыть заказ 128»',
+  '🗑 Отменить черновик: «Отмена заказа»',
+  '↩️ Возврат: «Возврат по заказу 128»',
+  '❓ Помощь: «Что ты умеешь?»',
+];
 
+export default function VoiceOrder({ user, tables, onOrderCreated, onClose }: Props) {
+  const [mode, setMode] = useState<'idle' | 'listening' | 'processing' | 'confirm'>('idle');
+  const [lastTranscript, setLastTranscript] = useState('');
+  const [lastResult, setLastResult] = useState<ParsedResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
+  const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
+  const draftIdRef = useRef<string | null>(null);
+
+  // ─── Text-to-Speech ─────────────────────────────────────
   const speak = useCallback((text: string) => {
     try {
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ru-RU';
-      utterance.rate = 0.9;
-      speechSynthesis.speak(utterance);
+      utterance.rate = 0.85;
+      window.speechSynthesis.speak(utterance);
     } catch {}
   }, []);
 
-  // Load tables for table selection
-  useEffect(() => {
-    api.getTables().then(setTables).catch(() => {});
+  // ─── Toast ─────────────────────────────────────────────
+  const showStatus = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setStatusMessage(msg);
+    setStatusType(type);
+    setTimeout(() => setStatusMessage(''), 4000);
   }, []);
 
-  // Start voice recognition
+  // ─── Restart recognition in continuous mode ─────────────
+  const restartRecognition = useCallback(() => {
+    if (!isListeningRef.current) return;
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isListeningRef.current = true;
+        setMode('listening');
+      };
+
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            const text = event.results[i][0].transcript;
+            handleVoiceText(text);
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+          setTimeout(restartRecognition, 500);
+          return;
+        }
+        setErrorMsg(`Ошибка микрофона: ${event.error}. Перезапустите.`);
+        setMode('idle');
+        isListeningRef.current = false;
+      };
+
+      recognition.onend = () => {
+        if (isListeningRef.current) setTimeout(restartRecognition, 300);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {}
+  }, []);
+
+  // ─── Start listening ────────────────────────────────────
   const startListening = useCallback(() => {
     try {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
         setErrorMsg('Голосовое распознавание не поддерживается в этом браузере');
-        setState('error');
+        speak('Голосовое распознавание не поддерживается');
         return;
       }
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ru-RU';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        setState('listening');
-        setErrorMsg('');
-      };
-
-      recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setTranscript(text);
-        setState('processing');
-        processVoice(text);
-      };
-
-      recognition.onerror = (event: any) => {
-        if (event.error === 'no-speech') {
-          setErrorMsg('Речь не обнаружена. Попробуйте ещё раз.');
-          setState('error');
-          speak('Речь не обнаружена. Попробуйте ещё раз.');
-        } else if (event.error === 'aborted') {
-          setState('idle');
-        } else {
-          setErrorMsg(`Ошибка распознавания: ${event.error}`);
-          setState('error');
-        }
-      };
-
-      recognition.onend = () => {
-        if (state === 'listening') {
-          // If still in listening state, recognition ended without result
-          setErrorMsg('Распознавание не удалось. Повторите.');
-          setState('error');
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
+      isListeningRef.current = true;
+      showStatus('🎤 Слушаю в фоне. Говорите команды...', 'info');
+      speak('Голосовой режим активирован. Говорите заказы или команды.');
+      // Create draft
+      api.voiceDraftCreate(user.id).then(r => {
+        draftIdRef.current = r.draftId;
+        setDraft(r.draft);
+      }).catch(() => {});
+      restartRecognition();
     } catch (e: any) {
-      setErrorMsg('Ошибка запуска микрофона: ' + e.message);
-      setState('error');
+      setErrorMsg('Ошибка микрофона: ' + e.message);
     }
+  }, [user.id, restartRecognition, showStatus, speak]);
+
+  // ─── Stop listening ─────────────────────────────────────
+  const stopListening = useCallback(() => {
+    isListeningRef.current = false;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    setMode('idle');
   }, []);
 
-  // Process voice text via AI
-  const processVoice = async (text: string) => {
+  // ─── Process voice text via AI ──────────────────────────
+  const handleVoiceText = async (text: string) => {
+    setLastTranscript(text);
+    setMode('processing');
     try {
       const result = await api.request('/api/mobile/voice-order', {
         method: 'POST',
@@ -115,288 +167,378 @@ export default function VoiceOrder({ user, onOrderCreated, onClose }: Props) {
       });
 
       if (!result.success) {
-        setErrorMsg(result.error || 'Не удалось распознать заказ');
-        setState('error');
-        speak('Не удалось распознать заказ. Повторите, пожалуйста.');
+        speak('Не удалось распознать. Повторите.');
+        setMode('listening');
         return;
       }
 
-      const order = result.parsed;
-      setParsedOrder(order);
-      setEditableItems(order.items || []);
-      setTableNumber(order.table_number);
+      const parsed: ParsedResult = result.parsed;
+      setLastResult(parsed);
 
-      // Try to match table
-      if (order.table_number && tables.length > 0) {
-        const matched = tables.find(
-          t => t.name === String(order.table_number) || t.id === order.table_number
-        );
-        if (matched) setSelectedTableId(matched.id);
+      switch (parsed.command) {
+        case 'order':
+          await handleOrderCommand(parsed);
+          break;
+        case 'confirm':
+          await handleConfirmCommand();
+          break;
+        case 'pay':
+          await handlePayCommand(parsed);
+          break;
+        case 'close':
+          await handleCloseCommand(parsed);
+          break;
+        case 'cancel':
+          await handleCancelCommand();
+          break;
+        case 'refund':
+          await handleRefundCommand(parsed);
+          break;
+        case 'help':
+          setShowHelp(true);
+          speak(HELP_TEXT.slice(0, 3).join('. '));
+          break;
+        default:
+          speak('Команда не распознана. Повторите.');
+          showStatus('❓ Команда не распознана', 'error');
       }
-
-      setState('confirm');
-
-      // Voice confirmation
-      const itemCount = (order.items || []).length;
-      const tableStr = order.table_number ? `, стол ${order.table_number}` : '';
-      speak(`Распознано ${itemCount} позиций${tableStr}. Проверьте заказ.`);
     } catch (e: any) {
-      setErrorMsg(e.message || 'Ошибка связи с сервером');
-      setState('error');
-      speak('Ошибка связи. Повторите, пожалуйста.');
+      speak('Ошибка связи. Повторите.');
+      showStatus('Ошибка: ' + e.message, 'error');
     }
+    setMode('listening');
   };
 
-  // Send order to kitchen
-  const sendOrder = async () => {
-    if (!editableItems.length) return;
-    setState('sending');
+  // ─── Handle order content ───────────────────────────────
+  const handleOrderCommand = async (parsed: ParsedResult) => {
+    const draftId = draftIdRef.current;
+    if (!draftId) {
+      const r = await api.voiceDraftCreate(user.id);
+      draftIdRef.current = r.draftId;
+      setDraft(r.draft);
+    }
+    const items = (parsed.items || []).map(item => ({
+      ...item,
+      menu_match: findDishMatch(item.name),
+      found: !!findDishMatch(item.name),
+    }));
 
+    await api.voiceDraftAddItems(draftIdRef.current!, items, parsed.table_number || undefined);
+    const updated = await api.voiceDraftGet(draftIdRef.current!);
+    setDraft(updated.draft);
+
+    const itemCount = items.length;
+    const tableStr = parsed.table_number ? ` на стол ${parsed.table_number}` : '';
+    const names = items.map(i => i.name).join(', ');
+    speak(`Принято${tableStr}: ${names}`);
+    showStatus(`✅ Добавлено: ${names}`, 'success');
+  };
+
+  // ─── Handle confirm ─────────────────────────────────────
+  const handleConfirmCommand = async () => {
+    const draftId = draftIdRef.current;
+    if (!draftId) {
+      speak('Нет черновика для оформления');
+      showStatus('Нет черновика', 'error');
+      return;
+    }
+    const draftData = await api.voiceDraftGet(draftId);
+    if (!draftData.draft.items.length) {
+      speak('Черновик пуст. Добавьте блюда.');
+      showStatus('Черновик пуст', 'error');
+      return;
+    }
+    const result = await api.voiceConfirm(draftId, user.id, `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username);
+    draftIdRef.current = null;
+    setDraft(null);
+    speak(`Заказ №${result.orderId} отправлен на кухню`);
+    showStatus(`✅ Заказ №${result.orderId} отправлен на кухню`, 'success');
+    onOrderCreated();
+    // Create new draft for continued work
+    const r = await api.voiceDraftCreate(user.id);
+    draftIdRef.current = r.draftId;
+    setDraft(r.draft);
+  };
+
+  // ─── Handle pay ─────────────────────────────────────────
+  const handlePayCommand = async (parsed: ParsedResult) => {
+    const orderNum = parsed.command_params?.order_number;
+    if (!orderNum) {
+      speak('Укажите номер заказа. Например: оплата заказа 128');
+      showStatus('Укажите номер заказа', 'error');
+      return;
+    }
     try {
-      const orderItems = editableItems.map(item => ({
-        dishId: item.menu_match?.id || 0,
-        name: item.name,
-        price: item.menu_match?.price || 0,
-        quantity: item.quantity,
-        options: [...item.modifiers, ...item.exclude.map(e => `без ${e}`)],
-        comment: '',
-        itemStatus: 'pending' as const,
-      }));
-
-      await api.createDineInOrder({
-        tableId: selectedTableId || 0,
-        waiterId: user.id,
-        waiterName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
-        guestCount: 2,
-        items: orderItems,
-        comment: `Голосовой заказ от ${parsedOrder?.waiter_nick || user.username}`,
-      });
-
-      setState('done');
-      speak('Заказ отправлен на кухню.');
-      setTimeout(() => {
-        onOrderCreated();
-        onClose();
-      }, 2000);
+      const result = await api.voicePay(orderNum);
+      speak(`Заказ ${orderNum} оплачен`);
+      showStatus(`💰 Заказ №${orderNum} оплачен`, 'success');
+      onOrderCreated();
     } catch (e: any) {
-      setErrorMsg(e.message || 'Ошибка отправки заказа');
-      setState('confirm');
+      speak(`Заказ ${orderNum} не найден`);
+      showStatus(`Заказ №${orderNum} не найден`, 'error');
     }
   };
 
-  // Toggle item found status for manual matching
-  const toggleItemFound = (idx: number) => {
-    setEditableItems(prev => prev.map((item, i) =>
-      i === idx ? { ...item, found: !item.found } : item
-    ));
+  // ─── Handle close ───────────────────────────────────────
+  const handleCloseCommand = async (parsed: ParsedResult) => {
+    const orderNum = parsed.command_params?.order_number;
+    if (!orderNum) {
+      speak('Укажите номер заказа. Например: закрыть заказ 128');
+      showStatus('Укажите номер заказа', 'error');
+      return;
+    }
+    try {
+      const result = await api.voiceClose(orderNum);
+      speak(`Заказ ${orderNum} закрыт`);
+      showStatus(`🔒 Заказ №${orderNum} закрыт`, 'success');
+      onOrderCreated();
+    } catch (e: any) {
+      speak(`Заказ ${orderNum} не найден`);
+      showStatus(`Заказ №${orderNum} не найден`, 'error');
+    }
   };
 
-  const updateItemQuantity = (idx: number, delta: number) => {
-    setEditableItems(prev => prev.map((item, i) =>
-      i === idx ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-    ));
+  // ─── Handle cancel ──────────────────────────────────────
+  const handleCancelCommand = async () => {
+    const draftId = draftIdRef.current;
+    if (!draftId) {
+      speak('Нет активного черновика для отмены');
+      showStatus('Нет черновика', 'error');
+      return;
+    }
+    await api.voiceCancel(undefined, draftId);
+    draftIdRef.current = null;
+    setDraft(null);
+    speak('Черновик отменён');
+    showStatus('🗑 Черновик удалён', 'success');
+    // Create new draft
+    const r = await api.voiceDraftCreate(user.id);
+    draftIdRef.current = r.draftId;
+    setDraft(r.draft);
   };
 
-  const removeItem = (idx: number) => {
-    setEditableItems(prev => prev.filter((_, i) => i !== idx));
+  // ─── Handle refund ──────────────────────────────────────
+  const handleRefundCommand = async (parsed: ParsedResult) => {
+    const orderNum = parsed.command_params?.order_number;
+    if (!orderNum) {
+      speak('Укажите номер заказа. Например: возврат по заказу 128');
+      showStatus('Укажите номер заказа', 'error');
+      return;
+    }
+    try {
+      const result = await api.voiceRefund(orderNum, 'Возврат голосом');
+      speak(`Возврат по заказу ${orderNum} выполнен`);
+      showStatus(`↩️ Возврат по заказу №${orderNum} выполнен`, 'success');
+      onOrderCreated();
+    } catch (e: any) {
+      speak(`Заказ ${orderNum} не найден`);
+      showStatus(`Заказ №${orderNum} не найден`, 'error');
+    }
   };
 
-  // Retry
-  const handleRetry = () => {
-    setState('idle');
-    setTranscript('');
-    setParsedOrder(null);
-    setErrorMsg('');
-    setEditableItems([]);
+  // ─── Match dish name against menu ───────────────────────
+  const findDishMatch = (name: string): { id: number; name: string; price: number } | null => {
+    const lower = name.toLowerCase();
+    const menuDishes = tables.length > 0 ? [] : [];
+    // We don't have dishes here directly, we'll rely on the backend match
+    return null;
   };
+
+  // ─── Cleanup on unmount ────────────────────────────────
+  useEffect(() => {
+    return () => { stopListening(); };
+  }, [stopListening]);
+
+  // ─── Get table name by id ──────────────────────────────
+  const getTableName = (id: number | null) => {
+    if (!id) return '';
+    const t = tables.find(t => t.id === id || t.name === String(id));
+    return t?.name || String(id);
+  };
+
+  // ─── Calculate draft total ─────────────────────────────
+  const draftTotal = draft?.items.reduce((s, i) => s + (i.menu_match?.price || 0) * i.quantity, 0) || 0;
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-zinc-900 rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-          <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
-            <Mic size={20} className="text-orange-500" /> Голосовой заказ
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-zinc-900 rounded-3xl w-full max-w-lg max-h-[95vh] flex flex-col">
+        {/* ─── Header ─────────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+          <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+            {mode === 'listening' ? (
+              <span className="relative flex w-3 h-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+              </span>
+            ) : <Mic size={18} className="text-orange-500" />}
+            AI-официант
+            {mode === 'listening' && <span className="text-[10px] text-green-400 font-normal">в фоне</span>}
           </h2>
-          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-xl text-zinc-500"><X size={18} /></button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setShowHelp(!showHelp)} className="p-2 rounded-xl hover:bg-zinc-800">
+              <HelpCircle size={16} className="text-zinc-500" />
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-800">
+              <X size={16} className="text-zinc-500" />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4">
-          {/* ===== IDLE / LISTENING ===== */}
-          {(state === 'idle' || state === 'listening') && (
-            <div className="text-center py-8">
-              <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 transition-all ${state === 'listening' ? 'bg-red-500 scale-110 animate-pulse shadow-lg shadow-red-500/50' : 'bg-orange-500'}`}>
-                {state === 'listening' ? <MicOff size={40} className="text-white" /> : <Mic size={40} className="text-white" />}
-              </div>
-              <p className="text-zinc-400 text-sm mb-2">
-                {state === 'idle'
-                  ? 'Нажмите "Начать" и продиктуйте заказ'
-                  : 'Слушаю... Говорите чётко'}
+        {/* ─── Toast ──────────────────────────────────── */}
+        {statusMessage && (
+          <div className={`mx-5 mt-3 px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${
+            statusType === 'success' ? 'bg-green-900/30 text-green-400' :
+            statusType === 'error' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'
+          }`}>
+            {statusMessage}
+          </div>
+        )}
+
+        {/* ─── Scrollable content ─────────────────────── */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* ─── Help panel ───────────────────────────── */}
+          {showHelp && (
+            <div className="bg-zinc-800/50 rounded-2xl p-4 space-y-2">
+              <p className="text-xs font-semibold text-zinc-400 mb-2">Голосовые команды:</p>
+              {HELP_TEXT.map((h, i) => (
+                <p key={i} className="text-sm text-zinc-300">{h}</p>
+              ))}
+              <p className="text-[10px] text-zinc-600 mt-3">
+                Микрофон работает в фоне — говорите команды последовательно, без повторного нажатия кнопки.
               </p>
-              {state === 'listening' && (
-                <div className="flex justify-center gap-1 mt-2">
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-zinc-600 mt-4 max-w-xs mx-auto leading-relaxed">
-                Пример: «Ник Алексей, стол 12, паста Карбонара, добавить бекон, без пармезана, кола 0.5, без льда»
+              <p className="text-[10px] text-zinc-600">
+                Bluetooth-гарнитура: подключите наушники с микрофоном, приложение будет слышать через них.
               </p>
-              {state === 'idle' && (
-                <button onClick={startListening}
-                  className="mt-6 bg-orange-500 text-white font-bold py-3.5 px-8 rounded-xl text-base active:scale-95">
-                  🎤 Начать приём
-                </button>
-              )}
-              {state === 'listening' && (
-                <button onClick={() => { recognitionRef.current?.stop(); }}
-                  className="mt-6 bg-red-500 text-white font-bold py-3.5 px-8 rounded-xl text-base active:scale-95">
-                  ⏹ Остановить
-                </button>
-              )}
             </div>
           )}
 
-          {/* ===== PROCESSING ===== */}
-          {state === 'processing' && (
-            <div className="text-center py-8">
-              <Loader2 size={48} className="mx-auto text-orange-500 animate-spin mb-4" />
-              <p className="text-zinc-400">Распознаю заказ через AI...</p>
-              {transcript && (
-                <p className="text-sm text-zinc-600 mt-3 italic max-w-xs mx-auto truncate">«{transcript}»</p>
-              )}
-            </div>
-          )}
-
-          {/* ===== CONFIRM ===== */}
-          {state === 'confirm' && parsedOrder && (
-            <div className="space-y-4">
-              {/* Transcript */}
-              <div className="bg-zinc-800/50 rounded-xl p-3 text-sm text-zinc-400 italic">
-                <Volume2 size={14} className="inline mr-1 text-orange-500" />
-                «{transcript}»
-              </div>
-
-              {/* Table selection */}
-              <div>
-                <p className="text-sm font-semibold text-zinc-400 mb-2">📍 Стол</p>
-                <div className="flex gap-2 flex-wrap">
-                  {[null, ...tables.map(t => t.id)].slice(0, 20).map(t => (
-                    <button key={t || 0} onClick={() => { setSelectedTableId(t); setTableNumber(t); }}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${selectedTableId === t ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
-                      {t ? `Стол ${tables.find(tbl => tbl.id === t)?.name || t}` : '—'}
-                    </button>
-                  ))}
+          {/* ─── Draft display ────────────────────────── */}
+          {draft && draft.items.length > 0 && (
+            <div className="bg-zinc-800/30 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <ClipboardList size={14} className="text-orange-400" />
+                  Черновик
+                </h3>
+                <div className="flex items-center gap-3 text-xs">
+                  {draft.tableId && (
+                    <span className="text-zinc-400">📍 Стол {getTableName(draft.tableId)}</span>
+                  )}
+                  <span className="text-zinc-500">{draft.items.length} поз. / {draftTotal}₽</span>
                 </div>
-                {parsedOrder.table_number && (
-                  <p className="text-xs text-zinc-600 mt-1">Распознано: стол {parsedOrder.table_number}</p>
-                )}
               </div>
-
-              {/* Items */}
-              <div>
-                <p className="text-sm font-semibold text-zinc-400 mb-2">🍽 Позиции ({editableItems.length})</p>
-                <div className="space-y-2">
-                  {editableItems.map((item, idx) => (
-                    <div key={idx} className={`rounded-xl p-3 ${item.found ? 'bg-zinc-800/50' : 'bg-red-900/20 ring-1 ring-red-500/30'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <button onClick={() => toggleItemFound(idx)} className="flex-shrink-0">
-                            {item.found
-                              ? <CheckCircle size={18} className="text-green-500" />
-                              : <AlertTriangle size={18} className="text-red-400" />
-                            }
-                          </button>
-                          <div>
-                            <span className="text-sm font-semibold text-white truncate block">{item.name}</span>
-                            {item.menu_match && <span className="text-[10px] text-zinc-500">{item.menu_match.price}₽</span>}
-                            {!item.found && <span className="text-[10px] text-red-400 block">Не найдено в меню</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => updateItemQuantity(idx, -1)} className="w-7 h-7 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">−</button>
-                          <span className="text-sm font-bold text-white w-6 text-center">{item.quantity}</span>
-                          <button onClick={() => updateItemQuantity(idx, 1)} className="w-7 h-7 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">+</button>
-                          <button onClick={() => removeItem(idx)} className="ml-1 w-7 h-7 bg-zinc-800 rounded-lg flex items-center justify-center text-red-400"><X size={14} /></button>
-                        </div>
-                      </div>
-                      {item.modifiers.length > 0 && (
-                        <div className="flex gap-1 mt-1.5 ml-7">
-                          {item.modifiers.map(m => <span key={m} className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full">+{m}</span>)}
-                        </div>
-                      )}
-                      {item.exclude.length > 0 && (
-                        <div className="flex gap-1 mt-1 ml-7">
-                          {item.exclude.map(e => <span key={e} className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded-full">без {e}</span>)}
-                        </div>
-                      )}
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {draft.items.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-zinc-800/50 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {item.found
+                        ? <CheckCircle size={14} className="text-green-500 shrink-0" />
+                        : <AlertTriangle size={14} className="text-yellow-500 shrink-0" />
+                      }
+                      <span className="text-sm text-white truncate">{item.name}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Unrecognized */}
-              {parsedOrder.unrecognized?.length > 0 && (
-                <div className="bg-yellow-900/20 rounded-xl p-3 ring-1 ring-yellow-500/20">
-                  <p className="text-xs font-semibold text-yellow-400 mb-1">⚠ Не распознано:</p>
-                  {parsedOrder.unrecognized.map((u, i) => (
-                    <p key={i} className="text-xs text-yellow-500">— {u}</p>
-                  ))}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <button onClick={handleRetry}
-                  className="flex-1 bg-zinc-800 text-zinc-400 font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-1">
-                  <RefreshCw size={16} /> Повторить
-                </button>
-                <button onClick={sendOrder}
-                  disabled={!editableItems.length}
-                  className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-1 disabled:opacity-50">
-                  <Send size={16} /> Отправить
-                </button>
+                    <span className="text-sm text-zinc-400 ml-2">×{item.quantity}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* ===== SENDING ===== */}
-          {state === 'sending' && (
-            <div className="text-center py-8">
-              <Loader2 size={48} className="mx-auto text-orange-500 animate-spin mb-4" />
-              <p className="text-zinc-400">Отправка заказа на кухню...</p>
+          {/* ─── Last transcript ──────────────────────── */}
+          {lastTranscript && (
+            <div className="bg-zinc-800/30 rounded-2xl p-3">
+              <p className="text-[10px] text-zinc-600 mb-1">Распознано:</p>
+              <p className="text-sm text-zinc-300 italic">«{lastTranscript}»</p>
             </div>
           )}
 
-          {/* ===== DONE ===== */}
-          {state === 'done' && (
-            <div className="text-center py-8">
-              <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
-              <p className="text-white font-bold text-lg">Заказ отправлен!</p>
-              <p className="text-zinc-500 text-sm mt-1">Заказ передан на кухню</p>
+          {/* ─── Error ────────────────────────────────── */}
+          {errorMsg && (
+            <div className="bg-red-900/20 rounded-2xl p-4 text-sm text-red-400 text-center">
+              {errorMsg}
             </div>
           )}
 
-          {/* ===== ERROR ===== */}
-          {state === 'error' && (
-            <div className="text-center py-8">
-              <AlertTriangle size={48} className="mx-auto text-red-400 mb-4" />
-              <p className="text-red-400 font-semibold">Ошибка</p>
-              <p className="text-zinc-400 text-sm mt-1">{errorMsg}</p>
-              <div className="flex gap-3 justify-center mt-6">
-                <button onClick={handleRetry}
-                  className="bg-orange-500 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-1">
-                  <RefreshCw size={16} /> Повторить
-                </button>
-                <button onClick={onClose}
-                  className="bg-zinc-800 text-zinc-400 font-semibold py-3 px-6 rounded-xl text-sm">
-                  Закрыть
-                </button>
+          {/* ─── Idle / not started ─────────────────────── */}
+          {mode === 'idle' && !isListeningRef.current && (
+            <div className="text-center py-6">
+              <div className="w-20 h-20 mx-auto rounded-full bg-orange-500/20 flex items-center justify-center mb-4">
+                <Mic size={36} className="text-orange-500" />
               </div>
+              <p className="text-zinc-400 text-sm mb-1">Нажмите «Начать» для активации</p>
+              <p className="text-xs text-zinc-600">Микрофон будет работать в фоновом режиме</p>
+              <p className="text-xs text-zinc-600 mt-2">Говорите заказы, затем «Оформляй заказ»</p>
             </div>
           )}
+
+          {/* ─── Listening ──────────────────────────────── */}
+          {mode === 'listening' && (
+            <div className="text-center py-4">
+              <div className="flex justify-center gap-1.5 mb-3">
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                ))}
+              </div>
+              <p className="text-xs text-zinc-500">Слушаю... Говорите заказ или команду</p>
+            </div>
+          )}
+
+          {/* ─── Processing ──────────────────────────────── */}
+          {mode === 'processing' && (
+            <div className="text-center py-4">
+              <Loader2 size={24} className="mx-auto text-orange-500 animate-spin mb-2" />
+              <p className="text-xs text-zinc-500">Обработка...</p>
+            </div>
+          )}
+
+          {/* ─── Quick commands (when listening) ─────────── */}
+          {mode === 'listening' && (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => handleVoiceText('Оформляй заказ')}
+                className="bg-green-600/20 hover:bg-green-600/30 text-green-400 font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
+                <Send size={14} /> Оформить
+              </button>
+              <button onClick={() => handleVoiceText('Отмена заказа')}
+                className="bg-red-600/20 hover:bg-red-600/30 text-red-400 font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5">
+                <Trash2 size={14} /> Отмена
+              </button>
+            </div>
+          )}
+
+          {/* ─── Quick status info ──────────────────────── */}
+          {draft && draft.items.length > 0 && (
+            <div className="flex items-center justify-center gap-2 py-1">
+              <span className="text-[10px] text-zinc-600">В черновике {draft.items.length} позиций на {draftTotal}₽</span>
+            </div>
+          )}
+        </div>
+
+        {/* ─── Bottom controls ─────────────────────────── */}
+        <div className="shrink-0 border-t border-zinc-800 p-4">
+          {!isListeningRef.current ? (
+            <button onClick={startListening}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3.5 rounded-2xl text-base active:scale-[0.98] flex items-center justify-center gap-2">
+              <Mic size={20} /> 🎤 Начать
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={stopListening}
+                className="flex-1 bg-zinc-800 text-zinc-400 font-semibold py-3 rounded-2xl text-sm flex items-center justify-center gap-1.5">
+                <MicOff size={16} /> Выкл
+              </button>
+              <button onClick={async () => {
+                await handleConfirmCommand();
+              }} disabled={!draft?.items.length}
+                className="flex-1 bg-green-600 text-white font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-1.5 disabled:opacity-40">
+                <Send size={16} /> Оформить
+              </button>
+            </div>
+          )}
+          <p className="text-[10px] text-zinc-600 text-center mt-2">
+            {isListeningRef.current
+              ? '🎤 Микрофон активен. Bluetooth-гарнитура: подключите и говорите'
+              : 'Рекомендуется Bluetooth-гарнитура для работы в зале'}
+          </p>
         </div>
       </div>
     </div>

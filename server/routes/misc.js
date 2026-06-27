@@ -2415,5 +2415,205 @@ app.get('/api/exchange-rates', (req, res) => {
     res.json(rates);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+// ─── Voice AI Waiter: drafts ─────────────────────────────────
+const voiceDrafts = new Map();
+
+app.post('/api/waiter/voice/draft', (req, res) => {
+  try {
+    const { waiterId, tableId, tableName } = req.body;
+    if (!waiterId) return res.status(400).json({ error: 'waiterId required' });
+    const draftId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    voiceDrafts.set(draftId, {
+      id: draftId, waiterId, tableId: tableId || null, tableName: tableName || '',
+      items: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+    res.status(201).json({ draftId, draft: voiceDrafts.get(draftId) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/draft/:draftId/items', (req, res) => {
+  try {
+    const draft = voiceDrafts.get(req.params.draftId);
+    if (!draft) return res.status(404).json({ error: 'Черновик не найден' });
+    const { items, tableId, tableName } = req.body;
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        draft.items.push({
+          name: item.name, quantity: item.quantity || 1,
+          modifiers: item.modifiers || [], exclude: item.exclude || [],
+          menu_match: item.menu_match || null, found: item.found !== false,
+        });
+      }
+    }
+    if (tableId) draft.tableId = tableId;
+    if (tableName) draft.tableName = tableName;
+    draft.updated_at = new Date().toISOString();
+    res.json({ draft });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.get('/api/waiter/voice/draft/:draftId', (req, res) => {
+  try {
+    const draft = voiceDrafts.get(req.params.draftId);
+    if (!draft) return res.status(404).json({ error: 'Черновик не найден' });
+    res.json({ draft });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.get('/api/waiter/voice/drafts', (req, res) => {
+  try {
+    const { waiterId } = req.query;
+    const all = [...voiceDrafts.values()];
+    const filtered = waiterId ? all.filter(d => d.waiterId === Number(waiterId)) : all;
+    res.json({ drafts: filtered });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.delete('/api/waiter/voice/draft/:draftId', (req, res) => {
+  try {
+    const deleted = voiceDrafts.delete(req.params.draftId);
+    res.json({ deleted });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/confirm', async (req, res) => {
+  try {
+    const { draftId, waiterId, waiterName } = req.body;
+    const draft = voiceDrafts.get(draftId);
+    if (!draft) return res.status(404).json({ error: 'Черновик не найден' });
+    if (!draft.items.length) return res.status(400).json({ error: 'Черновик пуст' });
+
+    let check;
+    const tableId = draft.tableId;
+    if (tableId) {
+      const table = db.prepare('SELECT * FROM booking_tables WHERE id = ?').get(tableId);
+      if (!table) return res.status(404).json({ error: 'Стол не найден' });
+      let existingCheck = db.prepare("SELECT * FROM dine_in_checks WHERE table_id = ? AND status = 'open'").get(tableId);
+      if (!existingCheck) {
+        const info = db.prepare('INSERT INTO dine_in_checks (table_id, table_name, waiter_id, waiter_name, guest_count) VALUES (?, ?, ?, ?, ?)')
+          .run(tableId, draft.tableName || table.name, waiterId || draft.waiterId, waiterName || '', 1);
+        existingCheck = db.prepare('SELECT * FROM dine_in_checks WHERE id = ?').get(info.lastInsertRowid);
+      }
+      check = existingCheck;
+    }
+
+    const items = draft.items.map(i => ({
+      dishId: i.menu_match?.id || 0, name: i.name, price: i.menu_match?.price || 0,
+      quantity: i.quantity || 1, options: [...(i.modifiers || []), ...(i.exclude || []).map(e => `без ${e}`)],
+      comment: '', itemStatus: 'pending',
+    }));
+    const itemsJson = JSON.stringify(items);
+    const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+    const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, items, subtotal, total, type, status, table_number, waiter_id, waiter_name, guest_count, check_id, comment)
+      VALUES (?, ?, ?, ?, ?, ?, 'dine_in', 'new', ?, ?, ?, ?, ?, ?)`)
+      .run(waiterId || draft.waiterId || 0, waiterName || 'Официант', '', itemsJson, subtotal, subtotal,
+        tableId || 0, waiterId || draft.waiterId || null, waiterName || null, 1,
+        check?.id || null, 'Голосовой заказ');
+
+    const orderId = Number(info.lastInsertRowid);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'new', 'Голосовой заказ');
+
+    if (check) {
+      db.prepare('UPDATE dine_in_checks SET total = total + ?, updated_at = datetime(\'now\') WHERE id = ?').run(subtotal, check.id);
+    }
+
+    for (const item of items) {
+      db.prepare('INSERT INTO order_item_statuses (order_id, dish_id, status) VALUES (?, ?, ?)').run(orderId, item.dishId, 'pending');
+    }
+
+    voiceDrafts.delete(draftId);
+
+    const order = getOrderFull(orderId);
+    io.emit('order:new', order);
+    broadcast({ type: 'order:new', orderId });
+    res.status(201).json({ order, orderId });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/pay', (req, res) => {
+  try {
+    const { orderId, paymentMethod } = req.body;
+    if (!orderId) return res.status(400).json({ error: 'orderId required' });
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    if (order.status === 'paid') return res.json({ order, message: 'Уже оплачен' });
+
+    db.prepare("UPDATE orders SET payment_method = ?, is_paid = 1, status = 'paid', updated_at = datetime('now') WHERE id = ?")
+      .run(paymentMethod || 'cash', orderId);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'paid', 'Оплачено голосом');
+
+    if (order.check_id) {
+      const otherOrders = db.prepare("SELECT * FROM orders WHERE check_id = ? AND id != ? AND status NOT IN ('closed','cancelled')").all(order.check_id, orderId);
+      if (otherOrders.reduce((s, o) => s + o.total, 0) === 0) {
+        db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(order.check_id);
+      }
+    }
+
+    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    io.emit('order:update', updated);
+    res.json({ order: updated });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/close', (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) return res.status(400).json({ error: 'orderId required' });
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+
+    db.prepare("UPDATE orders SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(orderId);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'closed', 'Закрыт голосом');
+
+    if (order.check_id) {
+      const remaining = db.prepare("SELECT * FROM orders WHERE check_id = ? AND id != ? AND status NOT IN ('closed','cancelled')").all(order.check_id, orderId);
+      if (remaining.length === 0) {
+        db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(order.check_id);
+      }
+    }
+
+    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    io.emit('order:update', updated);
+    res.json({ order: updated });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/cancel', (req, res) => {
+  try {
+    const { orderId, draftId } = req.body;
+    if (draftId) {
+      voiceDrafts.delete(draftId);
+      return res.json({ cancelled: true, type: 'draft' });
+    }
+    if (!orderId) return res.status(400).json({ error: 'orderId or draftId required' });
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+
+    db.prepare("UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?").run(orderId);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'cancelled', 'Отменён голосом');
+
+    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    io.emit('order:update', updated);
+    res.json({ order: updated, cancelled: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.post('/api/waiter/voice/refund', (req, res) => {
+  try {
+    const { orderId, reason } = req.body;
+    if (!orderId) return res.status(400).json({ error: 'orderId required' });
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+
+    db.prepare("UPDATE orders SET status = 'refunded', is_paid = 0, updated_at = datetime('now') WHERE id = ?").run(orderId);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'refunded', reason || 'Возврат голосом');
+
+    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    io.emit('order:update', updated);
+    res.json({ order: updated, refunded: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.get('/api/v1', (req, res) => res.json({ name: 'FoodChain API', version: '1.0', status: 'ok' }));
 };

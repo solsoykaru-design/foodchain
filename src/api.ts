@@ -1316,6 +1316,48 @@ export async function voiceOrder(text: string): Promise<any> {
   return request('/api/mobile/voice-order', { method: 'POST', body: JSON.stringify({ text }) });
 }
 
+// ─── Voice AI Waiter ─────────────────────────────────────────
+export async function voiceDraftCreate(waiterId: number, tableId?: number, tableName?: string): Promise<any> {
+  return request('/api/waiter/voice/draft', { method: 'POST', body: JSON.stringify({ waiterId, tableId, tableName }) });
+}
+
+export async function voiceDraftAddItems(draftId: string, items: any[], tableId?: number, tableName?: string): Promise<any> {
+  return request(`/api/waiter/voice/draft/${draftId}/items`, { method: 'POST', body: JSON.stringify({ items, tableId, tableName }) });
+}
+
+export async function voiceDraftGet(draftId: string): Promise<any> {
+  return request(`/api/waiter/voice/draft/${draftId}`);
+}
+
+export async function voiceDraftsList(waiterId?: number): Promise<any> {
+  const qs = waiterId ? `?waiterId=${waiterId}` : '';
+  return request(`/api/waiter/voice/drafts${qs}`);
+}
+
+export async function voiceDraftDelete(draftId: string): Promise<any> {
+  return request(`/api/waiter/voice/draft/${draftId}`, { method: 'DELETE' });
+}
+
+export async function voiceConfirm(draftId: string, waiterId: number, waiterName?: string): Promise<any> {
+  return request('/api/waiter/voice/confirm', { method: 'POST', body: JSON.stringify({ draftId, waiterId, waiterName }) });
+}
+
+export async function voicePay(orderId: number, paymentMethod?: string): Promise<any> {
+  return request('/api/waiter/voice/pay', { method: 'POST', body: JSON.stringify({ orderId, paymentMethod }) });
+}
+
+export async function voiceClose(orderId: number): Promise<any> {
+  return request('/api/waiter/voice/close', { method: 'POST', body: JSON.stringify({ orderId }) });
+}
+
+export async function voiceCancel(orderId?: number, draftId?: string): Promise<any> {
+  return request('/api/waiter/voice/cancel', { method: 'POST', body: JSON.stringify({ orderId, draftId }) });
+}
+
+export async function voiceRefund(orderId: number, reason?: string): Promise<any> {
+  return request('/api/waiter/voice/refund', { method: 'POST', body: JSON.stringify({ orderId, reason }) });
+}
+
 export async function createDineInOrder(data: any): Promise<any> {
   return request('/api/waiter/orders', { method: 'POST', body: JSON.stringify(data) });
 }
