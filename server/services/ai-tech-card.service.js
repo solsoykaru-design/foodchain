@@ -201,7 +201,7 @@ async function queryOpenCode(dishName, modelName) {
       'Authorization': `Bearer ${OPENCODE_API_KEY}`,
     },
     body,
-    timeout: isReasoning ? 65000 : OPENCODE_TIMEOUT,
+    timeout: isReasoning ? 85000 : OPENCODE_TIMEOUT,
   });
 
   const text = data.choices?.[0]?.message?.content || '';
@@ -1853,7 +1853,7 @@ async function generateTechCard(dishName) {
 
   return await Promise.race([
     generateTechCardInner(dishName, errors),
-    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 90000)),
+    new Promise(resolve => setTimeout(() => resolve(queryLocalDB(dishName)), 95000)),
   ]);
 }
 
@@ -1867,16 +1867,13 @@ async function generateTechCardInner(dishName, errors) {
     errors.push({ source: 'themealdb', error: e.message });
   }
 
-  // Try OpenCode Zen (all free models, from fastest to slowest)
+  // Try OpenCode Zen (deepseek handles Russian best)
   if (OPENCODE_API_KEY && OPENCODE_API_KEY.length > 10) {
-    const opencodeModels = ['deepseek-v4-flash-free', 'big-pickle', 'north-mini-code-free', 'nemotron-3-ultra-free', 'mimo-v2.5-free'];
-    for (const model of opencodeModels) {
-      try {
-        const result = await queryOpenCode(dishName, model);
-        return result;
-      } catch (e) {
-        errors.push({ source: `opencode/${model}`, error: e.message });
-      }
+    try {
+      const result = await queryOpenCode(dishName, 'deepseek-v4-flash-free');
+      return result;
+    } catch (e) {
+      errors.push({ source: 'opencode/deepseek-v4-flash-free', error: e.message });
     }
   }
 
