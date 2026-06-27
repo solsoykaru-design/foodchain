@@ -1857,15 +1857,13 @@ async function generateTechCardInner(dishName, errors) {
     errors.push({ source: 'themealdb', error: e.message });
   }
 
-  // Try OpenCode Zen (deepseek handles Russian best, retry up to 3 times)
+  // Try OpenCode Zen (north-mini-code-free is fast, english prompt with russian ingr names)
   if (OPENCODE_API_KEY && OPENCODE_API_KEY.length > 10) {
-    for (let i = 0; i < 3; i++) {
-      try {
-        const result = await queryOpenCode(dishName, 'deepseek-v4-flash-free');
-        return result;
-      } catch (e) {
-        errors.push({ source: `opencode/deepseek-v4-flash-free#${i + 1}`, error: e.message });
-      }
+    try {
+      const result = await queryOpenCode(dishName, 'north-mini-code-free');
+      return result;
+    } catch (e) {
+      errors.push({ source: 'opencode/north-mini-code-free', error: e.message });
     }
   }
 
