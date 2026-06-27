@@ -13,9 +13,9 @@ interface VoiceItem {
 
 interface ParsedResult {
   command: 'order' | 'confirm' | 'pay' | 'close' | 'cancel' | 'refund' | 'help' | 'unknown';
-  command_params: { order_number: number | null };
   waiter_nick: string | null;
   table_number: number | null;
+  check_id: number | null;
   items: VoiceItem[];
   unrecognized: string[];
 }
@@ -262,39 +262,39 @@ export default function VoiceOrder({ user, tables, onOrderCreated, onClose }: Pr
 
   // ─── Handle pay ─────────────────────────────────────────
   const handlePayCommand = async (parsed: ParsedResult) => {
-    const orderNum = parsed.command_params?.order_number;
-    if (!orderNum) {
-      speak('Укажите номер заказа. Например: оплата заказа 128');
-      showStatus('Укажите номер заказа', 'error');
+    const checkNum = parsed.check_id || parsed.table_number;
+    if (!checkNum) {
+      speak('Укажите номер чека. Например: оплата чека 128');
+      showStatus('Укажите номер чека', 'error');
       return;
     }
     try {
-      const result = await api.voicePay(orderNum);
-      speak(`Заказ ${orderNum} оплачен`);
-      showStatus(`💰 Заказ №${orderNum} оплачен`, 'success');
+      const result = await api.voicePay(checkNum);
+      speak(`Чек ${checkNum} оплачен`);
+      showStatus(`💰 Чек №${checkNum} оплачен`, 'success');
       onOrderCreated();
     } catch (e: any) {
-      speak(`Заказ ${orderNum} не найден`);
-      showStatus(`Заказ №${orderNum} не найден`, 'error');
+      speak(`Чек ${checkNum} не найден`);
+      showStatus(`Чек №${checkNum} не найден`, 'error');
     }
   };
 
   // ─── Handle close ───────────────────────────────────────
   const handleCloseCommand = async (parsed: ParsedResult) => {
-    const orderNum = parsed.command_params?.order_number;
-    if (!orderNum) {
-      speak('Укажите номер заказа. Например: закрыть заказ 128');
-      showStatus('Укажите номер заказа', 'error');
+    const checkNum = parsed.check_id || parsed.table_number;
+    if (!checkNum) {
+      speak('Укажите номер чека. Например: закрыть чек 128');
+      showStatus('Укажите номер чека', 'error');
       return;
     }
     try {
-      const result = await api.voiceClose(orderNum);
-      speak(`Заказ ${orderNum} закрыт`);
-      showStatus(`🔒 Заказ №${orderNum} закрыт`, 'success');
+      const result = await api.voiceClose(checkNum);
+      speak(`Чек ${checkNum} закрыт`);
+      showStatus(`🔒 Чек №${checkNum} закрыт`, 'success');
       onOrderCreated();
     } catch (e: any) {
-      speak(`Заказ ${orderNum} не найден`);
-      showStatus(`Заказ №${orderNum} не найден`, 'error');
+      speak(`Чек ${checkNum} не найден`);
+      showStatus(`Чек №${checkNum} не найден`, 'error');
     }
   };
 
@@ -319,20 +319,20 @@ export default function VoiceOrder({ user, tables, onOrderCreated, onClose }: Pr
 
   // ─── Handle refund ──────────────────────────────────────
   const handleRefundCommand = async (parsed: ParsedResult) => {
-    const orderNum = parsed.command_params?.order_number;
-    if (!orderNum) {
-      speak('Укажите номер заказа. Например: возврат по заказу 128');
-      showStatus('Укажите номер заказа', 'error');
+    const checkNum = parsed.check_id || parsed.table_number;
+    if (!checkNum) {
+      speak('Укажите номер чека. Например: возврат по чеку 128');
+      showStatus('Укажите номер чека', 'error');
       return;
     }
     try {
-      const result = await api.voiceRefund(orderNum, 'Возврат голосом');
-      speak(`Возврат по заказу ${orderNum} выполнен`);
-      showStatus(`↩️ Возврат по заказу №${orderNum} выполнен`, 'success');
+      const result = await api.voiceRefund(checkNum, 'Возврат голосом');
+      speak(`Возврат по чеку ${checkNum} выполнен`);
+      showStatus(`↩️ Возврат по чеку №${checkNum} выполнен`, 'success');
       onOrderCreated();
     } catch (e: any) {
-      speak(`Заказ ${orderNum} не найден`);
-      showStatus(`Заказ №${orderNum} не найден`, 'error');
+      speak(`Чек ${checkNum} не найден`);
+      showStatus(`Чек №${checkNum} не найден`, 'error');
     }
   };
 

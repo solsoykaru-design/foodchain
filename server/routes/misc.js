@@ -2533,49 +2533,45 @@ app.post('/api/waiter/voice/confirm', async (req, res) => {
 
 app.post('/api/waiter/voice/pay', (req, res) => {
   try {
-    const { orderId, paymentMethod } = req.body;
-    if (!orderId) return res.status(400).json({ error: 'orderId required' });
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
-    if (order.status === 'paid') return res.json({ order, message: 'Уже оплачен' });
+    const { checkId, paymentMethod } = req.body;
+    if (!checkId) return res.status(400).json({ error: 'checkId required' });
+    const check = db.prepare('SELECT * FROM dine_in_checks WHERE id = ?').get(checkId);
+    if (!check) return res.status(404).json({ error: 'Чек не найден' });
 
-    db.prepare("UPDATE orders SET payment_method = ?, is_paid = 1, status = 'paid', updated_at = datetime('now') WHERE id = ?")
-      .run(paymentMethod || 'cash', orderId);
-    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'paid', 'Оплачено голосом');
+    const orders = db.prepare("SELECT * FROM orders WHERE check_id = ? AND status NOT IN ('closed','cancelled')").all(checkId);
+    if (!orders.length) return res.status(404).json({ error: 'Нет активных заказов в чеке' });
 
-    if (order.check_id) {
-      const otherOrders = db.prepare("SELECT * FROM orders WHERE check_id = ? AND id != ? AND status NOT IN ('closed','cancelled')").all(order.check_id, orderId);
-      if (otherOrders.reduce((s, o) => s + o.total, 0) === 0) {
-        db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(order.check_id);
-      }
+    for (const order of orders) {
+      db.prepare("UPDATE orders SET payment_method = ?, is_paid = 1, status = 'paid', updated_at = datetime('now') WHERE id = ?")
+        .run(paymentMethod || 'cash', order.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(order.id, 'paid', 'Оплачено голосом');
     }
 
-    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    io.emit('order:update', updated);
-    res.json({ order: updated });
+    db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(checkId);
+
+    const updated = db.prepare('SELECT * FROM orders WHERE check_id = ?').all(checkId);
+    updated.forEach(o => io.emit('order:update', o));
+    res.json({ orders: updated, checkId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
 app.post('/api/waiter/voice/close', (req, res) => {
   try {
-    const { orderId } = req.body;
-    if (!orderId) return res.status(400).json({ error: 'orderId required' });
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    const { checkId } = req.body;
+    if (!checkId) return res.status(400).json({ error: 'checkId required' });
+    const check = db.prepare('SELECT * FROM dine_in_checks WHERE id = ?').get(checkId);
+    if (!check) return res.status(404).json({ error: 'Чек не найден' });
 
-    db.prepare("UPDATE orders SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(orderId);
-    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'closed', 'Закрыт голосом');
-
-    if (order.check_id) {
-      const remaining = db.prepare("SELECT * FROM orders WHERE check_id = ? AND id != ? AND status NOT IN ('closed','cancelled')").all(order.check_id, orderId);
-      if (remaining.length === 0) {
-        db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(order.check_id);
-      }
+    const orders = db.prepare("SELECT * FROM orders WHERE check_id = ? AND status NOT IN ('closed','cancelled')").all(checkId);
+    for (const order of orders) {
+      db.prepare("UPDATE orders SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(order.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(order.id, 'closed', 'Закрыт голосом');
     }
+    db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(checkId);
 
-    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    io.emit('order:update', updated);
-    res.json({ order: updated });
+    const updated = db.prepare('SELECT * FROM orders WHERE check_id = ?').all(checkId);
+    updated.forEach(o => io.emit('order:update', o));
+    res.json({ orders: updated, checkId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
@@ -2601,17 +2597,21 @@ app.post('/api/waiter/voice/cancel', (req, res) => {
 
 app.post('/api/waiter/voice/refund', (req, res) => {
   try {
-    const { orderId, reason } = req.body;
-    if (!orderId) return res.status(400).json({ error: 'orderId required' });
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    const { checkId, reason } = req.body;
+    if (!checkId) return res.status(400).json({ error: 'checkId required' });
+    const check = db.prepare('SELECT * FROM dine_in_checks WHERE id = ?').get(checkId);
+    if (!check) return res.status(404).json({ error: 'Чек не найден' });
 
-    db.prepare("UPDATE orders SET status = 'refunded', is_paid = 0, updated_at = datetime('now') WHERE id = ?").run(orderId);
-    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'refunded', reason || 'Возврат голосом');
+    const orders = db.prepare("SELECT * FROM orders WHERE check_id = ? AND status NOT IN ('closed','cancelled','refunded')").all(checkId);
+    for (const order of orders) {
+      db.prepare("UPDATE orders SET status = 'refunded', is_paid = 0, updated_at = datetime('now') WHERE id = ?").run(order.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(order.id, 'refunded', reason || 'Возврат голосом');
+    }
+    db.prepare("UPDATE dine_in_checks SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(checkId);
 
-    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    io.emit('order:update', updated);
-    res.json({ order: updated, refunded: true });
+    const updated = db.prepare('SELECT * FROM orders WHERE check_id = ?').all(checkId);
+    updated.forEach(o => io.emit('order:update', o));
+    res.json({ orders: updated, refunded: true, checkId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 

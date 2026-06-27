@@ -1342,20 +1342,20 @@ export async function voiceConfirm(draftId: string, waiterId: number, waiterName
   return request('/api/waiter/voice/confirm', { method: 'POST', body: JSON.stringify({ draftId, waiterId, waiterName }) });
 }
 
-export async function voicePay(orderId: number, paymentMethod?: string): Promise<any> {
-  return request('/api/waiter/voice/pay', { method: 'POST', body: JSON.stringify({ orderId, paymentMethod }) });
+export async function voicePay(checkId: number, paymentMethod?: string): Promise<any> {
+  return request('/api/waiter/voice/pay', { method: 'POST', body: JSON.stringify({ checkId, paymentMethod }) });
 }
 
-export async function voiceClose(orderId: number): Promise<any> {
-  return request('/api/waiter/voice/close', { method: 'POST', body: JSON.stringify({ orderId }) });
+export async function voiceClose(checkId: number): Promise<any> {
+  return request('/api/waiter/voice/close', { method: 'POST', body: JSON.stringify({ checkId }) });
 }
 
 export async function voiceCancel(orderId?: number, draftId?: string): Promise<any> {
   return request('/api/waiter/voice/cancel', { method: 'POST', body: JSON.stringify({ orderId, draftId }) });
 }
 
-export async function voiceRefund(orderId: number, reason?: string): Promise<any> {
-  return request('/api/waiter/voice/refund', { method: 'POST', body: JSON.stringify({ orderId, reason }) });
+export async function voiceRefund(checkId: number, reason?: string): Promise<any> {
+  return request('/api/waiter/voice/refund', { method: 'POST', body: JSON.stringify({ checkId, reason }) });
 }
 
 export async function createDineInOrder(data: any): Promise<any> {
