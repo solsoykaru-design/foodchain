@@ -202,7 +202,7 @@ function generateToken(user, secret) {
 function verifyToken(token, secret) {
   try {
     const jwt = require('jsonwebtoken');
-    return jwt.verify(token, secret);
+    return jwt.verify(token, secret, { algorithms: ['HS256'] });
   } catch { return null; }
 }
 

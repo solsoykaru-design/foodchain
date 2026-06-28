@@ -30,12 +30,15 @@ const { seedDemoData } = require(path.join(__dirname, 'services', 'seed-demo-dat
 const supplierPortal = require(path.join(__dirname, 'services', 'supplier-portal.service.js'));
 const backup = require(path.join(__dirname, 'backup.js'));
 
-const JWT_SECRET = process.env.JWT_SECRET || 'foodchain-staff-secret';
-const PORTAL_SYNC_KEY = process.env.PORTAL_SYNC_KEY || 'portal-sync-key-123';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET environment variable is not set'); process.exit(1); }
+
+const PORTAL_SYNC_KEY = process.env.PORTAL_SYNC_KEY;
+if (!PORTAL_SYNC_KEY) { console.error('FATAL: PORTAL_SYNC_KEY environment variable is not set'); process.exit(1); }
 
 // --- Crash on missing env vars in production ---
 if (process.env.NODE_ENV === 'production') {
-  const required = ['JWT_SECRET', 'SUPPLIER_JWT_SECRET'];
+  const required = ['SUPPLIER_JWT_SECRET'];
   for (const key of required) {
     if (!process.env[key]) {
       console.error(`FATAL: ${key} environment variable is not set`);
@@ -271,7 +274,8 @@ if (fs.existsSync(portalPath)) {
       console.log('Portal backend mounted at /portal');
     })
     .catch(e => {
-      console.error('Failed to load portal backend:', e.message);
+      console.error('Failed to load portal backend:', e);
+      console.error('Portal stack:', e.stack);
     });
 }
 
@@ -380,10 +384,13 @@ db.prepare = function(sqlText) {
       modified = modified.replace(valMatch[1], valMatch[1] + ', current_tenant_id()');
     }
   } else if (firstWord === 'SELECT' || firstWord === 'UPDATE' || firstWord === 'DELETE') {
-    const hasWhere = upper.indexOf('WHERE') !== -1 && upper.indexOf('WHERE') < insertPos;
+    const whereIdx = upper.indexOf('WHERE');
+    const hasWhere = whereIdx !== -1 && whereIdx < insertPos;
     const tail = modified.slice(insertPos).trim();
     if (hasWhere) {
-      modified = modified.slice(0, insertPos).trimEnd() + ' AND tenant_id = current_tenant_id() ' + tail;
+      const beforeWhere = modified.slice(0, whereIdx).trimEnd();
+      const whereClause = modified.slice(whereIdx + 5, insertPos).trim();
+      modified = beforeWhere + ' WHERE (' + whereClause + ') AND tenant_id = current_tenant_id() ' + tail;
     } else {
       modified = modified.slice(0, insertPos).trimEnd() + ' WHERE tenant_id = current_tenant_id() ' + tail;
     }
@@ -405,7 +412,7 @@ function authenticateToken(req, res, next) {
   if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
   try {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     req.user = decoded;
     req.tenant_id = decoded.tenantId || decoded.tenant_id;
     // Update AsyncLocalStorage so current_tenant_id() returns the real tenant_id from JWT
@@ -429,20 +436,17 @@ function requireRole(...roles) {
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
 function ensureTenantId(req, res, next) {
   if (req.tenant_id) return next();
-  // Try to extract tenant_id from JWT if present
   const authHeader = req.headers.authorization;
   if (authHeader) {
     try {
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       req.tenant_id = decoded.tenantId || decoded.tenant_id;
-    } catch {}
+    } catch {
+      return res.status(401).json({ error: 'Недействительный токен' });
+    }
   }
-  if (!req.tenant_id) {
-    req.tenant_id = req.query?.tenant_id || 1;
-    if (typeof req.tenant_id === 'string') req.tenant_id = parseInt(req.tenant_id, 10);
-    if (!req.tenant_id || isNaN(req.tenant_id)) req.tenant_id = 1;
-  }
+  if (!req.tenant_id) return res.status(401).json({ error: 'Требуется авторизация' });
   next();
 }
 
@@ -3196,7 +3200,7 @@ function authenticateBrandingUpload(req, res, next) {
   if (!authHeader) return res.status(401).json({ error: 'Auth required' });
   try {
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     req.tenantId = payload.tenantId || payload.tenant_id || 'unknown';
     next();
   } catch {
@@ -4077,7 +4081,7 @@ function extractTenant(req) {
   if (!authHeader) return 1;
   const token = authHeader.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     return payload.tenantId || payload.tenant_id || 1;
   } catch { return 1; }
 }
@@ -4451,6 +4455,12 @@ require('./routes/telegram.js')(app, db, config);
 require('./routes/yuma-import.js')(app, db, config);
 require('./routes/mobile.js')(app, db, { safeError });
 require('./routes/mobile-push.js')(app, db, { safeError });
+
+// ─── Global error handler ────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('[GlobalError]', err?.message || err, err?.stack || '');
+  res.status(500).json({ error: safeError(err?.message || 'Внутренняя ошибка сервера') });
+});
 
 // ─── Backup endpoints ────────────────────────────────────────────
 app.post('/api/backup', (req, res) => {

@@ -48,7 +48,7 @@ function startPolling() {
   polling = true;
   const poll = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/orders?t=${Date.now()}`);
+      const res = await apiFetch(`${API_BASE}/api/orders?t=${Date.now()}`);
       if (res.ok) {
         const orders: Order[] = await res.json();
         if (knownOrders.size === 0) {
@@ -112,6 +112,13 @@ function serveFromCacheOrThrow(path: string, fallbackMsg: string) {
 
 const REQUEST_TIMEOUT = 25000;
 
+function apiFetch(url: string, options?: RequestInit): Promise<Response> {
+  const token = localStorage.getItem('fc_token');
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers: { ...headers, ...options?.headers } });
+}
+
 export async function request(path: string, options?: RequestInit) {
   const token = localStorage.getItem('fc_token');
   const authHeaders: Record<string, string> = {};
@@ -119,7 +126,7 @@ export async function request(path: string, options?: RequestInit) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await apiFetch(`${API_BASE}${path}`, {
       ...options,
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...authHeaders, ...options?.headers },
@@ -284,10 +291,6 @@ export async function splitOrder(id: number, splits: any[]): Promise<any> { retu
 export async function getOrderSplits(id: number): Promise<any> { return request(`/api/orders/${id}/splits`); }
 export async function payOrderSplit(splitId: number, method: string): Promise<any> { return request(`/api/order-splits/${splitId}/pay`, { method: 'POST', body: JSON.stringify({ payment_method: method }) }); }
 
-export async function changeOrderStatus(id: number, status: string, note?: string): Promise<Order> {
-  return request(`/api/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
-}
-
 // Users
 export async function getUsers(search?: string) {
   const qs = search ? `?search=${encodeURIComponent(search)}` : '';
@@ -351,12 +354,7 @@ export async function resetBranding(): Promise<{ branding: any; message: string 
 export async function uploadBrandingImage(file: File): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const token = localStorage.getItem('fc_token');
-  const res = await fetch(`${API_BASE}/api/branding/upload`, {
-    method: 'POST',
-    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    body: formData,
-  });
+  const res = await apiFetch(`${API_BASE}/api/branding/upload`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
   return res.json();
 }
@@ -377,12 +375,7 @@ export async function resetSiteSettings(): Promise<{ settings: any; message: str
 export async function uploadSiteImage(file: File): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const token = localStorage.getItem('fc_token');
-  const res = await fetch(`${API_BASE}/api/site-settings/upload`, {
-    method: 'POST',
-    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    body: formData,
-  });
+  const res = await apiFetch(`${API_BASE}/api/site-settings/upload`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
   return res.json();
 }
@@ -507,7 +500,7 @@ export async function copyTechCard(id: number, validFrom?: string): Promise<any>
 }
 
 export async function exportTechCardsXlsx(): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/api/tech-cards/export`);
+  const res = await apiFetch(`${API_BASE}/api/tech-cards/export`);
   if (!res.ok) throw new Error('Ошибка экспорта');
   return res.blob();
 }
@@ -765,7 +758,7 @@ export async function createFinanceTransaction(data: any): Promise<any> {
 }
 
 export async function getFinanceReport(from: string, to: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/api/finance/report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  const res = await apiFetch(`${API_BASE}/api/finance/report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Ошибка загрузки отчёта');
@@ -937,7 +930,7 @@ export async function deleteCertificate(id: number): Promise<void> {
 export async function uploadFile(file: File): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Ошибка загрузки файла' }));
     throw new Error(err.error || 'Ошибка загрузки файла');
@@ -1058,7 +1051,7 @@ export async function deleteDocument(id: number): Promise<void> {
 export async function importDocuments(file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/documents/import`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${API_BASE}/api/documents/import`, { method: 'POST', body: formData });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Ошибка импорта' }));
     throw new Error(err.error || 'Ошибка импорта');
@@ -1470,7 +1463,11 @@ export async function tenantLogin(tenantName: string, login: string, password: s
   return request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) });
 }
 
+let _searchTimer: ReturnType<typeof setTimeout> | null = null;
 export async function searchTenants(query: string): Promise<any[]> {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  await new Promise<void>(resolve => { _searchTimer = setTimeout(resolve, 350); });
+  if (!query.trim()) return [];
   return request(`/api/tenants/search?q=${encodeURIComponent(query)}`);
 }
 
@@ -1581,7 +1578,9 @@ export async function sendTestEmail(to: string, subject: string, html: string): 
 // ─── Bank Statement ──────────────────────────────────
 export async function uploadBankStatement(file: File): Promise<any> {
   const fd = new FormData(); fd.append('file', file);
-  return request('/api/finance/bank-statement/upload', { method: 'POST', body: fd });
+  const res = await apiFetch(`${API_BASE}/api/finance/bank-statement/upload`, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ error: 'Upload failed' }))).error);
+  return res.json();
 }
 export async function getBankStatementSummary(): Promise<any> {
   return request('/api/finance/bank-statement/summary');
@@ -1816,12 +1815,7 @@ export async function batchUpdateAppVisibility(updates: any[]): Promise<any> {
 export async function uploadAppImage(file: File): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const token = localStorage.getItem('fc_token');
-  const res = await fetch(`${API_BASE}/api/app/upload`, {
-    method: 'POST',
-    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    body: formData,
-  });
+  const res = await apiFetch(`${API_BASE}/api/app/upload`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
   return res.json();
 }
@@ -1932,7 +1926,7 @@ export async function markChatMessageRead(chatId: number, messageId: number): Pr
 export async function uploadChatFile(file: File): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/chats/upload`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${API_BASE}/api/chats/upload`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error('Upload failed');
   return res.json();
 }
@@ -1980,7 +1974,7 @@ export async function toggleImportantStaffChat(chatId: number, isImportant: bool
 export async function uploadStaffChatFile(file: File): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/staff-chats/upload`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${API_BASE}/api/staff-chats/upload`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error('Upload failed');
   return res.json();
 }
@@ -2076,31 +2070,31 @@ export async function getReturningCouriers(): Promise<any[]> {
 // ─── Balance Sheet / Double-Entry Accounting ──────────────
 
 export async function getAccounts() {
-  const res = await fetch(`${API_BASE}/api/accounts`);
+  const res = await apiFetch(`${API_BASE}/api/accounts`);
   if (!res.ok) throw new Error('Failed to fetch accounts');
   return res.json();
 }
 
 export async function createAccount(data: { code: string; name: string; type: string; parent_id?: number; description?: string }) {
-  const res = await fetch(`${API_BASE}/api/accounts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const res = await apiFetch(`${API_BASE}/api/accounts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Failed to create account');
   return res.json();
 }
 
 export async function updateAccount(id: number, data: { code: string; name: string; type: string; parent_id?: number; description?: string }) {
-  const res = await fetch(`${API_BASE}/api/accounts/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const res = await apiFetch(`${API_BASE}/api/accounts/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Failed to update account');
   return res.json();
 }
 
 export async function deleteAccount(id: number) {
-  const res = await fetch(`${API_BASE}/api/accounts/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/api/accounts/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete account');
   return res.json();
 }
 
 export async function createJournalEntry(data: { entry_date: string; description?: string; reference_type?: string; reference_id?: number; created_by?: string; lines: Array<{ account_id: number; debit?: number; credit?: number; description?: string }> }) {
-  const res = await fetch(`${API_BASE}/api/journal/entries`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const res = await apiFetch(`${API_BASE}/api/journal/entries`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to create entry'); }
   return res.json();
 }
@@ -2111,13 +2105,13 @@ export async function getJournalEntries(params?: { from?: string; to?: string; l
   if (params?.to) q.set('to', params.to);
   if (params?.limit) q.set('limit', String(params.limit));
   if (params?.offset) q.set('offset', String(params.offset));
-  const res = await fetch(`${API_BASE}/api/journal/entries?${q}`);
+  const res = await apiFetch(`${API_BASE}/api/journal/entries?${q}`);
   if (!res.ok) throw new Error('Failed to fetch entries');
   return res.json();
 }
 
 export async function getJournalEntry(id: number) {
-  const res = await fetch(`${API_BASE}/api/journal/entries/${id}`);
+  const res = await apiFetch(`${API_BASE}/api/journal/entries/${id}`);
   if (!res.ok) throw new Error('Failed to fetch entry');
   return res.json();
 }
@@ -2126,7 +2120,7 @@ export async function getTrialBalance(params?: { from?: string; to?: string }) {
   const q = new URLSearchParams();
   if (params?.from) q.set('from', params.from);
   if (params?.to) q.set('to', params.to);
-  const res = await fetch(`${API_BASE}/api/reports/trial-balance?${q}`);
+  const res = await apiFetch(`${API_BASE}/api/reports/trial-balance?${q}`);
   if (!res.ok) throw new Error('Failed to fetch trial balance');
   return res.json();
 }
@@ -2134,7 +2128,7 @@ export async function getTrialBalance(params?: { from?: string; to?: string }) {
 export async function getBalanceSheet(params?: { date?: string }) {
   const q = new URLSearchParams();
   if (params?.date) q.set('date', params.date);
-  const res = await fetch(`${API_BASE}/api/reports/balance-sheet?${q}`);
+  const res = await apiFetch(`${API_BASE}/api/reports/balance-sheet?${q}`);
   if (!res.ok) throw new Error('Failed to fetch balance sheet');
   return res.json();
 }
@@ -2151,7 +2145,7 @@ export async function getYandexAfishaStats(params?: any): Promise<any> { return 
 export async function getBarcodeInventory(): Promise<any> { return request('/api/inventory-items?barcode=not_null&limit=1000'); }
 export async function getBarcodeDishes(): Promise<any> { return request('/api/dishes?barcode=not_null&limit=1000'); }
 export async function generateBarcode(): Promise<BarcodeGenerateResult> { return request('/api/barcode/generate', { method: 'POST' }); }
-export async function printBarcodes(ids: number[], type?: string): Promise<void> { window.open(`/api/barcode/print?ids=${ids.join(',')}${type ? `&type=${type}` : ''}`, '_blank'); }
+export async function printBarcodes(ids: number[], type?: string): Promise<void> { const token = localStorage.getItem('fc_token'); window.open(`/api/barcode/print?ids=${ids.join(',')}${type ? `&type=${type}` : ''}${token ? `&token=${token}` : ''}`, '_blank'); }
 export async function lookupByBarcode(barcode: string): Promise<any> { return request(`/api/inventory/by-barcode/${encodeURIComponent(barcode)}`); }
 export async function lookupDishByBarcode(barcode: string): Promise<any> { return request(`/api/dishes?barcode=${encodeURIComponent(barcode)}`); }
 

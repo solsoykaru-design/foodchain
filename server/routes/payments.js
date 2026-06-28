@@ -62,7 +62,7 @@ app.post('/api/terminal/cancel/:transactionId', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const tenantId = payload.tenantId || payload.tenant_id || 1;
     const result = await terminalIntegration.cancelPayment(db, tenantId, req.params.transactionId, io);
     res.json(result);

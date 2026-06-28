@@ -366,7 +366,7 @@ app.post('/api/finance/bank-statement/upload', multer({ storage: multer.memorySt
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
     const txns = bankStmt.parseStatement(req.file.path);
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const insert = db.prepare('INSERT INTO bank_transactions (tenant_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?)');
     const t = db.transaction(() => {
       for (const tx of txns) {
@@ -388,19 +388,19 @@ app.post('/api/finance/bank-statement/upload', multer({ storage: multer.memorySt
 app.get('/api/finance/bank-statement/summary', (req, res) => {
   try {
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
-    res.json(bankStmt.getReconciliationSummary(db, req.query.tenant_id || 1));
+    res.json(bankStmt.getReconciliationSummary(db, req.tenant_id || 1));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/finance/bank-statement/transactions', (req, res) => {
   try {
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
-    res.json(toCamelCaseArray(bankStmt.getTransactions(db, req.query.tenant_id || 1)));
+    res.json(toCamelCaseArray(bankStmt.getTransactions(db, req.tenant_id || 1)));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.delete('/api/finance/bank-statement/clear', (req, res) => {
   try {
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
-    bankStmt.clearTransactions(db, req.query.tenant_id || 1);
+    bankStmt.clearTransactions(db, req.tenant_id || 1);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -408,21 +408,21 @@ app.get('/api/finance/tax/sales-ledger', (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
     const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
-    res.json(taxAccountingService.getSalesLedger(db, year, month, req.query.tenant_id || 1));
+    res.json(taxAccountingService.getSalesLedger(db, year, month, req.tenant_id || 1));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/finance/tax/purchase-ledger', (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
     const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
-    res.json(taxAccountingService.getPurchaseLedger(db, year, month, req.query.tenant_id || 1));
+    res.json(taxAccountingService.getPurchaseLedger(db, year, month, req.tenant_id || 1));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/finance/tax/declaration', (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
     const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
-    res.json(taxAccountingService.getVatDeclaration(db, year, month, req.query.tenant_id || 1));
+    res.json(taxAccountingService.getVatDeclaration(db, year, month, req.tenant_id || 1));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/audit-logs', (req, res) => {

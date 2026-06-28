@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>FoodChain (MIRUZ) — Полный аудит</title>
+<style>
+  @page { margin: 20mm; size: A4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a2e; padding: 40px; }
+  h1 { font-size: 24pt; color: #16213e; border-bottom: 4px solid #e94560; padding-bottom: 10px; margin-bottom: 20px; }
+  h2 { font-size: 18pt; color: #16213e; margin: 30px 0 15px; padding-bottom: 6px; border-bottom: 2px solid #e94560; }
+  h3 { font-size: 14pt; color: #0f3460; margin: 20px 0 10px; }
+  .meta { color: #666; font-size: 10pt; margin-bottom: 25px; }
+  
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 9pt; font-weight: 700; margin-right: 6px; }
+  .badge-critical { background: #e94560; color: #fff; }
+  .badge-high { background: #f39c12; color: #fff; }
+  .badge-medium { background: #3498db; color: #fff; }
+  .badge-low { background: #95a5a6; color: #fff; }
+
+  .issue { border: 1px solid #ddd; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .issue-critical { border-left: 5px solid #e94560; background: #fff5f5; }
+  .issue-high { border-left: 5px solid #f39c12; background: #fffaf0; }
+  .issue-medium { border-left: 5px solid #3498db; background: #f0f8ff; }
+  .issue-low { border-left: 5px solid #95a5a6; background: #fafafa; }
+
+  .issue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .issue-id { font-weight: 700; font-size: 12pt; }
+  .issue-module { font-size: 9pt; color: #888; }
+  .issue-desc { margin: 6px 0; color: #333; }
+  .issue-file { font-family: 'Consolas', 'Courier New', monospace; font-size: 9pt; background: #f4f4f4; padding: 2px 6px; border-radius: 3px; color: #c0392b; }
+  .issue-fix { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ddd; color: #27ae60; font-size: 10pt; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; page-break-inside: avoid; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; font-size: 10pt; }
+  th { background: #16213e; color: #fff; font-weight: 600; }
+  tr:nth-child(even) { background: #f9f9f9; }
+
+  .summary-grid { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
+  .summary-card { flex: 1; min-width: 120px; padding: 16px; border-radius: 8px; text-align: center; color: #fff; }
+  .summary-card.critical { background: #e94560; }
+  .summary-card.high { background: #f39c12; }
+  .summary-card.medium { background: #3498db; }
+  .summary-card.low { background: #95a5a6; }
+  .summary-card.total { background: #16213e; }
+  .summary-card .num { font-size: 28pt; font-weight: 700; }
+  .summary-card .label { font-size: 10pt; opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<h1>FoodChain (MIRUZ) — Полный аудит качества и безопасности</h1>
+<p class="meta">Дата: 28 июня 2026 | Аудитор: QA Lead / Архитектор | Тип: Предрелизный аудит</p>
+<p class="meta">Проанализировано: 56+ файлов бэкенда, 12+ файлов фронтенда, инфраструктура, БД, миграции, Docker, Render</p>
+
+<!-- ===== SUMMARY ===== -->
+<h2>Сводка</h2>
+<div class="summary-grid">
+  <div class="summary-card critical"><div class="num">10</div><div class="label">Критические</div></div>
+  <div class="summary-card high"><div class="num">15</div><div class="label">Высокие</div></div>
+  <div class="summary-card medium"><div class="num">10</div><div class="label">Средние</div></div>
+  <div class="summary-card low"><div class="num">6</div><div class="label">Низкие</div></div>
+  <div class="summary-card total"><div class="num">41</div><div class="label">Всего</div></div>
+</div>
+
+<table>
+  <tr><th>Метрика</th><th>Значение</th></tr>
+  <tr><td>Всего ошибок</td><td>41</td></tr>
+  <tr><td>Блокируют запуск (Critical)</td><td>10</td></tr>
+  <tr><td>Общее время исправления</td><td>~19 часов</td></tr>
+  <tr><td>Время топ-10 критических</td><td>~6 часов</td></tr>
+</table>
+
+<!-- ===== TOP 10 ===== -->
+<h2>Топ-10 для немедленного исправления</h2>
+<table>
+  <tr><th>#</th><th>ID</th><th>Описание</th><th>Время</th></tr>
+  <tr><td>1</td><td>К-4</td><td>Реальные секреты в .env закоммичены в git</td><td>30 мин</td></tr>
+  <tr><td>2</td><td>К-1</td><td>Хардкодный бэкдор admin:admin</td><td>15 мин</td></tr>
+  <tr><td>3</td><td>К-3</td><td>tenant_id из query-параметра (обход изоляции)</td><td>30 мин</td></tr>
+  <tr><td>4</td><td>К-5</td><td>Нет глобального обработчика ошибок Express</td><td>15 мин</td></tr>
+  <tr><td>5</td><td>К-7</td><td>SQL OR-приоритет ломает tenant-изоляцию</td><td>1 час</td></tr>
+  <tr><td>6</td><td>К-8</td><td>40+ эндпоинтов используют query.tenant_id вместо req.tenant_id</td><td>1.5 часа</td></tr>
+  <tr><td>7</td><td>К-2</td><td>Хардкодный JWT_SECRET fallback</td><td>5 мин</td></tr>
+  <tr><td>8</td><td>В-1</td><td>JWT verify без указания алгоритма (16 вызовов)</td><td>15 мин</td></tr>
+  <tr><td>9</td><td>В-3</td><td>Пароль суперадмина в console.log при старте</td><td>5 мин</td></tr>
+  <tr><td>10</td><td>К-10</td><td>Mobile.js — нулевая tenant-изоляция</td><td>2 часа</td></tr>
+</table>
+
+<!-- ===== CRITICAL ===== -->
+<h2>🔴 Критические ошибки (10)</h2>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-1</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Аутентификация</span></span>
+  </div>
+  <div class="issue-desc"><strong>Хардкодный бэкдор admin:admin</strong> — Любой, кто знает <code>admin:admin</code>, получает суперадминский JWT. Аккаунт создаётся на лету.</div>
+  <div class="issue-file">server/routes/auth.js:293</div>
+  <div class="issue-fix">✅ Удалить блок <code>if (username === 'admin' && password === 'admin')</code>. Использовать только нормальную аутентификацию через БД.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-2</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Аутентификация</span></span>
+  </div>
+  <div class="issue-desc"><strong>Хардкодный JWT_SECRET fallback</strong> — Если <code>JWT_SECRET</code> не задан в env, используется <code>'foodchain-staff-secret'</code>. Любой может подделать токен.</div>
+  <div class="issue-file">server/index.js:33</div>
+  <div class="issue-fix">✅ Убрать fallback. <code>process.exit(1)</code> если секрет не задан в любом режиме, а не только в production.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-3</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Мультитенантность</span></span>
+  </div>
+  <div class="issue-desc"><strong>tenant_id из query-параметра</strong> — Неавторизованные запросы могут указать <code>?tenant_id=5</code> и получить доступ к данным любого арендатора.</div>
+  <div class="issue-file">server/index.js:441-445</div>
+  <div class="issue-fix">✅ Никогда не брать tenant_id из query-параметров. Использовать только из JWT. Если токена нет — вернуть 401.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-4</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Реальные секреты в .env закоммичены в git</strong> — JWT_SECRET, TELEGRAM_BOT_TOKEN, SUPABASE_SERVICE_ROLE_KEY, PAYME_MERCHANT_ID, OPENCODE_API_KEY — все в открытом виде.</div>
+  <div class="issue-file">.env, portal/backend/.env, server/portal-backend/.env</div>
+  <div class="issue-fix">✅ Немедленно удалить из git-истории (BFG Repo-Cleaner). Сбросить все скомпрометированные ключи. Добавить .env в .gitignore.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-5</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Backend</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет глобального обработчика ошибок Express</strong> — При любой синхронной ошибке сервер возвращает HTML-страницу со стектрейсом или падает.</div>
+  <div class="issue-file">server/index.js — отсутствует <code>app.use((err, req, res, next) => {...})</code></div>
+  <div class="issue-fix">✅ Добавить 4-параметровый error handler, возвращающий JSON <code>{ error: '...' }</code> с safeError().</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-6</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Backend</span></span>
+  </div>
+  <div class="issue-desc"><strong>7+ роутов без try/catch</strong> — GET /api/orders, GET /api/orders/track, POST /api/couriers, GET /api/notifications и другие не имеют обработки ошибок. При ошибке SQL сервер подвисает.</div>
+  <div class="issue-file">routes/orders.js:5,23,35; routes/misc.js:48,55,64</div>
+  <div class="issue-fix">✅ Обернуть все route handlers в try/catch с возвратом 500 + JSON.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-7</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Мультитенантность</span></span>
+  </div>
+  <div class="issue-desc"><strong>SQL OR-приоритет ломает tenant-изоляцию</strong> — Авто-инжекция <code>AND tenant_id = current_tenant_id()</code> добавляется БЕЗ скобок. <code>WHERE a OR b</code> → <code>WHERE a OR (b AND tenant_id)</code> — данные из других tenant'ов утекают через условие ДО OR.</div>
+  <div class="issue-file">server/index.js:383-388</div>
+  <div class="issue-fix">✅ Добавлять <code>AND tenant_id</code> с правильными скобками: оборачивать оригинальный WHERE в <code>(...)</code> или переписать парсер SQL.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-8</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Мультитенантность</span></span>
+  </div>
+  <div class="issue-desc"><strong>40+ эндпоинтов используют req.query.tenant_id вместо req.tenant_id</strong> — Во всех админ-роутах, телеграм-роутах, misc-роутах tenant_id берётся из URL-параметра, а не из JWT.</div>
+  <div class="issue-file">routes/admin.js (строки 40,46,70,77,84,90…), routes/telegram.js, routes/misc.js, routes/staff.js</div>
+  <div class="issue-fix">✅ Заменить все <code>req.query.tenant_id || 1</code> на <code>req.tenant_id</code>. Если req.tenant_id не задан — вернуть 401.</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-9</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Хардкодный Render URL в десктоп-админке и мобильном приложении</strong> — <code>https://foodchain-qpxh.onrender.com</code> зашит в коде. При смене домена всё ломается.</div>
+  <div class="issue-file">desktop-admin/preload.js:3, mobile/services/auth.tsx:4</div>
+  <div class="issue-fix">✅ Использовать переменные окружения (<code>process.env.API_URL</code>, <code>import.meta.env.VITE_API_URL</code>).</div>
+</div>
+
+<div class="issue issue-critical">
+  <div class="issue-header">
+    <span class="issue-id">К-10</span>
+    <span><span class="badge badge-critical">Critical</span><span class="issue-module">Мультитенантность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Mobile.js — нулевая tenant-изоляция</strong> — Весь модуль мобильных пользователей (<code>mobile_users</code>, <code>mobile_payments</code>, <code>dish_catalog</code>) не использует tenant_id вообще. Все данные всех арендаторов перемешаны.</div>
+  <div class="issue-file">server/routes/mobile.js — весь файл</div>
+  <div class="issue-fix">✅ Добавить колонку tenant_id во все таблицы mobile-модуля. Добавить фильтр по tenant_id во все запросы.</div>
+</div>
+
+<!-- ===== HIGH ===== -->
+<h2>🟠 Высокий приоритет (15)</h2>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-1</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Аутентификация</span></span>
+  </div>
+  <div class="issue-desc"><strong>JWT verify без указания алгоритма</strong> — Все 16 вызовов <code>jwt.verify()</code> не указывают <code>{ algorithms: ['HS256'] }</code>. Уязвимость algorithm confusion (CVE-2015-9235).</div>
+  <div class="issue-file">Все jwt.verify() вызовы: index.js, middleware/auth.js, routes/auth.js, portal-backend</div>
+  <div class="issue-fix">✅ Добавить <code>{ algorithms: ['HS256'] }</code> во все jwt.verify().</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-2</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">API</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет валидации данных</strong> — Ни один route handler не использует Zod/Joi/express-validator. Все проверки ручные, неполные, неконсистентные.</div>
+  <div class="issue-file">Все route-файлы</div>
+  <div class="issue-fix">✅ Внедрить Zod-схемы для всех входных данных (body, query, params).</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-3</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Пароль суперадмина выводится в console.log</strong> — При старте сервер печатает пароль в stdout, который попадает в логи Render.</div>
+  <div class="issue-file">server/index.js:4474,4486</div>
+  <div class="issue-fix">✅ Убрать <code>console.log('SUPERADMIN PASSWORD: ' + password)</code>. Выводить только логин.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-4</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Пароль в email в открытом виде</strong> — Welcome-email содержит пароль в HTML-теле. Пароль передаётся по сети и сохраняется в почтовых архивах.</div>
+  <div class="issue-file">server/routes/misc.js:765-779</div>
+  <div class="issue-fix">✅ Отправлять одноразовую ссылку для установки пароля вместо пароля в теле письма.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-5</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Загрузка файлов без fileFilter</strong> — Chat, branding, site-settings uploads не проверяют MIME-тип. Можно загрузить .exe, .php, .html.</div>
+  <div class="issue-file">server/index.js:3372-3378, routes/branding.js:50-62</div>
+  <div class="issue-fix">✅ Добавить fileFilter с проверкой MIME + magic bytes для всех upload-роутов.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-6</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>localtunnel в production dependencies</strong> — Утилита для отладки работает в production. Добавляет поверхность атаки и лишние зависимости.</div>
+  <div class="issue-file">server/package.json:22</div>
+  <div class="issue-fix">✅ Переместить в devDependencies.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-7</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Puppeteer в production dependencies</strong> — Скачивает Chromium (~300MB) на сервер. Увеличивает время деплоя и расход памяти.</div>
+  <div class="issue-file">server/package.json:24</div>
+  <div class="issue-fix">✅ Переместить в devDependencies или использовать puppeteer-core.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-8</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>dist-* папки закоммичены в git</strong> — Сборки фронтенда не должны быть в репозитории. Раздувают историю, создают конфликты merge.</div>
+  <div class="issue-file">dist-admin/, dist-waiter/, dist-guest/ и др. в корне</div>
+  <div class="issue-fix">✅ Добавить dist-* в .gitignore. Собирать на CI/CD или сервере.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-9</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Архитектура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Дублирование portal-backend</strong> — Полная копия portal/backend в server/portal-backend/. Разные версии могут рассинхронизироваться.</div>
+  <div class="issue-file">portal/backend/ vs server/portal-backend/</div>
+  <div class="issue-fix">✅ server/portal-backend/ нужен для Render из-за особенностей деплоя, но должен быть симлинком или авто-копией при деплое.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-10</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Аутентификация</span></span>
+  </div>
+  <div class="issue-desc"><strong>/api/mobile/admin/set-unlimited без аутентификации</strong> — Любой может выдать безлимитную подписку любому номеру телефона.</div>
+  <div class="issue-file">server/routes/mobile.js:775-783</div>
+  <div class="issue-fix">✅ Добавить проверку JWT + роли admin.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-11</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Аутентификация</span></span>
+  </div>
+  <div class="issue-desc"><strong>/api/backup без аутентификации</strong> — Любой может инициировать бэкап БД.</div>
+  <div class="issue-file">server/index.js:4456-4458</div>
+  <div class="issue-fix">✅ Добавить аутентификацию + проверку роли.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-12</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Мультитенантность</span></span>
+  </div>
+  <div class="issue-desc"><strong>getOrderFull() не фильтрует по tenant_id</strong> — Функция <code>SELECT * FROM orders WHERE id = ?</code> вызывается из неаутентифицированных эндпоинтов. Любой заказ по ID доступен любому.</div>
+  <div class="issue-file">server/index.js:586-596</div>
+  <div class="issue-fix">✅ Добавить <code>AND tenant_id = current_tenant_id()</code> во все запросы внутри getOrderFull().</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-13</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет CSRF-защиты</strong> — Ни один пакет для защиты от CSRF не используется. CORS настроен на <code>origin: true</code> (любой источник).</div>
+  <div class="issue-file">server/index.js:106, весь код</div>
+  <div class="issue-fix">✅ Добавить double-submit cookie pattern или SameSite=Strict. Ограничить CORS конкретными доменами.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-14</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>50MB лимит тела запроса</strong> — <code>express.json({ limit: '50mb' })</code> — чрезмерно большой лимит. Уязвимость для DoS-атак через большие payload.</div>
+  <div class="issue-file">server/index.js:148</div>
+  <div class="issue-fix">✅ Снизить до 1-5 MB. Для файлов использовать multer с отдельными лимитами.</div>
+</div>
+
+<div class="issue issue-high">
+  <div class="issue-header">
+    <span class="issue-id">В-15</span>
+    <span><span class="badge badge-high">High</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет HTTP→HTTPS редиректа, нет HSTS</strong> — Сервер слушает только HTTP. На Render HTTPS terminates на gateway, но если обойти — трафик незащищён.</div>
+  <div class="issue-file">Инфраструктура Render</div>
+  <div class="issue-fix">✅ Настроить перенаправление HTTP→HTTPS на уровне Render или приложения. Включить HSTS.</div>
+</div>
+
+<!-- ===== MEDIUM ===== -->
+<h2>🟡 Средний приоритет (10)</h2>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-1</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет healthCheckPath в render.yaml</strong> — Есть эндпоинт <code>GET /api/health</code>, но Render не использует его для проверки здоровья.</div>
+  <div class="issue-file">render.yaml</div>
+  <div class="issue-fix">✅ Добавить <code>healthCheckPath: /api/health</code>.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-2</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Port mismatch</strong> — Код: 4000, render.yaml: 10000, Dockerfile: 8080. Три разных порта.</div>
+  <div class="issue-file">server/index.js:4407, render.yaml:12, Dockerfile:31</div>
+  <div class="issue-fix">✅ Унифицировать. Render переопределяет PORT var, код должен использовать process.env.PORT.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-3</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>npm install вместо npm ci</strong> — npm install медленнее и может установить другие версии зависимостей, нарушая воспроизводимость сборки.</div>
+  <div class="issue-file">render.yaml:6</div>
+  <div class="issue-fix">✅ Заменить на <code>npm ci</code> для production-сборок.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-4</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Frontend</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет ErrorBoundary во фронтенде</strong> — При ошибке React — белый экран. Нет FallbackComponent.</div>
+  <div class="issue-file">src/admin/main.tsx, src/waiter/main.tsx, src/guest/main.tsx</div>
+  <div class="issue-fix">✅ Обернуть корневые компоненты в ErrorBoundary.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-5</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Frontend</span></span>
+  </div>
+  <div class="issue-desc"><strong>Тихие ошибки в API-вызовах фронтенда</strong> — Многие вызовы API имеют <code>.catch(() => {})</code> — ошибки проглатываются без уведомления пользователя.</div>
+  <div class="issue-file">src/admin/AdminApp.tsx, src/waiter/WaiterApp.tsx + ~100 мест</div>
+  <div class="issue-fix">✅ Заменить на показ toast/alert пользователю.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-6</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Frontend</span></span>
+  </div>
+  <div class="issue-desc"><strong>Хардкодный localhost:4000 в WebSocket</strong> — DeliveryPage.tsx создаёт второй WebSocket с жёстко закодированным URL.</div>
+  <div class="issue-file">src/admin/DeliveryPage.tsx:47-49</div>
+  <div class="issue-fix">✅ Использовать централизованный WebSocket из api.ts.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-7</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Не все env vars объявлены в render.yaml</strong> — Не хватает 20+ переменных (SMS_API_KEY, ENCRYPTION_KEY, PUBLIC_URL, DEEPSEEK_API_KEY и др.)</div>
+  <div class="issue-file">render.yaml</div>
+  <div class="issue-fix">✅ Добавить все используемые env vars в render.yaml с sync: false и описанием.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-8</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Архитектура</span></span>
+  </div>
+  <div class="issue-desc"><strong>bcrypt vs bcryptjs</strong> — Два разных пакета для хеширования паролей. root package.json использует bcryptjs, portal использует bcrypt (C++ addon). Разный API, разное поведение.</div>
+  <div class="issue-file">package.json vs portal/backend/package.json</div>
+  <div class="issue-fix">✅ Выбрать один пакет (лучше bcryptjs — без native compilation).</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-9</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>SMS-код возвращается в ответе API в dev-режиме</strong> — Если NODE_ENV не production, код подтверждения телефона включён в JSON-ответ.</div>
+  <div class="issue-file">server/routes/mobile.js:261</div>
+  <div class="issue-fix">✅ Никогда не возвращать код в ответе API, даже в dev-режиме.</div>
+</div>
+
+<div class="issue issue-medium">
+  <div class="issue-header">
+    <span class="issue-id">С-10</span>
+    <span><span class="badge badge-medium">Medium</span><span class="issue-module">Безопасность</span></span>
+  </div>
+  <div class="issue-desc"><strong>Хардкодный ENCRYPTION_KEY fallback</strong> — Если ENCRYPTION_KEY не задан, используется <code>'foodchain-payment-secret-key-2025'</code>. Шифрование бесполезно.</div>
+  <div class="issue-file">server/crypto-utils.js:5</div>
+  <div class="issue-fix">✅ Убрать fallback. process.exit(1) если ключ не задан.</div>
+</div>
+
+<!-- ===== LOW ===== -->
+<h2>🟢 Низкий приоритет (6)</h2>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-1</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет engines поля в package.json</strong> — Не указана минимальная версия Node.js.</div>
+  <div class="issue-file">package.json, server/package.json</div>
+  <div class="issue-fix">✅ Добавить <code>"engines": { "node": ">=20" }</code>.</div>
+</div>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-2</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет start скрипта в server/package.json</strong> — <code>npm start</code> в server/ не работает.</div>
+  <div class="issue-file">server/package.json</div>
+  <div class="issue-fix">✅ Добавить <code>"start": "node index.js"</code>.</div>
+</div>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-3</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">Frontend</span></span>
+  </div>
+  <div class="issue-desc"><strong>console.log в продакшен-коде фронтенда</strong> — ExtensionsSdkPage.tsx содержит 3 console.log.</div>
+  <div class="issue-file">src/admin/ExtensionsSdkPage.tsx:60,148,173</div>
+  <div class="issue-fix">✅ Удалить или заменить на логирование.</div>
+</div>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-4</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">Инфраструктура</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет .nvmrc</strong> — Версия Node.js не зафиксирована для разработчиков.</div>
+  <div class="issue-file">Корень проекта</div>
+  <div class="issue-fix">✅ Добавить .nvmrc с <code>20</code>.</div>
+</div>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-5</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">UI</span></span>
+  </div>
+  <div class="issue-desc"><strong>Dockerfile ставит лишние пакеты</strong> — python3, make, g++ не нужны для запуска Node.js приложения.</div>
+  <div class="issue-file">Dockerfile:5</div>
+  <div class="issue-fix">✅ Удалить <code>apk add python3 make g++</code>.</div>
+</div>
+
+<div class="issue issue-low">
+  <div class="issue-header">
+    <span class="issue-id">Н-6</span>
+    <span><span class="badge badge-low">Low</span><span class="issue-module">UI</span></span>
+  </div>
+  <div class="issue-desc"><strong>Нет тестового скрипта</strong> — vitest установлен, но нет <code>npm test</code>.</div>
+  <div class="issue-file">package.json</div>
+  <div class="issue-fix">✅ Добавить <code>"test": "vitest run"</code>.</div>
+</div>
+
+<!-- ===== APPENDIX ===== -->
+<h2 style="page-break-before: always;">Приложение: Ключевые файлы для исправления</h2>
+<table>
+  <tr><th>ID</th><th>Файл</th><th>Строки</th><th>Что делать</th></tr>
+  <tr><td>К-1</td><td>server/routes/auth.js</td><td>293</td><td>Удалить admin:admin блок</td></tr>
+  <tr><td>К-2</td><td>server/index.js</td><td>33</td><td>Убрать fallback JWT_SECRET</td></tr>
+  <tr><td>К-3</td><td>server/index.js</td><td>441-445</td><td>Не брать tenant_id из query</td></tr>
+  <tr><td>К-4</td><td>.env, portal/backend/.env</td><td>все</td><td>Удалить из git, сбросить ключи</td></tr>
+  <tr><td>К-5</td><td>server/index.js</td><td>—</td><td>Добавить error handler</td></tr>
+  <tr><td>К-6</td><td>routes/orders.js, misc.js</td><td>5,23,35,48,55,64</td><td>Обернуть в try/catch</td></tr>
+  <tr><td>К-7</td><td>server/index.js</td><td>383-388</td><td>Исправить OR-приоритет</td></tr>
+  <tr><td>К-8</td><td>routes/admin.js, telegram.js, misc.js, staff.js</td><td>40+ мест</td><td>Заменить query.tenant_id на req.tenant_id</td></tr>
+  <tr><td>К-9</td><td>desktop-admin/preload.js, mobile/services/auth.tsx</td><td>3,4</td><td>Использовать env vars</td></tr>
+  <tr><td>К-10</td><td>server/routes/mobile.js</td><td>весь файл</td><td>Добавить tenant_id</td></tr>
+  <tr><td>В-1</td><td>Все jwt.verify() вызовы</td><td>16 мест</td><td>Добавить algorithms: ['HS256']</td></tr>
+  <tr><td>В-3</td><td>server/index.js</td><td>4474,4486</td><td>Убрать пароль из лога</td></tr>
+  <tr><td>В-10</td><td>server/routes/mobile.js</td><td>775-783</td><td>Добавить auth</td></tr>
+  <tr><td>В-11</td><td>server/index.js</td><td>4456-4458</td><td>Добавить auth</td></tr>
+  <tr><td>В-12</td><td>server/index.js</td><td>586-596</td><td>Добавить tenant_id</td></tr>
+  <tr><td>В-14</td><td>server/index.js</td><td>148</td><td>Уменьшить лимит</td></tr>
+  <tr><td>С-4</td><td>src/admin/main.tsx</td><td>—</td><td>Добавить ErrorBoundary</td></tr>
+  <tr><td>С-6</td><td>src/admin/DeliveryPage.tsx</td><td>47-49</td><td>Убрать второй WebSocket</td></tr>
+</table>
+
+<h2>Оценка времени исправления</h2>
+<table>
+  <tr><th>Уровень</th><th>Количество</th><th>Время</th></tr>
+  <tr><td>🔴 Critical</td><td>10</td><td>~6 часов</td></tr>
+  <tr><td>🟠 High</td><td>15</td><td>~8 часов</td></tr>
+  <tr><td>🟡 Medium</td><td>10</td><td>~4 часа</td></tr>
+  <tr><td>🟢 Low</td><td>6</td><td>~1 час</td></tr>
+  <tr style="font-weight:700"><td>ИТОГО</td><td>41</td><td>~19 часов</td></tr>
+</table>
+
+</body>
+</html>

@@ -1110,7 +1110,7 @@ app.delete('/api/chats/:id', (req, res) => {
     if (authHeader) {
       try {
         const token = authHeader.slice(7);
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
         adminId = payload.id;
         adminName = payload.username || payload.firstName || '';
       } catch {}
@@ -1163,11 +1163,11 @@ app.post('/api/chats/upload', uploadChat.single('file'), (req, res) => {
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/email/settings', (req, res) => {
-  try { res.json(emailService.getSettings(db, req.query.tenant_id || 1)); }
+  try { res.json(emailService.getSettings(db, req.tenant_id || 1)); }
   catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/email/settings', (req, res) => {
-  try { res.json(emailService.saveSettings(db, req.body, req.query.tenant_id || 1)); }
+  try { res.json(emailService.saveSettings(db, req.body, req.tenant_id || 1)); }
   catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/email/test', async (req, res) => {
@@ -1182,7 +1182,7 @@ app.post('/api/email/send', async (req, res) => {
   try {
     const { to, subject, html } = req.body;
     if (!to || !subject) return res.status(400).json({ error: 'Missing to/subject' });
-    const result = await emailService.sendMail(db, { to, subject, html }, req.query.tenant_id || 1, notifLog);
+    const result = await emailService.sendMail(db, { to, subject, html }, req.tenant_id || 1, notifLog);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1210,7 +1210,7 @@ app.get('/api/email/unsubscribe', (req, res) => {
 });
 app.get('/api/email/templates', (req, res) => {
   try {
-    const templates = db.prepare('SELECT * FROM email_templates WHERE tenant_id = ? ORDER BY is_system DESC, name ASC').all(req.query.tenant_id || 1);
+    const templates = db.prepare('SELECT * FROM email_templates WHERE tenant_id = ? ORDER BY is_system DESC, name ASC').all(req.tenant_id || 1);
     res.json(templates);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1219,7 +1219,7 @@ app.post('/api/email/templates', (req, res) => {
     const { name, subject, body_html, variables } = req.body;
     if (!name || !subject) return res.status(400).json({ error: 'name и subject обязательны' });
     const info = db.prepare('INSERT INTO email_templates (tenant_id, name, subject, body_html, variables, is_system) VALUES (?, ?, ?, ?, ?, 0)').run(
-      req.query.tenant_id || 1, name, subject, body_html || '', JSON.stringify(variables || [])
+      req.tenant_id || 1, name, subject, body_html || '', JSON.stringify(variables || [])
     );
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -1243,7 +1243,7 @@ app.get('/api/email/logs', (req, res) => {
   try {
     const { limit, campaign_id } = req.query;
     let sql = 'SELECT * FROM email_logs WHERE tenant_id = ?';
-    const params = [req.query.tenant_id || 1];
+    const params = [req.tenant_id || 1];
     if (campaign_id) { sql += ' AND campaign_id = ?'; params.push(campaign_id); }
     sql += ' ORDER BY sent_at DESC LIMIT ?';
     params.push(parseInt(limit) || 100);
@@ -1260,7 +1260,7 @@ app.post('/api/email/send-campaign', async (req, res) => {
     const subject = subject_override || template.subject;
     let sent = 0, failed = 0;
     for (const email of recipient_emails) {
-      const result = await emailService.sendMail(db, { to: email, subject, html: template.body_html }, req.query.tenant_id || 1, notifLog);
+      const result = await emailService.sendMail(db, { to: email, subject, html: template.body_html }, req.tenant_id || 1, notifLog);
       if (result.success) sent++; else failed++;
     }
     res.json({ sent, failed, total: recipient_emails.length });
@@ -1277,7 +1277,7 @@ app.get('/api/email/stats', (req, res) => {
 app.get('/api/notification-logs', (req, res) => {
   try {
     const { channel, limit, offset } = req.query;
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     let sql = 'SELECT * FROM notification_logs WHERE tenant_id = ?';
     const params = [tenantId];
     if (channel) { sql += ' AND channel = ?'; params.push(channel); }
@@ -1292,7 +1292,7 @@ app.get('/api/notification-logs', (req, res) => {
 });
 app.get('/api/notification-logs/stats', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const total = db.prepare('SELECT COUNT(*) as c FROM notification_logs WHERE tenant_id = ?').get(tenantId);
     const sent = db.prepare("SELECT COUNT(*) as c FROM notification_logs WHERE status = 'sent' AND tenant_id = ?").get(tenantId);
     const failed = db.prepare("SELECT COUNT(*) as c FROM notification_logs WHERE status = 'failed' AND tenant_id = ?").get(tenantId);
@@ -1302,7 +1302,7 @@ app.get('/api/notification-logs/stats', (req, res) => {
 });
 app.get('/api/device-tokens', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const tokens = db.prepare('SELECT * FROM device_tokens WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId);
     res.json(tokens);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -1324,7 +1324,7 @@ app.post('/api/device-tokens/unregister', (req, res) => {
 });
 app.get('/api/push-settings', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     res.json(pushService.getSettings(db, tenantId));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -1969,7 +1969,7 @@ app.post('/api/internal/import-tech-cards', (req, res) => {
 });
 app.get('/api/app/settings', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
     const row = db.prepare('SELECT settings FROM app_general_settings WHERE tenant_id = ?').get(tenantId);
     res.json({ settings: parseAppSettings(row?.settings) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -2293,7 +2293,7 @@ app.post('/api/app/upload', uploadAppImage.single('file'), (req, res) => {
     if (authHeader) {
       try {
         const token = authHeader.slice(7);
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
         tenantId = payload.tenantId || payload.tenant_id || 'unknown';
       } catch {}
     }

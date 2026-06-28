@@ -37,13 +37,13 @@ app.get('/api/admin/auto-orders/low-stock', (req, res) => {
 });
 app.get('/api/admin/auto-orders/settings', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     res.json(autoOrdersService.getAutoOrderSettings(db, tenantId));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/admin/auto-orders/settings', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const settings = autoOrdersService.saveAutoOrderSettings(db, tenantId, req.body);
     autoOrdersService.rescheduleCron(db);
     res.json(settings);
@@ -67,27 +67,27 @@ app.put('/api/admin/auto-orders/:id/receive', (req, res) => {
 });
 app.get('/api/admin/shifts/current', (req, res) => {
   try {
-    const shift = shiftService.getCurrentShift(req.query.tenant_id || 1);
+    const shift = shiftService.getCurrentShift(req.tenant_id || 1);
     res.json(shift || null);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/admin/shifts/open', (req, res) => {
   try {
     const { staffId, staffName, openingBalance } = req.body;
-    const result = shiftService.openShift(staffId || 0, staffName || '', openingBalance || 0, req.query.tenant_id || 1);
+    const result = shiftService.openShift(staffId || 0, staffName || '', openingBalance || 0, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/admin/shifts/:id/close', (req, res) => {
   try {
     const { closingBalance, notes } = req.body;
-    const result = shiftService.closeShift(req.params.id, closingBalance || 0, notes || '', req.query.tenant_id || 1);
+    const result = shiftService.closeShift(req.params.id, closingBalance || 0, notes || '', req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/shifts/:id/z-report', (req, res) => {
   try {
-    const result = shiftService.getZReport(req.params.id, req.query.tenant_id || 1);
+    const result = shiftService.getZReport(req.params.id, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -95,23 +95,23 @@ app.get('/api/admin/shifts', (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    res.json(shiftService.getShifts(req.query.tenant_id || 1, page, limit));
+    res.json(shiftService.getShifts(req.tenant_id || 1, page, limit));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/auto-writeoff/settings', (req, res) => {
-  try { res.json(autoWriteoffService.getSettings(db, req.query.tenant_id || 1)); }
+  try { res.json(autoWriteoffService.getSettings(db, req.tenant_id || 1)); }
   catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/admin/auto-writeoff/settings', (req, res) => {
   try {
-    const settings = autoWriteoffService.saveSettings(db, req.body, req.query.tenant_id || 1);
+    const settings = autoWriteoffService.saveSettings(db, req.body, req.tenant_id || 1);
     autoWriteoffService.rescheduleCron(db);
     res.json(settings);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/auto-writeoff/expiring', (req, res) => {
   try {
-    const settings = autoWriteoffService.getSettings(db, req.query.tenant_id || 1);
+    const settings = autoWriteoffService.getSettings(db, req.tenant_id || 1);
     const items = autoWriteoffService.getExpiringSoon(db, req.query.days || settings.warn_days || 3);
     res.json(items);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -122,7 +122,7 @@ app.get('/api/admin/auto-writeoff/expired', (req, res) => {
 });
 app.post('/api/admin/auto-writeoff/run-now', (req, res) => {
   try {
-    const result = autoWriteoffService.runAutoWriteoff(db, req.query.tenant_id || 1);
+    const result = autoWriteoffService.runAutoWriteoff(db, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -134,12 +134,12 @@ app.post('/api/admin/auto-writeoff/calculate-losses', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/costing/overview', (req, res) => {
-  try { res.json(costingService.getCostingOverview(db, req.query.tenant_id || 1)); }
+  try { res.json(costingService.getCostingOverview(db, req.tenant_id || 1)); }
   catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/admin/costing/recalculate', (req, res) => {
   try {
-    const result = costingService.recalculateAll(db, req.query.tenant_id || 1);
+    const result = costingService.recalculateAll(db, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -343,7 +343,7 @@ app.post('/api/admin/loyalty/adjust', (req, res) => {
 });
 app.get('/api/admin/courier-templates', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const templates = db.prepare('SELECT * FROM courier_chat_templates WHERE tenant_id = ? ORDER BY sort_order ASC, created_at DESC').all(tenantId);
     res.json(templates.map(t => ({ ...t, isActive: !!t.is_active, sortOrder: t.sort_order })));
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
@@ -474,13 +474,13 @@ app.post('/api/admin/integrations/1c/sync/:operation', async (req, res) => {
 });
 app.get('/api/admin/crm/settings/:provider', (req, res) => {
   try {
-    const data = crmIntegrationService.getSettings(db, req.params.provider, req.query.tenant_id || 1);
+    const data = crmIntegrationService.getSettings(db, req.params.provider, req.tenant_id || 1);
     res.json(data);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/admin/crm/settings/:provider', (req, res) => {
   try {
-    crmIntegrationService.saveSettings(db, req.params.provider, req.body, req.query.tenant_id || 1);
+    crmIntegrationService.saveSettings(db, req.params.provider, req.body, req.tenant_id || 1);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -493,7 +493,7 @@ app.post('/api/admin/crm/test/:provider', async (req, res) => {
 });
 app.post('/api/admin/crm/export/:provider', async (req, res) => {
   try {
-    const result = await crmIntegrationService.exportClients(db, req.params.provider, req.query.tenant_id || 1);
+    const result = await crmIntegrationService.exportClients(db, req.params.provider, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -592,7 +592,7 @@ app.get('/api/admin/terminal/settings', (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const tenantId = payload.tenantId || payload.tenant_id || 1;
     const settings = terminalIntegration.getSettings(db, tenantId);
     res.json(settings);
@@ -603,7 +603,7 @@ app.put('/api/admin/terminal/settings', (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const tenantId = payload.tenantId || payload.tenant_id || 1;
     const settings = terminalIntegration.saveSettings(db, tenantId, req.body);
     res.json(settings);
@@ -614,7 +614,7 @@ app.post('/api/admin/terminal/test', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const tenantId = payload.tenantId || payload.tenant_id || 1;
     const result = await terminalIntegration.testConnection(db, tenantId);
     res.json(result);

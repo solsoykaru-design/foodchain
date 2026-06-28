@@ -3,6 +3,7 @@ services:
     name: foodchain
     env: node
     region: frankfurt
+    healthCheckPath: /api/health
     buildCommand: npm install && cd server && npm install && cd portal-backend && npm install
     startCommand: cd server && node index.js
     envVars:
@@ -12,9 +13,13 @@ services:
         value: "10000"
       - key: JWT_SECRET
         sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: PORTAL_SYNC_KEY
         sync: false

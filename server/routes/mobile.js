@@ -1,7 +1,8 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mobile-app-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET environment variable is not set'); process.exit(1); }
 const SMS_API_KEY = process.env.SMS_API_KEY || '';
 
 const TARIFFS = {

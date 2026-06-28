@@ -164,7 +164,7 @@ authRouter.post('/refresh', async (req, res, next) => {
 
     let payload;
     try {
-      payload = jwt.verify(refreshToken, config.jwt.refreshSecret);
+      payload = jwt.verify(refreshToken, config.jwt.refreshSecret, { algorithms: ['HS256'] });
     } catch {
       return res.status(401).json({ error: 'Недействительный refresh-токен' });
     }
@@ -210,7 +210,7 @@ authRouter.get('/me', async (req, res, next) => {
     if (!header) return res.status(401).json({ error: 'Требуется авторизация' });
 
     const token = header.slice(7);
-    const payload = jwt.verify(token, config.jwt.secret);
+    const payload = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
 
     const user = get(
       `SELECT u.id, u.email, u.full_name, u.role, u.tenant_id,

@@ -39,8 +39,7 @@ export default function AdminShell() {
         else clearAuth();
       })
       .catch(() => {
-        // Network error (cold start etc.) — allow login attempt
-        setIsLoggedIn(true);
+        // Network error — show login page
       })
       .finally(() => setLoading(false));
   }, []);

@@ -6,14 +6,14 @@ module.exports = function(app, db, config) {
 
 app.get('/api/branding', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
     const row = db.prepare('SELECT branding FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     res.json({ branding: parseBranding(row?.branding) });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/branding', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
     const branding = req.body.branding;
     if (!branding || typeof branding !== 'object') return res.status(400).json({ error: 'branding object required' });
     const merged = parseBranding(branding);
@@ -29,7 +29,7 @@ app.put('/api/branding', (req, res) => {
 });
 app.post('/api/branding/reset', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
     const defaults = JSON.parse(DEFAULT_BRANDING);
     const str = JSON.stringify(defaults);
     const existing = db.prepare('SELECT id FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
@@ -66,7 +66,7 @@ app.get('/api/site-settings', (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
     let payload;
-    try { payload = jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try { payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch { return res.status(401).json({ error: 'Invalid token' }); }
     const tenantId = payload.tenantId || payload.tenant_id;
     if (!tenantId) tenantId = 1;
     const row = db.prepare('SELECT site_settings FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
@@ -79,7 +79,7 @@ app.put('/api/site-settings', (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
     let payload;
-    try { payload = jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try { payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch { return res.status(401).json({ error: 'Invalid token' }); }
     const tenantId = payload.tenantId || payload.tenant_id;
     if (!tenantId) tenantId = 1;
     const settings = req.body.settings;
@@ -101,7 +101,7 @@ app.post('/api/site-settings/reset', (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Auth required' });
     const token = authHeader.slice(7);
     let payload;
-    try { payload = jwt.verify(token, JWT_SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try { payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch { return res.status(401).json({ error: 'Invalid token' }); }
     const tenantId = payload.tenantId || payload.tenant_id;
     if (!tenantId) tenantId = 1;
     const defaults = JSON.parse(DEFAULT_SITE_SETTINGS);
@@ -123,7 +123,7 @@ app.post('/api/site-settings/upload', uploadSiteImage.single('file'), (req, res)
     if (authHeader) {
       try {
         const token = authHeader.slice(7);
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
         tenantId = payload.tenantId || payload.tenant_id || 'unknown';
       } catch {}
     }

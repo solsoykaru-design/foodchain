@@ -636,7 +636,7 @@ function setupRoutes(app, db, broadcast, io) {
   // === Subscriptions ===
   app.get('/api/subscriptions', (req, res) => {
     try {
-      const tenantId = req.query.tenant_id || 1;
+      const tenantId = req.tenant_id || 1;
       const subs = db.prepare('SELECT s.*, t.name as tariff_name, t.price as tariff_price FROM subscriptions s LEFT JOIN tariffs t ON t.id = s.tariff_id WHERE s.tenant_id = ? ORDER BY s.created_at DESC').all(tenantId);
       res.json(subs);
     } catch (e) { res.status(500).json({ error: safeError(e.message) }); }

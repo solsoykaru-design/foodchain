@@ -102,7 +102,7 @@ function logOperation(db, tenantId, provider, operation, request, response, stat
 
 function setupRoutes(app, db, broadcast, io) {
   const getSettings = (req) => {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const provider = req.params.provider;
     const row = db.prepare('SELECT * FROM aggregator_settings WHERE tenant_id = ? AND provider = ?').get(tenantId, provider);
     return row || { tenant_id: tenantId, provider, enabled: 0, credentials: '{}', last_sync_at: null, last_menu_sync_at: null };
@@ -134,7 +134,7 @@ function setupRoutes(app, db, broadcast, io) {
   // GET /api/admin/integrations/aggregators - list all providers with settings
   app.get('/api/admin/integrations/aggregators', (req, res) => {
     try {
-      const tenantId = req.query.tenant_id || 1;
+      const tenantId = req.tenant_id || 1;
       const rows = db.prepare('SELECT * FROM aggregator_settings WHERE tenant_id = ?').all(tenantId);
 
       const result = Object.keys(PROVIDERS).map(key => {
@@ -300,7 +300,7 @@ function setupRoutes(app, db, broadcast, io) {
   app.get('/api/admin/integrations/aggregators/:provider/logs', (req, res) => {
     try {
       const provider = req.params.provider;
-      const tenantId = req.query.tenant_id || 1;
+      const tenantId = req.tenant_id || 1;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 50;
       const operation = req.query.operation;

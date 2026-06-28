@@ -7,26 +7,26 @@ module.exports = function(app, db, config) {
 app.get('/api/staff/schedules', (req, res) => {
   try {
     const weekStart = req.query.week_start || staffScheduleService.getCurrentWeekStart();
-    res.json(toCamelCaseArray(staffScheduleService.getSchedules(db, req.query.tenant_id || 1, weekStart)));
+    res.json(toCamelCaseArray(staffScheduleService.getSchedules(db, req.tenant_id || 1, weekStart)));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/staff/schedules', (req, res) => {
   try {
     const { staffId, staffName, date, startTime, endTime } = req.body;
     if (!staffId || !date) return res.status(400).json({ error: 'Missing required fields' });
-    const result = staffScheduleService.saveSchedule(db, { staffId, staffName, date, startTime: startTime || '09:00', endTime: endTime || '18:00' }, req.query.tenant_id || 1);
+    const result = staffScheduleService.saveSchedule(db, { staffId, staffName, date, startTime: startTime || '09:00', endTime: endTime || '18:00' }, req.tenant_id || 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.delete('/api/staff/schedules/:id', (req, res) => {
   try {
-    staffScheduleService.deleteSchedule(db, req.params.id, req.query.tenant_id || 1);
+    staffScheduleService.deleteSchedule(db, req.params.id, req.tenant_id || 1);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/staff/schedule-staff', (req, res) => {
   try {
-    res.json(toCamelCaseArray(staffScheduleService.getStaffList(db, req.query.tenant_id || 1)));
+    res.json(toCamelCaseArray(staffScheduleService.getStaffList(db, req.tenant_id || 1)));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/staff', (req, res) => {

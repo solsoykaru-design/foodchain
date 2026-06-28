@@ -91,7 +91,7 @@ app.post('/api/settings/change-password', (req, res) => {
 });
 app.get('/api/tenant-mode', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
 
     const pt = db.prepare('SELECT access_mode, demo_data_created_at, demo_auto_cleanup_days FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     res.json({
@@ -104,7 +104,7 @@ app.get('/api/tenant-mode', (req, res) => {
 });
 app.get('/api/tenant-limits', (req, res) => {
   try {
-    const tenantId = req.tenant_id || 1 || 1;
+    const tenantId = req.tenant_id;
 
     const pt = db.prepare('SELECT app_settings FROM foodchain_portal_tenants WHERE id = ?').get(tenantId);
     let settings = {};
@@ -150,7 +150,7 @@ app.get('/api/tenant-limits', (req, res) => {
 });
 app.get('/api/push-settings', (req, res) => {
   try {
-    const tenantId = req.query.tenant_id || 1;
+    const tenantId = req.tenant_id || 1;
     const row = db.prepare('SELECT * FROM push_settings WHERE tenant_id = ?').get(tenantId);
     res.json(row || { api_key: '', project_id: '', sender_id: '', app_id: '', is_enabled: false });
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }

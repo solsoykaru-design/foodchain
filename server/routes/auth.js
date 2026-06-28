@@ -171,7 +171,7 @@ module.exports = function(app, db, config) {
       const authHeader = req.headers.authorization;
       if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       if (decoded.role !== 'superadmin') return res.status(403).json({ error: 'Только для суперадмина' });
 
       const { tenantId } = req.body;
@@ -200,7 +200,7 @@ module.exports = function(app, db, config) {
       const authHeader = req.headers.authorization;
       if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       if (decoded.role !== 'superadmin') return res.status(403).json({ error: 'Только для суперадмина' });
 
       const tenants = db.prepare("SELECT id, name, nickname, address, is_active, photo_url FROM foodchain_portal_tenants ORDER BY name").all();
@@ -289,17 +289,6 @@ module.exports = function(app, db, config) {
   app.post('/api/auth/admin-login', (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Логин и пароль обязательны' });
-
-    if (username === 'admin' && password === 'admin') {
-      const admins = db.prepare("SELECT * FROM users WHERE role = 'superadmin'").all();
-      let admin = admins[0];
-      if (!admin) {
-        db.prepare("INSERT INTO users (name, phone, role) VALUES ('Admin', '+70000000000', 'superadmin')").run();
-        admin = db.prepare("SELECT * FROM users WHERE role = 'superadmin'").get();
-      }
-      const token = jwt.sign({ id: admin.id, username: 'admin', role: 'superadmin', tenant_id: admin.tenant_id || null }, JWT_SECRET, { expiresIn: '24h' });
-      return res.json({ token, user: toCamelCase(admin) });
-    }
 
     try {
       const staff = db.prepare("SELECT s.*, fpt.name as tenant_name FROM staff s LEFT JOIN foodchain_portal_tenants fpt ON fpt.id = s.tenant_id WHERE s.username = ? AND s.is_active = 1").get(username);
@@ -433,7 +422,7 @@ module.exports = function(app, db, config) {
       const authHeader = req.headers.authorization;
       if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       let user;
       if (decoded.role === 'superadmin') {
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
@@ -455,7 +444,7 @@ module.exports = function(app, db, config) {
       const authHeader = req.headers.authorization;
       if (!authHeader) return res.status(401).json({ error: 'Требуется авторизация' });
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
       const { name, email, birthday } = req.body;
       const updates = [];
       const values = [];

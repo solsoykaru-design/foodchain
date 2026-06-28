@@ -10,7 +10,7 @@ export function authenticate(req, res, next) {
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, config.jwt.secret);
+    const payload = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
     req.user = payload;
 
     const rows = query('SELECT role FROM users WHERE id = ? AND is_active = 1', [payload.userId]);
@@ -37,7 +37,7 @@ export function requireRole(...roles) {
 }
 
 export function requireTenantAccess(req, res, next) {
-  const tenantId = parseInt(req.params.tenantId || req.body.tenant_id || req.query.tenant_id, 10);
+  const tenantId = parseInt(req.params.tenantId, 10);
   if (!tenantId) {
     return res.status(400).json({ error: 'Не указан tenant_id' });
   }
