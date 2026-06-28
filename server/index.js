@@ -253,12 +253,13 @@ if (fs.existsSync(kioskDist)) {
 
 // ─── Portal backend (loaded async, mounted sync) ─────────────────
 let portalHandler;
+let portalReady = Promise.resolve();
 const portalPath = path.join(__dirname, 'portal-backend', 'src', 'index.js');
 const portalDist = path.join(__dirname, 'portal-frontend-dist');
 if (fs.existsSync(portalPath)) {
   process.env.PORTAL_MOUNTED = 'true';
   const { pathToFileURL } = require('url');
-  import(pathToFileURL(portalPath).href)
+  portalReady = import(pathToFileURL(portalPath).href)
     .then(m => {
       portalHandler = (req, res, next) => {
         if (req.url.startsWith('/portal')) {
@@ -4478,14 +4479,16 @@ if (!superadmin) {
   console.log('ℹ️  Superadmin "ali" already exists');
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
-  if (superadminPassword) {
-    console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
-  }
-  // Start Telegram bot if configured
-  try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
-  try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
+portalReady.finally(() => {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    if (superadminPassword) {
+      console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
+    }
+    // Start Telegram bot if configured
+    try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
+    try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
+  });
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────
