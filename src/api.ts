@@ -1,6 +1,21 @@
 import type { Order, OrderStatus, Review, BarcodeGenerateResult } from './types';
 
-const API_BASE = localStorage.getItem('foodchain_api_url') || '';
+const API_BASE = (() => {
+  const stored = localStorage.getItem('foodchain_api_url');
+  if (stored && stored.trim()) {
+    try {
+      const url = new URL(stored);
+      // If stored URL points to localhost but we're on a real domain, ignore it
+      if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          return '';
+        }
+      }
+    } catch {}
+    return stored.trim();
+  }
+  return '';
+})();
 
 const listeners: Record<string, Array<(data: any) => void>> = {};
 
@@ -1317,8 +1332,8 @@ export async function voiceOrder(text: string): Promise<any> {
 }
 
 // ─── Voice AI Waiter ─────────────────────────────────────────
-export async function voiceDraftCreate(waiterId: number, tableId?: number, tableName?: string): Promise<any> {
-  return request('/api/waiter/voice/draft', { method: 'POST', body: JSON.stringify({ waiterId, tableId, tableName }) });
+export async function voiceDraftCreate(waiterId: number, waiterName?: string, tableId?: number, tableName?: string): Promise<any> {
+  return request('/api/waiter/voice/draft', { method: 'POST', body: JSON.stringify({ waiterId, waiterName, tableId, tableName }) });
 }
 
 export async function voiceDraftAddItems(draftId: string, items: any[], tableId?: number, tableName?: string): Promise<any> {
@@ -1356,6 +1371,11 @@ export async function voiceCancel(orderId?: number, draftId?: string): Promise<a
 
 export async function voiceRefund(checkId: number, reason?: string): Promise<any> {
   return request('/api/waiter/voice/refund', { method: 'POST', body: JSON.stringify({ checkId, reason }) });
+}
+
+export async function voiceQueue(waiterId?: number): Promise<any> {
+  const qs = waiterId ? `?waiterId=${waiterId}` : '';
+  return request(`/api/waiter/voice/queue${qs}`);
 }
 
 export async function createDineInOrder(data: any): Promise<any> {
@@ -1631,7 +1651,17 @@ export function connectWebSocket(onMessage?: (data: any) => void) {
   try {
     function getWsUrl(): string {
       const stored = localStorage.getItem('foodchain_api_url');
-      if (stored && stored.trim()) return stored.replace(/^http/, 'ws');
+      if (stored && stored.trim()) {
+        try {
+          const url = new URL(stored);
+          if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
+              window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            // stored is dev localhost but we're on real domain — use current location
+          } else {
+            return stored.replace(/^http/, 'ws');
+          }
+        } catch {}
+      }
       const loc = window.location;
       return (loc.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + loc.host;
     }

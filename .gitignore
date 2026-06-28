@@ -7,14 +7,7 @@ server/node_modules/
 # --------------------
 # Build outputs
 # --------------------
-dist-/
 *.apk
-dist-admin/
-dist-courier/
-dist-guest/
-dist-kitchen/
-dist-waiter/
-dist-website/
 release/
 
 # --------------------

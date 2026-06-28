@@ -2431,11 +2431,12 @@ const voiceDrafts = new Map();
 
 app.post('/api/waiter/voice/draft', (req, res) => {
   try {
-    const { waiterId, tableId, tableName } = req.body;
+    const { waiterId, waiterName, tableId, tableName } = req.body;
     if (!waiterId) return res.status(400).json({ error: 'waiterId required' });
     const draftId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     voiceDrafts.set(draftId, {
-      id: draftId, waiterId, tableId: tableId || null, tableName: tableName || '',
+      id: draftId, waiterId, waiterName: waiterName || '',
+      tableId: tableId || null, tableName: tableName || '',
       items: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
     res.status(201).json({ draftId, draft: voiceDrafts.get(draftId) });
@@ -2484,6 +2485,19 @@ app.delete('/api/waiter/voice/draft/:draftId', (req, res) => {
   try {
     const deleted = voiceDrafts.delete(req.params.draftId);
     res.json({ deleted });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+app.get('/api/waiter/voice/queue', (req, res) => {
+  try {
+    const { waiterId } = req.query;
+    const all = [...voiceDrafts.values()]
+      .filter(d => d.items.length > 0)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const queue = waiterId
+      ? all.filter(d => d.waiterId === Number(waiterId)).map((d, i) => ({ ...d, queuePos: i + 1, queueTotal: all.length }))
+      : all.map((d, i) => ({ ...d, queuePos: i + 1, queueTotal: all.length }));
+    res.json({ queue });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
