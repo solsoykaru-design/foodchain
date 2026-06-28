@@ -541,11 +541,18 @@ app.post('/api/internal/sync-staff', validatePortalSyncKey, (req, res) => {
     const { staff } = req.body;
     if (!staff || !staff.tenant_id || !staff.username) return res.status(400).json({ error: 'Missing staff data' });
 
-    const existing = db.prepare("SELECT id FROM users WHERE username = ? AND tenant_id = ?").get(staff.username, staff.tenant_id);
-    if (!existing) {
+    // Sync into the main server's staff table (not users — staff have username/tenant_id)
+    const existing = db.prepare("SELECT id FROM staff WHERE username = ? AND tenant_id = ?").get(staff.username, staff.tenant_id);
+    if (existing) {
       db.prepare(`
-        INSERT INTO users (username, password_hash, role, tenant_id, first_name, phone, email, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        UPDATE staff
+        SET password = ?, role = ?, first_name = ?, phone = ?, email = ?, is_active = 1
+        WHERE id = ?
+      `).run(staff.password_hash || '', staff.role || 'admin', staff.first_name || '', staff.phone || '', staff.email || '', existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO staff (username, password, role, tenant_id, first_name, phone, email, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
       `).run(staff.username, staff.password_hash || '', staff.role || 'admin', staff.tenant_id, staff.first_name || '', staff.phone || '', staff.email || '');
     }
     res.json({ status: 'ok' });
