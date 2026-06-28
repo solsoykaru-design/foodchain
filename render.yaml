@@ -3,7 +3,7 @@ services:
     name: foodchain
     env: node
     region: frankfurt
-    buildCommand: npm install && VITE_APP=guest npx vite build && VITE_APP=admin npx vite build && VITE_APP=waiter npx vite build && VITE_APP=courier npx vite build && VITE_APP=kitchen npx vite build && cd server && npm install
+    buildCommand: npm install && cd server && npm install && cd ../portal/backend && npm install && cd ../frontend && npm install && cd ../../
     startCommand: cd server && node index.js
     envVars:
       - key: NODE_ENV
