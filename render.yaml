@@ -3,30 +3,18 @@ services:
     name: foodchain
     env: node
     region: frankfurt
-    plan: free
-    buildCommand: npm install && cd server && npm install && cd .. && VITE_APP=admin ./node_modules/.bin/vite build && VITE_APP=techcard ./node_modules/.bin/vite build && VITE_APP=waiter ./node_modules/.bin/vite build
-    startCommand: cd server && node restore-backup.cjs && node index.js
-    healthCheckPath: /api/health
+    buildCommand: cd server && npm install
+    startCommand: cd server && node index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: "10000"
       - key: JWT_SECRET
-        generateValue: true
-      - key: SUPPLIER_JWT_SECRET
-        generateValue: true
-      - key: DEEPSEEK_API_KEY
-        value: ""
-      - key: OPENCODE_API_KEY
-        value: sk-Qh0LRmRShhI6TTd2KA3PoNiiaMKCg6OJvBfsY9qVb3JyPgBSrZS6HO22B6a0HblV
-      - key: OPENCODE_MODEL
-        value: deepseek-v4-flash-free
-      - key: ALLOWED_ORIGINS
-        value: "*"
-      - key: CORS_ORIGINS
-        value: "*"
+        sync: false
       - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
