@@ -33,12 +33,6 @@ async function init(db) {
     doBackup(PORTAL_DB_PATH, 'portal.db');
   }, 60 * 1000);
   console.log('[backup] Auto-backup every 1 minute (foodchain.db + portal.db)');
-
-  // Also run immediately
-  setTimeout(() => {
-    doBackup(DB_PATH, 'foodchain.db');
-    doBackup(PORTAL_DB_PATH, 'portal.db');
-  }, 5000);
 }
 
 async function restoreAll() {
@@ -118,7 +112,10 @@ async function doBackup(target, key) {
     }
 
     const fileBuffer = fs.readFileSync(dbPath);
-    if (fileBuffer.length === 0) return;
+    if (fileBuffer.length < 1024) {
+      console.log(`[backup] DB too small, skipping (${backupKey}): ${fileBuffer.length} bytes`);
+      return;
+    }
 
     // Ensure bucket exists before upload
     try {
