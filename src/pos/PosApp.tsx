@@ -140,15 +140,24 @@ export default function PosApp() {
   }, [token, loadData]);
 
   // Auth handlers
+  const POS_ROLES = ['admin', 'manager', 'waiter'];
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data = await api.adminLogin(loginPhone, loginPassword);
       if (data.token) {
+        const role = String(data.user?.role || '').toLowerCase();
+        if (!POS_ROLES.includes(role)) {
+          setLoginError('Доступ запрещён. Вход разрешён только администратору, менеджеру или официанту.');
+          return;
+        }
         localStorage.setItem('fc_token', data.token);
         setToken(data.token);
         setUser(data.user);
         loadData();
+      } else if (data.require2fa) {
+        setLoginError('Требуется код двухфакторной аутентификации');
       } else {
         setLoginError('Неверный логин или пароль');
       }
