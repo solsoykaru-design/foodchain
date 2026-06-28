@@ -6,7 +6,15 @@ services:
     healthCheckPath: /api/health
     buildCommand: npm install && cd server && npm install && cd portal-backend && npm install
     startCommand: cd server && node index.js
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
     envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: DATABASE_PATH
+        value: /data/portal.db
       - key: NODE_ENV
         value: production
       - key: PORT
