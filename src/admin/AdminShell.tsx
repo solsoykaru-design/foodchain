@@ -11,6 +11,12 @@ export function getAdminUser() {
   } catch { return null; }
 }
 
+function clearAuth() {
+  localStorage.removeItem('foodchain_admin_session');
+  localStorage.removeItem('foodchain_admin_user');
+  localStorage.removeItem('fc_token');
+}
+
 export default function AdminShell() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,14 +24,30 @@ export default function AdminShell() {
 
   useEffect(() => {
     const session = localStorage.getItem('foodchain_admin_session');
-    if (session && session.startsWith('admin_') && session.length > 10) setIsLoggedIn(true);
-    setLoading(false);
+    const token = localStorage.getItem('fc_token');
+
+    if (!session || !session.startsWith('admin_') || session.length <= 10 || !token) {
+      setLoading(false);
+      return;
+    }
+
+    fetch('/api/admin/tenant-settings', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(res => {
+        if (res.ok) setIsLoggedIn(true);
+        else clearAuth();
+      })
+      .catch(() => {
+        // Network error (cold start etc.) — allow login attempt
+        setIsLoggedIn(true);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleLogin = () => setIsLoggedIn(true);
   const handleLogout = () => {
-    localStorage.removeItem('foodchain_admin_session');
-    localStorage.removeItem('foodchain_admin_user');
+    clearAuth();
     setIsLoggedIn(false);
   };
 
