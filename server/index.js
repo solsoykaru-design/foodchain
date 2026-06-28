@@ -93,7 +93,7 @@ app.use((req, res, next) => {
 // ─── Debug endpoint: check dist directories ──────────────
 app.get('/debug/dist', (req, res) => {
   const base = path.join(__dirname, '..');
-  const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-website', 'dist-kiosk', 'dist-techcard'];
+  const dirs = ['dist-admin', 'dist-waiter', 'dist-voice-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-website', 'dist-kiosk', 'dist-techcard'];
   const result = {};
   for (const d of dirs) {
     const full = path.join(base, d);
@@ -231,6 +231,14 @@ if (fs.existsSync(waiterDist)) {
   app.use('/waiter', express.static(waiterDist));
   app.use('/waiter', (req, res) => {
     res.sendFile(path.join(waiterDist, 'index.html'));
+  });
+}
+
+const voiceWaiterDist = path.join(__dirname, 'dist-voice-waiter');
+if (fs.existsSync(voiceWaiterDist)) {
+  app.use('/voice-waiter', express.static(voiceWaiterDist));
+  app.use('/voice-waiter', (req, res) => {
+    res.sendFile(path.join(voiceWaiterDist, 'index.html'));
   });
 }
 
@@ -4558,6 +4566,14 @@ require('./routes/telegram.js')(app, db, config);
 require('./routes/yuma-import.js')(app, db, config);
 require('./routes/mobile.js')(app, db, { safeError });
 require('./routes/mobile-push.js')(app, db, { safeError });
+require('./routes/voice.js')(app, db, config);
+
+// ─── Voice WebSocket Server ──────────────────────────────────────
+const VoiceHeadsetService = require('./services/voice-headset.service');
+const VoiceWebSocketServer = require('./services/voice-websocket.service');
+const voiceHeadsetService = new VoiceHeadsetService(db);
+const voiceWsServer = new VoiceWebSocketServer(server, db, voiceHeadsetService);
+console.log('[Voice] WebSocket server initialized');
 
 // ─── Global error handler ────────────────────────────────────────
 app.use((err, req, res, next) => {
