@@ -223,10 +223,36 @@ async function main() {
   const badJwt = await req('GET', '/api/orders', null, 'invalid-token');
   log(badJwt.status === 401, 'Невалидный JWT = 401', badJwt.status);
 
-  // ─── 10. Персистентность ─────────────────────────────────────
+  // ─── 8. Персистентность ─────────────────────────────────────
   console.log('\n── 8. Проверка сохранения данных ──');
   const tenantsAfter = await req('GET', `/api/tenants/search?q=${tenantName}`);
   log(tenantsAfter.ok && tenantsAfter.data?.length > 0, 'Ресторан сохранился в базе', `${tenantsAfter.data?.length} results`);
+
+  // ─── 9. Мульти-тенантная изоляция ──────────────────────────────────────
+  console.log('\n── 9. Мульти-тенантная изоляция ──');
+  const tenant2Name = `QA2-${suffix}`;
+  const admin2User = `admin2${suffix}`;
+  const admin2Pass = `AdminPass2${suffix}!`;
+  const tenant2 = await req('POST', '/portal/api/admin/tenants', {
+    name: tenant2Name, nickname: tenant2Name, email: `qa2${suffix}@test.com`,
+    inn: `inn2${suffix}`, phone: `+99891${suffix}`, address: 'Test2',
+    tariff_id: 1, admin_username: admin2User, admin_password: admin2Pass,
+  }, portalToken);
+  log(tenant2.ok, 'Создание второго ресторана', tenant2.data.error || `id=${tenant2.data?.id}`);
+
+  const admin2Login = await req('POST', '/api/auth/admin-login', { username: admin2User, password: admin2Pass });
+  const admin2Token = admin2Login.data?.token;
+  log(!!admin2Token, 'Вход админа второго ресторана', admin2Login.data.error || `tenantId=${admin2Login.data?.user?.tenantId}`);
+
+  if (adminToken && admin2Token && dishId) {
+    const dishes1 = await req('GET', '/api/dishes', null, adminToken);
+    const hasDish1 = dishes1.ok && dishes1.data?.some(d => d.id === dishId);
+    log(hasDish1, 'Админ 1 видит своё блюдо', hasDish1 ? 'OK' : 'NOT FOUND');
+
+    const dishes2 = await req('GET', '/api/dishes', null, admin2Token);
+    const hasDish2 = dishes2.ok && dishes2.data?.some(d => d.id === dishId);
+    log(!hasDish2, 'Админ 2 НЕ видит блюдо админа 1', hasDish2 ? 'LEAK' : 'OK');
+  }
 
   finish();
 }
