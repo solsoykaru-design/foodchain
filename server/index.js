@@ -184,16 +184,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-const guestDist = path.join(__dirname, 'dist-guest');
-if (fs.existsSync(guestDist)) {
+function findDistDir(name) {
+  const local = path.join(__dirname, name);
+  if (fs.existsSync(local)) return local;
+  const parent = path.join(__dirname, '..', name);
+  if (fs.existsSync(parent)) return parent;
+  return null;
+}
+
+const guestDist = findDistDir('dist-guest');
+if (guestDist) {
   app.use('/guest', express.static(guestDist));
   app.use('/guest', (req, res) => {
     res.sendFile(path.join(guestDist, 'index.html'));
   });
 }
 
-const adminDist = path.join(__dirname, 'dist-admin');
-if (fs.existsSync(adminDist)) {
+const adminDist = findDistDir('dist-admin');
+if (adminDist) {
   app.use('/admin', (req, res, next) => {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
@@ -218,24 +226,24 @@ app.use('/vosk-models', (req, res) => {
   });
 });
 
-const courierDist = path.join(__dirname, 'dist-courier');
-if (fs.existsSync(courierDist)) {
+const courierDist = findDistDir('dist-courier');
+if (courierDist) {
   app.use('/courier', express.static(courierDist));
   app.use('/courier', (req, res) => {
     res.sendFile(path.join(courierDist, 'index.html'));
   });
 }
 
-const waiterDist = path.join(__dirname, 'dist-waiter');
-if (fs.existsSync(waiterDist)) {
+const waiterDist = findDistDir('dist-waiter');
+if (waiterDist) {
   app.use('/waiter', express.static(waiterDist));
   app.use('/waiter', (req, res) => {
     res.sendFile(path.join(waiterDist, 'index.html'));
   });
 }
 
-const kitchenDist = path.join(__dirname, 'dist-kitchen');
-if (fs.existsSync(kitchenDist)) {
+const kitchenDist = findDistDir('dist-kitchen');
+if (kitchenDist) {
   app.use('/kitchen', express.static(kitchenDist));
   app.use('/kitchen', (req, res) => {
     res.sendFile(path.join(kitchenDist, 'index.html'));
