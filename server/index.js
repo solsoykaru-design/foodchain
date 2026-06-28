@@ -181,7 +181,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-const guestDist = path.join(__dirname, '..', 'dist-guest');
+const guestDist = path.join(__dirname, 'dist-guest');
 if (fs.existsSync(guestDist)) {
   app.use('/guest', express.static(guestDist));
   app.use('/guest', (req, res) => {
@@ -189,7 +189,7 @@ if (fs.existsSync(guestDist)) {
   });
 }
 
-const adminDist = path.join(__dirname, '..', 'dist-admin');
+const adminDist = path.join(__dirname, 'dist-admin');
 if (fs.existsSync(adminDist)) {
   app.use('/admin', (req, res, next) => {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
@@ -215,7 +215,7 @@ app.use('/vosk-models', (req, res) => {
   });
 });
 
-const courierDist = path.join(__dirname, '..', 'dist-courier');
+const courierDist = path.join(__dirname, 'dist-courier');
 if (fs.existsSync(courierDist)) {
   app.use('/courier', express.static(courierDist));
   app.use('/courier', (req, res) => {
@@ -223,7 +223,7 @@ if (fs.existsSync(courierDist)) {
   });
 }
 
-const waiterDist = path.join(__dirname, '..', 'dist-waiter');
+const waiterDist = path.join(__dirname, 'dist-waiter');
 if (fs.existsSync(waiterDist)) {
   app.use('/waiter', express.static(waiterDist));
   app.use('/waiter', (req, res) => {
@@ -231,7 +231,7 @@ if (fs.existsSync(waiterDist)) {
   });
 }
 
-const kitchenDist = path.join(__dirname, '..', 'dist-kitchen');
+const kitchenDist = path.join(__dirname, 'dist-kitchen');
 if (fs.existsSync(kitchenDist)) {
   app.use('/kitchen', express.static(kitchenDist));
   app.use('/kitchen', (req, res) => {
@@ -239,9 +239,9 @@ if (fs.existsSync(kitchenDist)) {
   });
 }
 
-const websiteDist = path.join(__dirname, '..', 'dist-website');
+const websiteDist = path.join(__dirname, 'dist-website');
 
-const kioskDist = path.join(__dirname, '..', 'dist-kiosk');
+const kioskDist = path.join(__dirname, 'dist-kiosk');
 if (fs.existsSync(kioskDist)) {
   app.use('/kiosk', express.static(kioskDist));
   app.use('/kiosk', (req, res) => {
