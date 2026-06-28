@@ -14,6 +14,12 @@ WORKDIR /app/server
 RUN npm install --production
 WORKDIR /app
 
+# Portal-backend package
+COPY server/portal-backend/package*.json ./server/portal-backend/
+WORKDIR /app/server/portal-backend
+RUN npm install --production
+WORKDIR /app
+
 # Copy source
 COPY server/ ./server/
 COPY main.cjs ./
