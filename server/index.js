@@ -497,11 +497,6 @@ app.use('/api/email/send-campaign', authenticateToken);
 app.use('/api/courier/templates', authenticateToken);
 
 // ─── Portal sync endpoints (internal, PORTAL_SYNC_KEY auth) ──
-const PORTAL_SYNC_KEY = process.env.PORTAL_SYNC_KEY;
-if (!PORTAL_SYNC_KEY) {
-  console.error('FATAL: PORTAL_SYNC_KEY environment variable is not set. Portal sync will not work.');
-}
-
 function validatePortalSyncKey(req, res, next) {
   const key = req.body?.key || req.query?.key;
   if (!key || key !== PORTAL_SYNC_KEY) {
