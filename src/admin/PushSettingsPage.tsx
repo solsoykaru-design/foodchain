@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Save, Plug, Info } from 'lucide-react';
 import { addToast } from '../ToastContext';
+import * as api from '../api';
 
 interface FcmSettings {
   apiKey: string;
@@ -29,11 +30,11 @@ export default function PushSettingsPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      await fetch('/api/push-settings', {
+      await api.request('/api/push-settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_id: 1, ...settings }),
-      });addToast('Настройки сохранены.', 'success');
+      });
+      addToast('Настройки сохранены.', 'success');
     } catch (e) {
       addToast(`Ошибка сохранения: ${e}`, 'error');
     } finally { setSaving(false); }
@@ -41,7 +42,7 @@ export default function PushSettingsPage() {
 
   async function handleTest() {
     try {
-      await fetch(`/api/push-settings/test?tenant_id=1`, { method: 'POST' });
+      await api.request('/api/push-settings/test?tenant_id=1', { method: 'POST' });
       addToast('Соединение с FCM успешно установлено.', 'success');
     } catch (e) {
       addToast(`Ошибка подключения: ${e}`, 'error');

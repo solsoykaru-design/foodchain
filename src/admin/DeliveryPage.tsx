@@ -29,7 +29,7 @@ export default function DeliveryPage() {
   useEffect(() => {
     api.getDeliveryOrders().then(setOrders).catch(() => {});
     api.getUsers().then(setUsers).catch(() => {});
-    fetch('/api/couriers').then(r => r.json()).then(setCouriers).catch(() => {});
+    api.getCouriers().then(setCouriers).catch(() => {});
   }, []);
 
   // Listen for courier location updates via WebSocket
@@ -44,8 +44,8 @@ export default function DeliveryPage() {
 
   // Listen for courier returning updates + poll for returning data
   useEffect(() => {
-    const apiBase = localStorage.getItem('foodchain_api_url') || 'http://localhost:4000';
-    const wsUrl = apiBase.replace(/^http/, 'ws');
+    const loc = window.location;
+    const wsUrl = (loc.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + loc.host;
     const ws = new WebSocket(wsUrl);
     ws.onmessage = (e) => {
       try {

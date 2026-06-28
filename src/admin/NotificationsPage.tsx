@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Send, Users, UserCheck } from 'lucide-react';
 import { addToast } from '../ToastContext';
+import * as api from '../api';
 
 interface PushNotif {
   id: number;
@@ -38,9 +39,8 @@ export default function NotificationsPage() {
   async function handleSend() {
     if (!title.trim() || !body.trim()) { addToast('Заполните заголовок и текст уведомления.', 'warning'); return; }
     try {
-      await fetch('/api/notifications/send', {
+      await api.request('/api/notifications/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_id: 1, title, body, audience, group: audience === 'group' ? group : null }),
       });
       setTitle('');

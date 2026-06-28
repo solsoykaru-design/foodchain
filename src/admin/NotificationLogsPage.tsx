@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bell, Mail, Smartphone, MessageCircle } from 'lucide-react';
+import * as api from '../api';
 
 const CHANNEL_ICONS: Record<string, any> = { email: Mail, push: Smartphone, telegram: MessageCircle };
 
@@ -35,8 +36,7 @@ export default function NotificationLogsPage() {
 
   async function loadStats() {
     try {
-      const res = await fetch('/api/notification-logs/stats?tenant_id=1');
-      const data = await res.json();
+      const data = await api.request('/api/notification-logs/stats?tenant_id=1');
       setStats(data);
     } catch {}
   }
