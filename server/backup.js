@@ -27,12 +27,12 @@ async function init(db) {
     console.log('[backup] Bucket check error:', e.message);
   }
 
-  // Auto-backup both main and portal DB every 5 minutes
+  // Auto-backup both main and portal DB every 1 minute during testing
   backupInterval = setInterval(() => {
     doBackup(DB_PATH, 'foodchain.db');
     doBackup(PORTAL_DB_PATH, 'portal.db');
-  }, 5 * 60 * 1000);
-  console.log('[backup] Auto-backup every 5 minutes (foodchain.db + portal.db)');
+  }, 60 * 1000);
+  console.log('[backup] Auto-backup every 1 minute (foodchain.db + portal.db)');
 
   // Also run immediately
   setTimeout(() => {
@@ -119,6 +119,21 @@ async function doBackup(target, key) {
 
     const fileBuffer = fs.readFileSync(dbPath);
     if (fileBuffer.length === 0) return;
+
+    // Ensure bucket exists before upload
+    try {
+      const { data: buckets } = await sb.storage.listBuckets();
+      if (!buckets?.find(b => b.name === BUCKET_NAME)) {
+        const { error: createError } = await sb.storage.createBucket(BUCKET_NAME, { public: false, fileSizeLimit: 52428800 });
+        if (createError) {
+          console.log(`[backup] Could not create bucket (${backupKey}):`, createError.message);
+          return;
+        }
+        console.log('[backup] Created bucket:', BUCKET_NAME);
+      }
+    } catch (bucketErr) {
+      console.log('[backup] Bucket check error:', bucketErr.message);
+    }
 
     const { error } = await sb.storage.from(BUCKET_NAME).upload(backupKey, fileBuffer, {
       contentType: 'application/octet-stream',

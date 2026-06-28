@@ -284,7 +284,7 @@ const DB_PATH = path.join(DATA_DIR, 'foodchain.db');
 // ─── Restore DBs from Supabase backup before opening (Render free tier has no persistent disk) ───
 try {
   const { execSync } = require('child_process');
-  execSync('node restore-dbs.js', { cwd: __dirname, stdio: 'pipe', timeout: 30000 });
+  execSync('node restore-dbs.js', { cwd: __dirname, stdio: 'inherit', timeout: 60000 });
 } catch (e) {
   console.log('[startup] DB restore skipped:', e.message);
 }
@@ -4624,7 +4624,7 @@ async function shutdown(signal) {
   setTimeout(() => {
     console.error('[shutdown] Forced exit after timeout');
     process.exit(1);
-  }, 10000);
+  }, 25000);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
