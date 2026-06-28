@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Coffee, ClipboardList, Wallet, History, MessageSquare,
-  Bell, BellRing, AlertTriangle, LogOut, Headset, Settings,
+  Bell, BellRing, AlertTriangle, LogOut, Headset, Settings, Mic,
 } from 'lucide-react';
 import * as api from '../api';
 import type { Table, DineInCheck, WaiterCall, Dish, MenuCategory, Order } from '../types';
@@ -16,11 +16,12 @@ import KitchenChat from './components/KitchenChat';
 import WaiterChat from './components/WaiterChat';
 import QuickTemplates from './components/QuickTemplates';
 import VoiceOrder from './components/VoiceOrder';
+import VoiceDashboard from './components/VoiceDashboard';
 import HeadsetsAdmin from './components/HeadsetsAdmin';
 import { useWaiterSocket } from './hooks/useWaiterSocket';
 import type { ChatInfo } from '../types';
 
-type Tab = 'hall' | 'menu' | 'orders' | 'payment' | 'history' | 'chat';
+type Tab = 'hall' | 'menu' | 'orders' | 'voice' | 'payment' | 'history' | 'chat';
 
 export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('hall');
@@ -198,6 +199,8 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
         return <MenuGrid dishes={dishes} categories={categories} onSendOrder={handleSendOrder} />;
       case 'orders':
         return <ActiveOrders checks={checks} onRefresh={loadChecks} onPayOrder={handlePayOrder} user={user} />;
+      case 'voice':
+        return <VoiceDashboard user={user} dishes={dishes} tables={tables} onOpenVoice={() => setVoiceOrderOpen(true)} />;
       case 'payment':
         return <PaymentScreen checks={checks} onRefresh={loadChecks} onClose={() => setTab('orders')} />;
       case 'history':
@@ -322,6 +325,7 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
             { id: 'hall' as Tab, icon: LayoutDashboard, label: 'Зал', badge: 0 },
             { id: 'menu' as Tab, icon: Coffee, label: 'Меню', badge: 0 },
             { id: 'orders' as Tab, icon: ClipboardList, label: 'Заказы', badge: checks.filter(c => c.status === 'open').length },
+            { id: 'voice' as Tab, icon: Mic, label: 'AI', badge: 0 },
             { id: 'payment' as Tab, icon: Wallet, label: 'Оплата', badge: 0 },
             { id: 'history' as Tab, icon: History, label: 'История', badge: 0 },
             { id: 'chat' as Tab, icon: MessageSquare, label: 'Чат', badge: chatUnread },

@@ -138,14 +138,14 @@ module.exports = function(app, db, config) {
    * POST /api/voice/parse
    * Распарсить текстовую команду
    */
-  app.post('/api/voice/parse', authenticateToken, (req, res) => {
+  app.post('/api/voice/parse', authenticateToken, async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) {
         return res.status(400).json({ error: 'text обязателен' });
       }
 
-      const parsed = parser.parse(text, req.tenant_id);
+      const parsed = await parser.parse(text, req.tenant_id);
       res.json(parsed);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -156,7 +156,7 @@ module.exports = function(app, db, config) {
    * POST /api/voice/command
    * Обработать голосовую команду (добавить в буфер)
    */
-  app.post('/api/voice/command', authenticateToken, (req, res) => {
+  app.post('/api/voice/command', authenticateToken, async (req, res) => {
     try {
       const { waiterId, waiterNick, text } = req.body;
       
@@ -164,7 +164,7 @@ module.exports = function(app, db, config) {
         return res.status(400).json({ error: 'waiterId и text обязательны' });
       }
 
-      const parsed = parser.parse(text, req.tenant_id);
+      const parsed = await parser.parse(text, req.tenant_id);
       const buffer = voiceBuffer.getBuffer(waiterId, waiterNick);
 
       // Установить стол

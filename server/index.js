@@ -4564,7 +4564,7 @@ require('./routes/voice.js')(app, db, config);
 const VoiceHeadsetService = require('./services/voice-headset.service');
 const VoiceWebSocketServer = require('./services/voice-websocket.service');
 const voiceHeadsetService = new VoiceHeadsetService(db);
-const voiceWsServer = new VoiceWebSocketServer(server, db, voiceHeadsetService);
+const voiceWsServer = new VoiceWebSocketServer(server, db, voiceHeadsetService, io);
 console.log('[Voice] WebSocket server initialized');
 
 // ─── Global error handler ────────────────────────────────────────
