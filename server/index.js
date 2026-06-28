@@ -280,34 +280,27 @@ if (fs.existsSync(portalPath)) {
 }
 
 const DB_PATH = path.join(DATA_DIR, 'foodchain.db');
+
+// ─── Restore DBs from Supabase backup before opening (Render free tier has no persistent disk) ───
+try {
+  const { execSync } = require('child_process');
+  execSync('node restore-dbs.js', { cwd: __dirname, stdio: 'pipe', timeout: 30000 });
+} catch (e) {
+  console.log('[startup] DB restore skipped:', e.message);
+}
+
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
 // ─── DB integrity check on startup ──────────────────────────────
 try {
   const tableCount = db.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'").get()?.cnt || 0;
-  if (tableCount === 0) {
-    console.log('[db] Empty database, attempting restore from Supabase backup...');
-    const { restoreFromBackup } = require('./backup.js');
-    restoreFromBackup(db).catch(e => console.error('[db] Restore failed:', e.message));
+  console.log(`[db] Found ${tableCount} tables`);
+  const integrity = db.prepare('PRAGMA integrity_check').get();
+  if (integrity && integrity['integrity_check'] !== 'ok') {
+    console.error('[db] INTEGRITY CHECK FAILED:', integrity['integrity_check']);
   } else {
-    console.log(`[db] Found ${tableCount} tables`);
-    const integrity = db.prepare('PRAGMA integrity_check').get();
-    if (integrity && integrity['integrity_check'] !== 'ok') {
-      console.error('[db] INTEGRITY CHECK FAILED:', integrity['integrity_check']);
-      console.log('[db] Attempting restore from Supabase backup...');
-      const { restoreFromBackup } = require('./backup.js');
-      restoreFromBackup(db).then(() => {
-        const retry = db.prepare('PRAGMA integrity_check').get();
-        if (retry && retry['integrity_check'] === 'ok') {
-          console.log('[db] Restored from backup successfully');
-        } else {
-          console.error('[db] Backup restore failed — DB still corrupted');
-        }
-      }).catch(e => console.error('[db] Restore error:', e.message));
-    } else {
-      console.log('[db] Integrity check passed');
-    }
+    console.log('[db] Integrity check passed');
   }
 } catch (e) {
   console.log('[db] Integrity check skipped:', e.message);
