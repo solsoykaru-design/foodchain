@@ -434,7 +434,7 @@ function requireRole(...roles) {
 }
 
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
-const PUBLIC_API_PATHS = ['/api/auth/', '/api/public/', '/api/tenants/search', '/api/tenants/register'];
+const PUBLIC_API_PATHS = ['/api/auth/', '/api/public/', '/api/internal/', '/api/tenants/search', '/api/tenants/register'];
 function ensureTenantId(req, res, next) {
   const requestPath = req.originalUrl || req.url;
   if (PUBLIC_API_PATHS.some(p => requestPath.startsWith(p))) return next();
@@ -495,6 +495,82 @@ app.use('/api/generate-code', authenticateToken);
 app.use('/api/email/send', authenticateToken);
 app.use('/api/email/send-campaign', authenticateToken);
 app.use('/api/courier/templates', authenticateToken);
+
+// ─── Portal sync endpoints (internal, PORTAL_SYNC_KEY auth) ──
+const PORTAL_SYNC_KEY = process.env.PORTAL_SYNC_KEY;
+if (!PORTAL_SYNC_KEY) {
+  console.error('FATAL: PORTAL_SYNC_KEY environment variable is not set. Portal sync will not work.');
+}
+
+function validatePortalSyncKey(req, res, next) {
+  const key = req.body?.key || req.query?.key;
+  if (!key || key !== PORTAL_SYNC_KEY) {
+    return res.status(403).json({ error: 'Invalid sync key' });
+  }
+  next();
+}
+
+app.post('/api/internal/sync-tenant', validatePortalSyncKey, (req, res) => {
+  try {
+    const { tenant } = req.body;
+    if (!tenant || !tenant.id) return res.status(400).json({ error: 'Missing tenant data' });
+
+    db.prepare(`
+      INSERT INTO foodchain_portal_tenants (id, name, nickname, phone, is_active, allow_create_branches, access_mode, base_currency, app_settings, updated_at)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        nickname = excluded.nickname,
+        phone = excluded.phone,
+        is_active = 1,
+        allow_create_branches = excluded.allow_create_branches,
+        access_mode = excluded.access_mode,
+        base_currency = excluded.base_currency,
+        app_settings = excluded.app_settings,
+        updated_at = datetime('now')
+    `).run(
+      tenant.id, tenant.name, tenant.nickname || null, tenant.admin_email || '',
+      tenant.allow_create_branches || 0, tenant.access_mode || 'development',
+      tenant.base_currency || 'RUB', tenant.app_settings || null
+    );
+
+    res.json({ status: 'ok', tenant_id: tenant.id });
+  } catch (e) {
+    console.error('[SYNC] sync-tenant error:', e.stack);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/internal/sync-staff', validatePortalSyncKey, (req, res) => {
+  try {
+    const { staff } = req.body;
+    if (!staff || !staff.tenant_id || !staff.username) return res.status(400).json({ error: 'Missing staff data' });
+
+    const existing = db.prepare("SELECT id FROM users WHERE username = ? AND tenant_id = ?").get(staff.username, staff.tenant_id);
+    if (!existing) {
+      db.prepare(`
+        INSERT INTO users (username, password_hash, role, tenant_id, first_name, phone, email, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(staff.username, staff.password_hash || '', staff.role || 'admin', staff.tenant_id, staff.first_name || '', staff.phone || '', staff.email || '');
+    }
+    res.json({ status: 'ok' });
+  } catch (e) {
+    console.error('[SYNC] sync-staff error:', e.stack);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/internal/delete-tenant', validatePortalSyncKey, (req, res) => {
+  try {
+    const { tenant_id } = req.body;
+    if (!tenant_id) return res.status(400).json({ error: 'Missing tenant_id' });
+    db.prepare('DELETE FROM foodchain_portal_tenants WHERE id = ?').run(tenant_id);
+    res.json({ status: 'ok' });
+  } catch (e) {
+    console.error('[SYNC] delete-tenant error:', e.stack);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── Swagger / OpenAPI ─────────────────────────────────────────
 const swaggerSpec = swaggerJsDoc({
