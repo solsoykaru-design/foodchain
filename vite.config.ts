@@ -15,7 +15,6 @@ const appConfig: Record<string, { title: string; viewport: string }> = {
   website: { title: 'FoodChain — Ресторан',       viewport: 'width=device-width, initial-scale=1.0' },
   kiosk:   { title: 'FoodChain — Терминал самообслуживания', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
   techcard: { title: 'AI Техкарты', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
-  'voice-waiter': { title: 'Голосовой AI-официант', viewport: 'width=device-width, initial-scale=1.0' },
 };
 
 export default defineConfig({

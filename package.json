@@ -29,8 +29,6 @@
     "dev:website": "set VITE_APP=website && vite --port 5175",
     "build:website": "set VITE_APP=website && vite build",
     "build:kiosk": "set VITE_APP=kiosk && vite build",
-    "build:voice-waiter": "set VITE_APP=voice-waiter && vite build",
-    "dev:voice-waiter": "set VITE_APP=voice-waiter && vite --port 5178",
     "preview": "vite preview",
     "electron:start": "electron .",
     "electron:build": "npm run build:admin && electron-builder",
