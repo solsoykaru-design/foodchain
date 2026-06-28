@@ -1,0 +1,1 @@
+ALTER TABLE tenants ADD COLUMN base_currency TEXT NOT NULL DEFAULT 'RUB';

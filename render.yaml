@@ -3,7 +3,7 @@ services:
     name: foodchain
     env: node
     region: frankfurt
-    buildCommand: npm install && cd server && npm install
+    buildCommand: npm install && cd server && npm install && cd portal-backend && npm install
     startCommand: cd server && node index.js
     envVars:
       - key: NODE_ENV

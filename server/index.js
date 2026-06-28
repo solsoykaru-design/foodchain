@@ -253,8 +253,8 @@ if (fs.existsSync(kioskDist)) {
 
 // ─── Portal backend (loaded async, mounted sync) ─────────────────
 let portalHandler;
-const portalPath = path.join(__dirname, '..', 'portal', 'backend', 'src', 'index.js');
-const portalDist = path.join(__dirname, '..', 'portal', 'frontend', 'dist');
+const portalPath = path.join(__dirname, 'portal-backend', 'src', 'index.js');
+const portalDist = path.join(__dirname, 'portal-frontend-dist');
 if (fs.existsSync(portalPath)) {
   process.env.PORTAL_MOUNTED = 'true';
   const { pathToFileURL } = require('url');
