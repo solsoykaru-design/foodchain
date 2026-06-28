@@ -12,6 +12,7 @@ const appConfig: Record<string, { title: string; viewport: string }> = {
   admin:   { title: 'FoodChain Admin',           viewport: 'width=device-width, initial-scale=1.0' },
   waiter:  { title: 'FoodChain — Терминал официанта', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
   kitchen: { title: 'FoodChain — Кухня',         viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
+  pos:     { title: 'FoodChain — POS-терминал',  viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
   website: { title: 'FoodChain — Ресторан',       viewport: 'width=device-width, initial-scale=1.0' },
   kiosk:   { title: 'FoodChain — Терминал самообслуживания', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
   techcard: { title: 'AI Техкарты', viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },

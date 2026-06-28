@@ -250,6 +250,14 @@ if (kitchenDist) {
   });
 }
 
+const posDist = findDistDir('dist-pos');
+if (posDist) {
+  app.use('/pos', express.static(posDist));
+  app.use('/pos', (req, res) => {
+    res.sendFile(path.join(posDist, 'index.html'));
+  });
+}
+
 const websiteDist = path.join(__dirname, 'dist-website');
 
 const kioskDist = path.join(__dirname, 'dist-kiosk');
@@ -4567,6 +4575,7 @@ require('./routes/yuma-import.js')(app, db, config);
 require('./routes/mobile.js')(app, db, { safeError });
 require('./routes/mobile-push.js')(app, db, { safeError });
 require('./routes/voice.js')(app, db, config);
+require('./routes/pos.js')(app, db, config);
 
 // ─── Voice WebSocket Server ──────────────────────────────────────
 const VoiceHeadsetService = require('./services/voice-headset.service');

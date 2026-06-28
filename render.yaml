@@ -4,7 +4,7 @@ services:
     env: node
     region: frankfurt
     healthCheckPath: /api/health
-    buildCommand: npm install && npm run build:waiter && cd server && npm install && cd portal-backend && npm install
+    buildCommand: npm install && npm run build:waiter && npm run build:pos && cd server && npm install && cd portal-backend && npm install
     startCommand: cd server && node index.js
     disk:
       name: data
