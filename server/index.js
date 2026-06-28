@@ -87,6 +87,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── Debug endpoint: check dist directories ──────────────
+app.get('/debug/dist', (req, res) => {
+  const base = path.join(__dirname, '..');
+  const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-website', 'dist-kiosk', 'dist-techcard'];
+  const result = {};
+  for (const d of dirs) {
+    const full = path.join(base, d);
+    result[d] = { exists: fs.existsSync(full), files: fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : [] };
+  }
+  res.json({ cwd: process.cwd(), base, dirs: result });
+});
+
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
 const corsOptions = {
   origin: true,
