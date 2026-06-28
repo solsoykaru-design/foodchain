@@ -1,26 +1,20 @@
-const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
-const cron = require('node-cron');
+const { init: initSupabase, getClient } = require('./lib/supabase');
 
-const DB_PATH = path.join(__dirname, 'foodchain.db');
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const DB_PATH = path.join(DATA_DIR, 'foodchain.db');
 const BUCKET_NAME = 'foodchain-backups';
 const BACKUP_KEY = 'foodchain.db';
 
-let supabase = null;
 let backupInterval = null;
 
 function init(db) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.log('[backup] SUPABASE_URL/SUPABASE_ANON_KEY not set — backup disabled');
+  const client = initSupabase();
+  if (!client) {
+    console.log('[backup] Supabase not configured — backup disabled');
     return;
   }
-
-  supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('[backup] Supabase client initialized');
 
   // Restore on startup
   restoreFromBackup(db);
@@ -35,14 +29,15 @@ function init(db) {
 
 async function restoreFromBackup(db) {
   try {
-    // List files in bucket to find the latest backup
-    const { data: files, error: listError } = await supabase.storage.from(BUCKET_NAME).list();
+    const sb = getClient();
+    if (!sb) return;
+
+    const { data: files, error: listError } = await sb.storage.from(BUCKET_NAME).list();
     if (listError) {
       if (listError.message?.includes('bucket')) {
-        // Bucket doesn't exist yet — create it
-        const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
+        const { error: createError } = await sb.storage.createBucket(BUCKET_NAME, {
           public: false,
-          fileSizeLimit: 52428800, // 50MB
+          fileSizeLimit: 52428800,
         });
         if (createError) {
           console.log('[backup] Could not create bucket:', createError.message);
@@ -59,8 +54,7 @@ async function restoreFromBackup(db) {
       return;
     }
 
-    // Download backup
-    const { data, error: downloadError } = await supabase.storage.from(BUCKET_NAME).download(BACKUP_KEY);
+    const { data, error: downloadError } = await sb.storage.from(BUCKET_NAME).download(BACKUP_KEY);
     if (downloadError || !data) {
       console.log('[backup] Download failed:', downloadError?.message);
       return;
@@ -72,21 +66,15 @@ async function restoreFromBackup(db) {
       return;
     }
 
-    // Verify it's a valid SQLite file (starts with SQLite format header)
     if (buffer[0] !== 0x53 || buffer[1] !== 0x51 || buffer[2] !== 0x4c) {
       console.log('[backup] Backup file is not a valid SQLite database — skipping restore');
       return;
     }
 
-    // Write backup to disk
     fs.writeFileSync(DB_PATH, buffer);
     console.log(`[backup] Restored ${buffer.length} bytes from cloud backup`);
 
-    // Reconnect database
-    try {
-      db.close();
-    } catch {}
-    // The calling code needs to handle reconnection
+    try { db.close(); } catch {}
   } catch (e) {
     console.log('[backup] Restore error:', e.message);
   }
@@ -94,15 +82,14 @@ async function restoreFromBackup(db) {
 
 async function doBackup(db) {
   try {
-    if (!supabase) return;
+    const sb = getClient();
+    if (!sb) return;
 
-    // Verify DB file exists and is accessible
     if (!fs.existsSync(DB_PATH)) {
       console.log('[backup] DB file not found');
       return;
     }
 
-    // Check DB integrity
     try {
       const integrity = db.prepare('PRAGMA integrity_check').get();
       if (integrity && integrity['integrity_check'] !== 'ok') {
@@ -117,7 +104,7 @@ async function doBackup(db) {
     const fileBuffer = fs.readFileSync(DB_PATH);
     if (fileBuffer.length === 0) return;
 
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(BACKUP_KEY, fileBuffer, {
+    const { error } = await sb.storage.from(BUCKET_NAME).upload(BACKUP_KEY, fileBuffer, {
       contentType: 'application/octet-stream',
       upsert: true,
     });

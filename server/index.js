@@ -55,7 +55,8 @@ process.on('uncaughtException', (err) => {
   console.error('[UncaughtException]', err?.message || err);
 });
 
-const uploadsDir = path.join(__dirname, 'uploads');
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const uploadsDir = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -135,13 +136,33 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/releases', express.static(path.join(__dirname, 'releases')));
 
 app.get('/api/health', (req, res) => {
+  let dbStatus = 'ok';
+  let dbSize = 0;
+  try {
+    const integrity = db.prepare('PRAGMA integrity_check').get();
+    if (integrity && integrity['integrity_check'] !== 'ok') dbStatus = 'corrupted';
+    dbSize = fs.statSync(DB_PATH).size;
+  } catch (e) { dbStatus = e.message; }
+
+  let supabaseStatus = 'disabled';
+  try {
+    const sb = require('./lib/supabase').getClient();
+    supabaseStatus = sb ? 'connected' : 'not configured';
+  } catch (e) { supabaseStatus = e.message; }
+
   res.json({
-    status: 'ok',
+    status: dbStatus === 'ok' ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
+    db: {
+      status: dbStatus,
+      size: dbSize,
+      sizeMB: (dbSize / 1024 / 1024).toFixed(2),
+    },
+    supabase: supabaseStatus,
+    uptime: process.uptime().toFixed(0) + 's',
     env: {
       OPENCODE_API_KEY: (process.env.OPENCODE_API_KEY || '').substring(0, 8) + '...',
       OPENCODE_MODEL: process.env.OPENCODE_MODEL || 'not set',
-      DEEPSEEK_API_KEY: (process.env.DEEPSEEK_API_KEY || '').substring(0, 5) + '...',
     }
   });
 });
@@ -239,8 +260,39 @@ if (fs.existsSync(portalPath)) {
     });
 }
 
-const db = new Database(path.join(__dirname, 'foodchain.db'));
+const DB_PATH = path.join(DATA_DIR, 'foodchain.db');
+const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
+
+// ─── DB integrity check on startup ──────────────────────────────
+try {
+  const tableCount = db.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'").get()?.cnt || 0;
+  if (tableCount === 0) {
+    console.log('[db] Empty database, attempting restore from Supabase backup...');
+    const { restoreFromBackup } = require('./backup.js');
+    restoreFromBackup(db).catch(e => console.error('[db] Restore failed:', e.message));
+  } else {
+    console.log(`[db] Found ${tableCount} tables`);
+    const integrity = db.prepare('PRAGMA integrity_check').get();
+    if (integrity && integrity['integrity_check'] !== 'ok') {
+      console.error('[db] INTEGRITY CHECK FAILED:', integrity['integrity_check']);
+      console.log('[db] Attempting restore from Supabase backup...');
+      const { restoreFromBackup } = require('./backup.js');
+      restoreFromBackup(db).then(() => {
+        const retry = db.prepare('PRAGMA integrity_check').get();
+        if (retry && retry['integrity_check'] === 'ok') {
+          console.log('[db] Restored from backup successfully');
+        } else {
+          console.error('[db] Backup restore failed — DB still corrupted');
+        }
+      }).catch(e => console.error('[db] Restore error:', e.message));
+    } else {
+      console.log('[db] Integrity check passed');
+    }
+  }
+} catch (e) {
+  console.log('[db] Integrity check skipped:', e.message);
+}
 
 // ─── Automatic tenant isolation via db.prepare override ────────
 const { AsyncLocalStorage } = require('async_hooks');
@@ -4423,17 +4475,21 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down…');
+function shutdown(signal) {
+  console.log(`[${signal}] Shutting down gracefully…`);
   backup.stop();
-  terminalIntegration.shutdownRetries();
-  autoWriteoffService.shutdown();
-  costingService.shutdown();
-  server.close(() => process.exit(0));
-});
-process.on('SIGINT', () => {
-  terminalIntegration.shutdownRetries();
-  autoWriteoffService.shutdown();
-  costingService.shutdown();
-  server.close(() => process.exit(0));
-});
+  if (typeof backup.doBackup === 'function') {
+    backup.doBackup(db).catch(() => {});
+  }
+  try { db.close(); } catch(e) { console.log('[shutdown] DB close:', e.message); }
+  server.close(() => {
+    console.log('[shutdown] Server closed');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error('[shutdown] Forced exit after timeout');
+    process.exit(1);
+  }, 10000);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

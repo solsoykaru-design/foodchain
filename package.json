@@ -44,6 +44,7 @@
     "@capacitor/android": "^5.7.0",
     "@capacitor/core": "^5.7.0",
     "@capacitor/ios": "^5.7.0",
+    "@supabase/supabase-js": "^2.108.2",
     "@tanstack/react-table": "^8.21.3",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",

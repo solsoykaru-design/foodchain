@@ -79,11 +79,22 @@ app.post('/api/upload', (req, res) => {
     }
     try {
       if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+      // Upload to Supabase Storage as cloud backup
+      try {
+        const supabase = require('../lib/supabase');
+        const sb = supabase.getClient();
+        if (sb) {
+          const filePath = 'uploads/' + req.file.filename;
+          supabase.ensureBucket('foodchain-uploads', { public: true, fileSizeLimit: 52428800 }).then(() => {
+            supabase.uploadFile('foodchain-uploads', filePath, fs.readFileSync(req.file.path), req.file.mimetype);
+          }).catch(e => console.log('[upload] Supabase backup failed:', e.message));
+        }
+      } catch (e) { /* Supabase not configured — ignore */ }
       res.json({ url: '/uploads/' + req.file.filename });
-  } catch (e) {
-    console.error('POST /api/staff error:', e.message);
-    res.status(500).json({ error: safeError(e.message) });
-  }
+    } catch (e) {
+      console.error('POST /api/upload error:', e.message);
+      res.status(500).json({ error: safeError(e.message) });
+    }
   });
 });
 app.put('/api/website/user/profile', (req, res) => {
