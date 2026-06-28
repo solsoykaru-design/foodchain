@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  LayoutDashboard, Coffee, ClipboardList, Wallet, History, MessageSquare,
-  Bell, BellRing, AlertTriangle, LogOut, Headset, Settings, Mic,
+  LayoutDashboard, Coffee, ClipboardList, History, MessageSquare,
+  Bell, BellRing, AlertTriangle, LogOut, Headset, Mic,
 } from 'lucide-react';
 import * as api from '../api';
 import type { Table, DineInCheck, WaiterCall, Dish, MenuCategory, Order } from '../types';
@@ -10,7 +10,6 @@ import TableCard from './components/TableCard';
 import MenuGrid from './components/MenuGrid';
 import type { CartItem, OrderOptions } from './components/MenuGrid';
 import ActiveOrders from './components/ActiveOrders';
-import PaymentScreen from './components/PaymentScreen';
 import OrderHistory from './components/OrderHistory';
 import KitchenChat from './components/KitchenChat';
 import WaiterChat from './components/WaiterChat';
@@ -21,7 +20,7 @@ import HeadsetsAdmin from './components/HeadsetsAdmin';
 import { useWaiterSocket } from './hooks/useWaiterSocket';
 import type { ChatInfo } from '../types';
 
-type Tab = 'hall' | 'menu' | 'orders' | 'voice' | 'payment' | 'history' | 'chat';
+type Tab = 'hall' | 'menu' | 'orders' | 'voice' | 'history' | 'chat';
 
 export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('hall');
@@ -170,10 +169,6 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
     } catch (e: any) { alert(e.message); }
   };
 
-  const handlePayOrder = (order: Order) => {
-    setTab('payment');
-  };
-
   // ─── Sound ──────────────────────────────────────────────────
   useEffect(() => {
     notifAudioRef.current = new Audio('/sounds/notification.mp3');
@@ -198,11 +193,9 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
       case 'menu':
         return <MenuGrid dishes={dishes} categories={categories} onSendOrder={handleSendOrder} />;
       case 'orders':
-        return <ActiveOrders checks={checks} onRefresh={loadChecks} onPayOrder={handlePayOrder} user={user} />;
+        return <ActiveOrders checks={checks} onRefresh={loadChecks} user={user} />;
       case 'voice':
         return <VoiceDashboard user={user} dishes={dishes} tables={tables} onOpenVoice={() => setVoiceOrderOpen(true)} />;
-      case 'payment':
-        return <PaymentScreen checks={checks} onRefresh={loadChecks} onClose={() => setTab('orders')} />;
       case 'history':
         return <OrderHistory />;
       case 'chat':
@@ -326,7 +319,6 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
             { id: 'menu' as Tab, icon: Coffee, label: 'Меню', badge: 0 },
             { id: 'orders' as Tab, icon: ClipboardList, label: 'Заказы', badge: checks.filter(c => c.status === 'open').length },
             { id: 'voice' as Tab, icon: Mic, label: 'AI', badge: 0 },
-            { id: 'payment' as Tab, icon: Wallet, label: 'Оплата', badge: 0 },
             { id: 'history' as Tab, icon: History, label: 'История', badge: 0 },
             { id: 'chat' as Tab, icon: MessageSquare, label: 'Чат', badge: chatUnread },
           ].map(t => (

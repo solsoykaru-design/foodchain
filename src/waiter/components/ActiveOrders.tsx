@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ClipboardList, Check, Clock, ChefHat, Truck, MessageSquare, X, Navigation, MapPin, Maximize2, CreditCard, Loader, Camera } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, Truck, MessageSquare, X, Navigation, MapPin, Maximize2, Camera } from 'lucide-react';
 import * as api from '../../api';
 import type { DineInCheck, Order } from '../../types';
 import { useOrderTimer } from '../hooks/useOrderTimer';
@@ -10,7 +10,6 @@ import { usePrice } from '../../PriceContext';
 interface Props {
   checks: DineInCheck[];
   onRefresh: () => void;
-  onPayOrder: (order: Order) => void;
   user?: any;
 }
 
@@ -49,74 +48,12 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function TerminalPayButton({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
-  const [paying, setPaying] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  const handleTerminalPay = async () => {
-    setPaying(true);
-    setStatus('pending');
-    setErrorMsg('');
-    try {
-      const apiBase = localStorage.getItem('foodchain_api_url') || '';
-      const token = localStorage.getItem('fc_token') || localStorage.getItem('foodchain_waiter_token') || '';
-      const res = await fetch(`${apiBase}/api/terminal/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ orderId: order.id, amount: order.total }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStatus('success');
-        setTimeout(() => { onRefresh(); }, 2000);
-      } else if (data.retrying) {
-        setStatus('error');
-        setErrorMsg('Терминал недоступен. Платёж в очереди — будет выполнен автоматически при восстановлении связи.');
-      } else {
-        setStatus('error');
-        setErrorMsg(data.error || 'Ошибка оплаты');
-      }
-    } catch (e: any) {
-      setStatus('error');
-      setErrorMsg(e.message || 'Ошибка соединения');
-    }
-    setPaying(false);
-  };
-
-  if (status === 'success') {
-    return (
-      <div className="flex-1 bg-emerald-500/20 text-emerald-400 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
-        <Check size={14} /> Оплачено
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 relative">
-      <button onClick={handleTerminalPay} disabled={paying}
-        className="w-full bg-zinc-800 hover:bg-zinc-700 text-orange-500 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition disabled:opacity-60">
-        {paying ? <Loader size={14} className="animate-spin" /> : <CreditCard size={14} />}
-        {paying ? 'Оплата...' : 'Картой (терминал)'}
-      </button>
-      {status === 'error' && (
-        <div className="absolute top-full mt-1 left-0 right-0 bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-[10px] text-red-400 z-10">
-          {errorMsg}
-          <button onClick={() => setStatus('idle')} className="block text-center text-red-300 underline mt-1 w-full">Закрыть</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Props) {
-  const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
+export default function ActiveOrders({ checks, onRefresh, user }: Props) {
   const [staffChatOrder, setStaffChatOrder] = useState<Order | null>(null);
   const [returningData, setReturningData] = useState<Record<number, { courierName: string; distanceKm: number; durationMin: number; eta: string; polyline?: string }>>({});
   const [returnMapOrder, setReturnMapOrder] = useState<number | null>(null);
   const [ymapsLoaded, setYmapsLoaded] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-  const [barcodeSearchResult, setBarcodeSearchResult] = useState<string | null>(null);
 
   const handleBarcodeScan = async (barcode: string) => {
     setShowBarcodeScanner(false);
@@ -154,7 +91,6 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
   const waiterMapRef = useRef<HTMLDivElement>(null);
   const waiterMapInstance = useRef<any>(null);
 
-  // Load Yandex Maps JS API
   useEffect(() => {
     if (typeof ymaps !== 'undefined') { setYmapsLoaded(true); return; }
     const apiBase = localStorage.getItem('foodchain_api_url') || '';
@@ -167,7 +103,6 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
     }).catch(() => {});
   }, []);
 
-  // Init map modal
   useEffect(() => {
     if (!ymapsLoaded || returnMapOrder === null || !waiterMapRef.current) return;
     if (waiterMapInstance.current) { waiterMapInstance.current.destroy(); waiterMapInstance.current = null; }
@@ -211,26 +146,6 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
     return () => { ws.close(); };
   }, []);
 
-  const handleServe = async (orderId: number) => {
-    setLoadingOrderId(orderId);
-    try {
-      const token = localStorage.getItem('foodchain_waiter_token') || '';
-      const user = JSON.parse(localStorage.getItem('foodchain_waiter_user') || '{}');
-      await api.serveOrder(orderId, user.id);
-      onRefresh();
-    } catch (e: any) { alert(e.message); }
-    setLoadingOrderId(null);
-  };
-
-  const handleAssignCourier = async (order: Order) => {
-    const courierId = prompt('Введите ID курьера:');
-    if (!courierId) return;
-    try {
-      await api.assignOrderCourier(order.id, Number(courierId), `Курьер #${courierId}`);
-      onRefresh();
-    } catch (e: any) { alert(e.message); }
-  };
-
   if (checks.length === 0) {
     return (
       <div className="pb-24 px-4 pt-4">
@@ -247,6 +162,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
           <p className="text-zinc-500 font-semibold">Нет активных заказов</p>
           <p className="text-xs text-zinc-600 mt-1">Посадите гостей и примите заказ</p>
         </div>
+        {showBarcodeScanner && <BarcodeScanner onScan={handleBarcodeScan} onClose={() => setShowBarcodeScanner(false)} />}
       </div>
     );
   }
@@ -287,7 +203,6 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
                     <StatusBadge status={order.status} />
                   </div>
 
-                  {/* Order items */}
                   {order.items?.map((item, i) => (
                     <div key={i} className="flex items-center justify-between py-1 text-sm">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -302,32 +217,7 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
                     </div>
                   ))}
 
-                  {/* Actions */}
                   <div className="flex gap-2 mt-3">
-                    {order.status === 'ready' && order.type !== 'delivery' && (
-                      <button onClick={() => handleServe(order.id)} disabled={loadingOrderId === order.id}
-                        className="flex-1 bg-green-500 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 disabled:opacity-50">
-                        {loadingOrderId === order.id ? '...' : <><Check size={14} /> Подать</>}
-                      </button>
-                    )}
-                    {order.status === 'served' && (
-                      <>
-                        <button onClick={() => onPayOrder(order)}
-                          className="flex-1 bg-blue-500 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
-                          <Check size={14} /> Принять оплату
-                        </button>
-                        <TerminalPayButton order={order} onRefresh={onRefresh} />
-                      </>
-                    )}
-                    {order.status === 'ready' && order.type === 'delivery' && (
-                      <button onClick={() => handleAssignCourier(order)}
-                        className="flex-1 bg-cyan-500 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
-                        <Truck size={14} /> Назначить курьера
-                      </button>
-                    )}
-                    {order.status === 'assigned' && (
-                      <span className="flex-1 text-center text-xs text-zinc-500 py-2">Курьер назначен</span>
-                    )}
                     {(order.status === 'assigned' || order.status === 'en_route') && order.type === 'delivery' && (
                       <button onClick={() => setStaffChatOrder(order)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
                         <MessageSquare size={14} /> Чат
@@ -338,8 +228,16 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
                         <ChefHat size={14} /> Готовится
                       </span>
                     )}
+                    {order.status === 'ready' && (
+                      <span className="flex-1 text-center text-xs text-green-500 py-2 flex items-center justify-center gap-1">
+                        Готов · ожидает на кассе
+                      </span>
+                    )}
                     {order.status === 'confirmed' && (
                       <span className="flex-1 text-center text-xs text-blue-500 py-2">Принят</span>
+                    )}
+                    {order.status === 'new' && (
+                      <span className="flex-1 text-center text-xs text-blue-400 py-2">Отправлен на кухню</span>
                     )}
                   </div>
                   {returningData[order.id] && (
@@ -377,13 +275,9 @@ export default function ActiveOrders({ checks, onRefresh, onPayOrder, user }: Pr
       )}
 
       {showBarcodeScanner && (
-        <BarcodeScanner
-          onScan={handleBarcodeScan}
-          onClose={() => setShowBarcodeScanner(false)}
-        />
+        <BarcodeScanner onScan={handleBarcodeScan} onClose={() => setShowBarcodeScanner(false)} />
       )}
 
-      {/* Return map modal */}
       {returnMapOrder !== null && returningData[returnMapOrder] && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setReturnMapOrder(null)}>
           <div className="bg-zinc-900 rounded-2xl w-full max-w-lg overflow-hidden border border-zinc-700" onClick={e => e.stopPropagation()}>

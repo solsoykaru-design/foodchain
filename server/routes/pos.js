@@ -294,6 +294,95 @@ module.exports = function(app, db, config) {
     }
   });
 
+  // POS Order management
+  app.get('/api/pos/orders', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const { status, type, search } = req.query;
+      let sql = 'SELECT * FROM orders WHERE tenant_id = ?';
+      const args = [req.tenant_id];
+      if (status) { sql += ' AND status = ?'; args.push(status); }
+      if (type) { sql += ' AND type = ?'; args.push(type); }
+      if (search) { sql += ' AND (user_name LIKE ? OR id LIKE ?)'; args.push(`%${search}%`, `%${search}%`); }
+      sql += ' ORDER BY created_at DESC LIMIT 200';
+      const orders = db.prepare(sql).all(...args);
+      res.json(orders.map(toCamelCase));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/pos/orders/:id', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
+      if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+      res.json(toCamelCase(order));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put('/api/pos/orders/:id/status', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const { status, note } = req.body;
+      const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
+      if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+      db.prepare('UPDATE orders SET status = ?, updated_at = datetime("now") WHERE id = ?').run(status, req.params.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)').run(req.params.id, status, note || '', req.tenant_id);
+      res.json(toCamelCase({ ...order, status }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put('/api/pos/orders/:id/assign-courier', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const { courierId, courierName } = req.body;
+      const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
+      if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+      const status = 'assigned';
+      db.prepare('UPDATE orders SET courier_id = ?, courier_name = ?, status = ?, updated_at = datetime("now") WHERE id = ?')
+        .run(courierId, courierName || '', status, req.params.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)')
+        .run(req.params.id, status, `Назначен курьер ${courierName}`, req.tenant_id);
+      res.json(toCamelCase({ ...order, courierId, courierName, status }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put('/api/pos/orders/:id/items', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Состав обязателен' });
+      const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
+      if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+      let subtotal = 0;
+      const enriched = items.map((item: any) => {
+        const dish = db.prepare('SELECT * FROM dishes WHERE id = ?').get(item.dishId || item.dish_id);
+        const name = dish?.name || item.name;
+        const price = dish?.price || item.price || 0;
+        subtotal += price * (item.quantity || 1);
+        return { ...item, name, price };
+      });
+      db.prepare('UPDATE orders SET items = ?, subtotal = ?, total = ?, updated_at = datetime("now") WHERE id = ?')
+        .run(JSON.stringify(enriched), subtotal, subtotal, req.params.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)')
+        .run(req.params.id, order.status, 'Состав изменён на кассе', req.tenant_id);
+      res.json(toCamelCase({ ...order, items: enriched, subtotal, total: subtotal }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/pos/orders/:id/cancel', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const { reason } = req.body;
+      const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
+      if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+      db.prepare('UPDATE orders SET status = "cancelled", updated_at = datetime("now") WHERE id = ?').run(req.params.id);
+      db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)')
+        .run(req.params.id, 'cancelled', `Отмена на кассе: ${reason || 'не указана'}`, req.tenant_id);
+      res.json(toCamelCase({ ...order, status: 'cancelled' }));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/pos/couriers', authenticateToken, requireOpenShift, (req, res) => {
+    try {
+      const couriers = db.prepare("SELECT id, name, phone, is_online, is_available FROM couriers WHERE tenant_id = ? ORDER BY is_online DESC, name").all(req.tenant_id);
+      res.json(couriers.map(toCamelCase));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   // Terminal pay integration
   app.post('/api/pos/terminal/pay', authenticateToken, requireOpenShift, async (req, res) => {
     try {

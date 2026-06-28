@@ -230,6 +230,35 @@ export async function posAuth(password: string): Promise<{ token: string; user: 
   return data;
 }
 
+export async function getPosOrders(params?: { status?: string; type?: string; search?: string }): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.type) qs.set('type', params.type);
+  if (params?.search) qs.set('search', params.search);
+  const q = qs.toString();
+  return request(`/api/pos/orders${q ? '?' + q : ''}`);
+}
+
+export async function updatePosOrderStatus(id: number, status: string, note?: string): Promise<any> {
+  return request(`/api/pos/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, note }) });
+}
+
+export async function assignPosOrderCourier(id: number, courierId: number, courierName: string): Promise<any> {
+  return request(`/api/pos/orders/${id}/assign-courier`, { method: 'PUT', body: JSON.stringify({ courierId, courierName }) });
+}
+
+export async function updatePosOrderItems(id: number, items: any[]): Promise<any> {
+  return request(`/api/pos/orders/${id}/items`, { method: 'PUT', body: JSON.stringify({ items }) });
+}
+
+export async function cancelPosOrder(id: number, reason?: string): Promise<any> {
+  return request(`/api/pos/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
+}
+
+export async function getPosCouriers(): Promise<any[]> {
+  return request('/api/pos/couriers');
+}
+
 // 2FA
 export async function get2FAStatus(staffId: number): Promise<{ enabled: boolean }> {
   return request(`/api/auth/2fa/status?staffId=${staffId}`);

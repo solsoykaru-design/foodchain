@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ShoppingCart, Trash2, Plus, Minus, Search, Settings, History, LogOut,
   Printer, CreditCard, Banknote, QrCode, Receipt, X, Sun, Moon, Maximize2,
-  Clock, Users, AlertTriangle, CheckCircle, Unlock, Lock, Save, Percent
+  Clock, Users, AlertTriangle, CheckCircle, Unlock, Lock, Save, Percent,
+  ClipboardList
 } from 'lucide-react';
 import * as api from '../api';
+import OrdersPanel from './components/OrdersPanel';
 
 interface Dish {
   id: number;
@@ -79,7 +81,7 @@ export default function PosApp() {
   const [tables, setTables] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'sale' | 'history' | 'settings'>('sale');
+  const [activeTab, setActiveTab] = useState<'sale' | 'orders' | 'history' | 'settings'>('sale');
   const [selectedCategory, setSelectedCategory] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -411,6 +413,7 @@ export default function PosApp() {
           <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
             {[
               { key: 'sale', label: 'Продажа', icon: ShoppingCart },
+              { key: 'orders', label: 'Заказы', icon: ClipboardList },
               { key: 'history', label: 'История', icon: History },
               { key: 'settings', label: 'Настройки', icon: Settings },
             ].map(t => (
@@ -451,6 +454,10 @@ export default function PosApp() {
                 </div>
               </div>
             </>
+          )}
+
+          {activeTab === 'orders' && (
+            <OrdersPanel darkMode={darkMode} shiftId={shift.id} user={user} onMessage={showMsg} />
           )}
 
           {activeTab === 'history' && (
