@@ -4566,8 +4566,49 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Backup endpoints ────────────────────────────────────────────
-app.post('/api/backup', (req, res) => {
-  backup.doBackup(db).then(() => res.json({ success: true })).catch(e => res.status(500).json({ error: e.message }));
+app.post('/api/backup', authenticateToken, requireRole('superadmin'), (req, res) => {
+  Promise.all([
+    backup.doBackup(DB_PATH, 'foodchain.db', db),
+    backup.doBackup(PORTAL_DB_PATH, 'portal.db'),
+  ]).then(() => res.json({ success: true })).catch(e => res.status(500).json({ error: e.message }));
+});
+
+app.get('/api/debug/db-status', authenticateToken, requireRole('superadmin'), async (req, res) => {
+  const path = require('path');
+  const portalDbPath = process.env.DATABASE_PATH || path.join(__dirname, 'portal-backend', 'portal.db');
+
+  const fileInfo = (p) => {
+    try {
+      const stat = fs.statSync(p);
+      return { path: p, size: stat.size, exists: true };
+    } catch (e) {
+      return { path: p, size: 0, exists: false, error: e.message };
+    }
+  };
+
+  const { getClient } = require('./lib/supabase');
+  const sb = getClient();
+  let cloudBackups = [];
+  if (sb) {
+    try {
+      const { data: files, error } = await sb.storage.from('foodchain-backups').list();
+      if (!error && files) {
+        cloudBackups = files.map(f => ({ name: f.name, size: f.metadata?.size || f.size, updatedAt: f.updated_at || f.created_at }));
+      } else if (error) {
+        cloudBackups = [{ error: error.message }];
+      }
+    } catch (e) {
+      cloudBackups = [{ error: e.message }];
+    }
+  }
+
+  res.json({
+    main: fileInfo(DB_PATH),
+    portal: fileInfo(portalDbPath),
+    dataDir: process.env.DATA_DIR || __dirname,
+    databasePath: process.env.DATABASE_PATH || null,
+    cloudBackups,
+  });
 });
 
 // ─── Seed superadmin ────────────────────────────────────────────
@@ -4610,7 +4651,7 @@ async function shutdown(signal) {
   backup.stop();
   try {
     if (typeof backup.doBackup === 'function') {
-      await backup.doBackup(DB_PATH, 'foodchain.db');
+      await backup.doBackup(DB_PATH, 'foodchain.db', db);
       await backup.doBackup(process.env.DATABASE_PATH || path.join(__dirname, 'portal-backend', 'portal.db'), 'portal.db');
     }
   } catch (e) {

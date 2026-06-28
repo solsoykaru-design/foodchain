@@ -8,8 +8,10 @@ const PORTAL_DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'portal
 const BUCKET_NAME = 'foodchain-backups';
 
 let backupInterval = null;
+let mainDbHandle = null;
 
 async function init(db) {
+  mainDbHandle = db || null;
   const client = initSupabase();
   if (!client) {
     console.log('[backup] Supabase not configured — backup disabled');
@@ -29,7 +31,7 @@ async function init(db) {
 
   // Auto-backup both main and portal DB every 1 minute during testing
   backupInterval = setInterval(() => {
-    doBackup(DB_PATH, 'foodchain.db');
+    doBackup(DB_PATH, 'foodchain.db', mainDbHandle);
     doBackup(PORTAL_DB_PATH, 'portal.db');
   }, 60 * 1000);
   console.log('[backup] Auto-backup every 1 minute (foodchain.db + portal.db)');
@@ -99,7 +101,7 @@ async function restoreFromBackup(db) {
   return restoreDatabaseFile(DB_PATH, 'foodchain.db');
 }
 
-async function doBackup(target, key) {
+async function doBackup(target, key, dbHandle) {
   try {
     const dbPath = typeof target === 'string' ? target : DB_PATH;
     const backupKey = key || 'foodchain.db';
@@ -107,13 +109,7 @@ async function doBackup(target, key) {
     if (!sb) return;
 
     if (!fs.existsSync(dbPath)) {
-      console.log(`[backup] DB file not found (${backupKey})`);
-      return;
-    }
-
-    const fileBuffer = fs.readFileSync(dbPath);
-    if (fileBuffer.length < 1024) {
-      console.log(`[backup] DB too small, skipping (${backupKey}): ${fileBuffer.length} bytes`);
+      console.log(`[backup] DB file not found (${backupKey}) at ${dbPath}`);
       return;
     }
 
@@ -132,18 +128,42 @@ async function doBackup(target, key) {
       console.log('[backup] Bucket check error:', bucketErr.message);
     }
 
-    const { error } = await sb.storage.from(BUCKET_NAME).upload(backupKey, fileBuffer, {
-      contentType: 'application/octet-stream',
-      upsert: true,
-    });
+    // Create a consistent snapshot using VACUUM INTO to include WAL contents
+    const tempPath = `${dbPath}.backup-${Date.now()}.tmp`;
+    try {
+      if (dbHandle && typeof dbHandle.prepare === 'function') {
+        dbHandle.prepare('VACUUM INTO ?').run(tempPath);
+      } else {
+        const Database = require('better-sqlite3');
+        const srcDb = new Database(dbPath);
+        try {
+          srcDb.prepare('VACUUM INTO ?').run(tempPath);
+        } finally {
+          srcDb.close();
+        }
+      }
 
-    if (error) {
-      console.log(`[backup] Upload failed (${backupKey}):`, error.message);
-      return;
+      const fileBuffer = fs.readFileSync(tempPath);
+      if (fileBuffer.length < 1024) {
+        console.log(`[backup] VACUUM copy too small, skipping (${backupKey}): ${fileBuffer.length} bytes`);
+        return;
+      }
+
+      const { error } = await sb.storage.from(BUCKET_NAME).upload(backupKey, fileBuffer, {
+        contentType: 'application/octet-stream',
+        upsert: true,
+      });
+
+      if (error) {
+        console.log(`[backup] Upload failed (${backupKey}):`, error.message);
+        return;
+      }
+
+      const sizeMB = (fileBuffer.length / 1024 / 1024).toFixed(2);
+      console.log(`[backup] Backed up ${sizeMB} MB (${backupKey}) at ${new Date().toISOString()}`);
+    } finally {
+      try { fs.unlinkSync(tempPath); } catch (e) {}
     }
-
-    const sizeMB = (fileBuffer.length / 1024 / 1024).toFixed(2);
-    console.log(`[backup] Backed up ${sizeMB} MB (${backupKey}) at ${new Date().toISOString()}`);
   } catch (e) {
     console.log('[backup] Backup error:', e.message);
   }
