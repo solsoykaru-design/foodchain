@@ -96,7 +96,9 @@ app.get('/debug/dist', (req, res) => {
     const full = path.join(base, d);
     result[d] = { exists: fs.existsSync(full), files: fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : [] };
   }
-  res.json({ cwd: process.cwd(), base, dirs: result });
+  let rootFiles = [];
+  try { rootFiles = fs.readdirSync(base); } catch(e) { rootFiles = ['ERROR: '+e.message]; }
+  res.json({ cwd: process.cwd(), dirname: __dirname, base, rootFiles: rootFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), dirs: result });
 });
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
