@@ -106,6 +106,7 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
   const shutdownRef = useRef<() => void>(() => {});
   const activateListeningRef = useRef<(analyser: AnalyserNode) => void>(() => {});
   const customNameRef = useRef<HTMLInputElement>(null);
+  const restartTimerRef = useRef<any>(null);
   const waiterNameRef = useRef(user?.firstName || user?.username || 'Официант');
 
   // ─── Sync waiterNameRef ────────────────────────────
@@ -255,60 +256,26 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
     } catch { return null; }
   }, []);
 
-  // ─── Start system — dormant mode, waits for wake word ──
+  // ─── Start system — begin listening immediately (no wake word) ──
   const startSystem = useCallback(async () => {
-    const audio = await startAudio();
-    if (!audio) {
-      setErrorMsg('Нет доступа к микрофону');
-      speak('Нет доступа к микрофону');
-      return;
-    }
-    const { analyser } = audio;
-
-    setPhase('dormant');
-    activeRef.current = true;
-    speak('Скажите «Алиса, прими заказ» для начала');
-
-    const dormantRec = startRecognition(true, true);
-    if (!dormantRec) { setErrorMsg('Распознавание не поддерживается'); return; }
-
-    let noiseBursts = 0;
-
-    dormantRec.onresult = (event: any) => {
-      if (!activeRef.current) return;
-
-      // Check ambient noise before processing
-      if (isTooNoisy(analyser)) {
-        noiseBursts++;
-        if (noiseBursts >= MAX_NOISE_BURSTS) {
-          speak('Слишком шумно. Повторите позже.');
-          noiseBursts = 0;
-        }
+    if (activeRef.current) return;
+    try {
+      setErrorMsg('');
+      setPhase('processing');
+      const audio = await startAudio();
+      if (!audio) {
+        setPhase('dormant');
+        setErrorMsg('Нет доступа к микрофону. Разрешите доступ в настройках браузера.');
+        speak('Нет доступа к микрофону');
         return;
       }
-      noiseBursts = 0;
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          const text = event.results[i][0].transcript.trim();
-          if (!text) continue;
-
-          if (isWakeWord(text)) {
-            dormantRec.stop();
-            activateListeningRef.current(analyser);
-            return;
-          }
-          if (isStopCommand(text)) {
-            shutdownRef.current();
-            return;
-          }
-        }
-      }
-    };
-    dormantRec.onend = () => { if (activeRef.current) dormantRec.start(); };
-    dormantRec.start();
-    recognitionRef.current = dormantRec;
-  }, [startAudio, startRecognition, isWakeWord, isStopCommand, isTooNoisy, speak]);
+      activeRef.current = true;
+      activateListeningRef.current(audio.analyser);
+    } catch (e: any) {
+      setPhase('dormant');
+      setErrorMsg('Ошибка запуска микрофона: ' + (e?.message || ''));
+    }
+  }, [startAudio, speak]);
 
   // ─── Activate listening (after wake word) ────────────
   const activateListening = useCallback((analyser: AnalyserNode) => {
@@ -341,23 +308,16 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
     }).catch(() => {});
 
     const listeningRec = startRecognition(true, true);
-    if (!listeningRec) return;
-
-    let noiseBursts = 0;
+    if (!listeningRec) {
+      setPhase('dormant');
+      setErrorMsg('Голосовой ввод не поддерживается этим браузером. Используйте Chrome/Android.');
+      speak('Голосовой ввод не поддерживается');
+      return;
+    }
 
     listeningRec.onresult = (event: any) => {
       if (!activeRef.current) return;
 
-      // Check noise level
-      if (isTooNoisy(analyser)) {
-        noiseBursts++;
-        if (noiseBursts >= MAX_NOISE_BURSTS) {
-          speak('Слишком шумно. Повторите, пожалуйста.');
-          noiseBursts = 0;
-        }
-        return;
-      }
-      noiseBursts = 0;
       lastSpeechRef.current = Date.now();
       scheduleTimeout();
 
@@ -421,8 +381,36 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
       }
     };
 
-    listeningRec.onend = () => { if (activeRef.current) listeningRec.start(); };
-    listeningRec.start();
+    listeningRec.onerror = (event: any) => {
+      console.log('[VoiceOrder] recognition error', event.error);
+      // no-speech is normal when user pauses; restart handles it
+      if (event.error === 'not-allowed') {
+        setErrorMsg('Микрофон заблокирован браузером');
+        activeRef.current = false;
+        return;
+      }
+      if (event.error === 'audio-capture') {
+        setErrorMsg('Не удалось получить звук с микрофона');
+      }
+    };
+
+    listeningRec.onend = () => {
+      if (!activeRef.current) return;
+      // Small delay before restart to avoid tight loops / browser throttling
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (activeRef.current && listeningRec) {
+          try { listeningRec.start(); } catch {}
+        }
+      }, 400);
+    };
+
+    try {
+      listeningRec.start();
+    } catch {
+      setErrorMsg('Ошибка старта распознавания');
+      return;
+    }
     recognitionRef.current = listeningRec;
   }, [user.id, speak, filterNoise, isStopCommand, isConfirmCommand, isRejectCommand, extractMenuItems]);
   activateListeningRef.current = activateListening;
@@ -598,7 +586,10 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
     clearTimeout(wakeTimerRef.current);
     clearTimeout(confirmTimerRef.current);
     clearTimeout(listenTimerRef.current);
-    if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
+    clearTimeout(restartTimerRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.stop(); } catch {}
+    }
     if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); }
     if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} }
     draftIdRef.current = null;
@@ -610,8 +601,14 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
   }, [speak]);
   shutdownRef.current = shutdown;
 
-  // ─── Cleanup ────────────────────────────────────────
-  useEffect(() => { return () => shutdown(); }, [shutdown]);
+  // ─── Auto-start listening when modal opens ──────────────────
+  useEffect(() => {
+    const t = setTimeout(() => startSystem(), 300);
+    return () => {
+      clearTimeout(t);
+      shutdown();
+    };
+  }, [startSystem, shutdown]);
 
   // ─── Table name helper ──────────────────────────────
   const getTableName = (id: number | null) => {
