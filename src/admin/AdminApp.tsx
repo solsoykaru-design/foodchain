@@ -11,6 +11,7 @@ import PickupPointsPage from './PickupPointsPage';
 import StaffPage from './StaffPage';
 import KitchenPage from './KitchenPage';
 import MenuPage from './MenuPage';
+import StationsPage from './StationsPage';
 import MenuItemsList from './MenuItemsList';
 import CategoriesPage from './CategoriesPage';
 import TechCardsPage from './TechCardsPage';
@@ -148,6 +149,7 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'kitchen' && <KitchenPage key={refreshKey} />}
           {adminPage === 'categories' && <CategoriesPage key={refreshKey} />}
           {adminPage === 'menu' && <MenuPage key={refreshKey} />}
+          {adminPage === 'stations' && <StationsPage key={refreshKey} />}
           {adminPage === 'tech_cards' && <TechCardsPage key={refreshKey} />}
           {adminPage === 'bookings' && <BookingsPage key={refreshKey} />}
           {adminPage === 'inventory' && <InventoryPage key={refreshKey} />}
@@ -226,7 +228,7 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'honest_sign' && <HonestSignPage key={refreshKey} />}
           {adminPage === 'yuma_import' && <YumaImportPage key={refreshKey} />}
           {adminPage === 'profile' && <ProfilePage key={refreshKey} />}
-          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'notification_logs', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import', 'profile'].includes(adminPage) && (
+          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'stations', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'notification_logs', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import', 'profile'].includes(adminPage) && (
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 text-center shadow-sm">
               <p className="text-zinc-500 dark:text-zinc-400">{t('page_developing')}: {adminPage}</p>
             </div>
@@ -368,6 +370,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             { id: 'menu_weekly_menu', icon: CalendarDays, label: t('sidebar_menu_weekly') },
             { id: 'menu_stop_lists', icon: PackageSearch, label: t('sidebar_menu_stop_lists') },
             { id: 'menu_languages', icon: Globe, label: t('sidebar_menu_languages') },
+            { id: 'stations', icon: ChefHat, label: 'Станции кухни' },
           ]
         },
         {
