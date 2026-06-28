@@ -436,7 +436,8 @@ function requireRole(...roles) {
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
 const PUBLIC_API_PATHS = ['/api/auth/', '/api/public/', '/api/tenants/search', '/api/tenants/register'];
 function ensureTenantId(req, res, next) {
-  if (PUBLIC_API_PATHS.some(p => req.path.startsWith(p))) return next();
+  const requestPath = req.originalUrl || req.url;
+  if (PUBLIC_API_PATHS.some(p => requestPath.startsWith(p))) return next();
   if (req.tenant_id) return next();
   const authHeader = req.headers.authorization;
   if (authHeader) {
