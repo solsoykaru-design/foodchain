@@ -152,7 +152,7 @@ app.get('/api/orders/:id/chat', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/orders', (req, res) => {
-  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code } = req.body;
+  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code, shift_id, handled_by, handled_by_name } = req.body;
   if (!user_id || !user_name || !user_phone) return res.status(400).json({ error: 'Данные пользователя обязательны' });
   
   let finalTotal = total || 0;
@@ -176,8 +176,8 @@ app.post('/api/orders', (req, res) => {
 
   const itemsJson = JSON.stringify(items || []);
   const subtotal = total || 0;
-  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id);
+  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id, shift_id, handled_by, handled_by_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id, shift_id || null, handled_by || null, handled_by_name || null);
   const orderId = info.lastInsertRowid;
   db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)').run(orderId, 'new', 'Заказ создан', req.tenant_id);
 

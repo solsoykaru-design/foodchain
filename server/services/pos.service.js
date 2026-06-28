@@ -3,6 +3,19 @@
  * Таблицы, настройки и бизнес-логика POS-терминала.
  */
 
+function toCamelCase(obj) {
+  if (Array.isArray(obj)) return obj.map(toCamelCase);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const key = k.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
+      out[key] = toCamelCase(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
 function initTables(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS pos_settings (
@@ -91,8 +104,10 @@ function initTables(db) {
     CREATE TABLE IF NOT EXISTS pos_shifts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER DEFAULT 1,
-      staff_id INTEGER,
-      staff_name TEXT,
+      opened_by INTEGER,
+      opened_by_name TEXT,
+      closed_by INTEGER,
+      closed_by_name TEXT,
       opening_balance REAL DEFAULT 0,
       closing_balance REAL,
       status TEXT DEFAULT 'open',
@@ -100,7 +115,43 @@ function initTables(db) {
       closed_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS pos_shift_logins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      shift_id INTEGER,
+      staff_id INTEGER,
+      staff_name TEXT,
+      staff_role TEXT,
+      login_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pos_shift_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      shift_id INTEGER UNIQUE,
+      total_orders INTEGER DEFAULT 0,
+      total_revenue REAL DEFAULT 0,
+      cash_revenue REAL DEFAULT 0,
+      card_revenue REAL DEFAULT 0,
+      online_revenue REAL DEFAULT 0,
+      sbp_revenue REAL DEFAULT 0,
+      terminal_revenue REAL DEFAULT 0,
+      other_revenue REAL DEFAULT 0,
+      tips REAL DEFAULT 0,
+      average_check REAL DEFAULT 0,
+      canceled_orders INTEGER DEFAULT 0,
+      opened_by_name TEXT,
+      closed_by_name TEXT,
+      report_data TEXT DEFAULT '{}',
+      generated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Ensure orders table has shift linkage
+  try { db.exec(`ALTER TABLE orders ADD COLUMN shift_id INTEGER`); } catch (e) { /* already exists */ }
+  try { db.exec(`ALTER TABLE orders ADD COLUMN handled_by INTEGER`); } catch (e) { /* already exists */ }
+  try { db.exec(`ALTER TABLE orders ADD COLUMN handled_by_name TEXT`); } catch (e) { /* already exists */ }
 
   seedDefaults(db);
 }
@@ -284,8 +335,10 @@ function getCashDrawerOps(db, tenantId, shiftId) {
 function openShift(db, tenantId, data) {
   initTables(db);
   const { staffId, staffName, openingBalance } = data;
+  const current = getCurrentShift(db, tenantId);
+  if (current) throw new Error('Смена уже открыта');
   const result = db.prepare(`
-    INSERT INTO pos_shifts (tenant_id, staff_id, staff_name, opening_balance, status)
+    INSERT INTO pos_shifts (tenant_id, opened_by, opened_by_name, opening_balance, status)
     VALUES (?, ?, ?, ?, 'open')
   `).run(tenantId, staffId, staffName || '', openingBalance || 0);
   return db.prepare('SELECT * FROM pos_shifts WHERE id = ?').get(result.lastInsertRowid);
@@ -293,15 +346,132 @@ function openShift(db, tenantId, data) {
 
 function closeShift(db, tenantId, id, data) {
   initTables(db);
-  const { closingBalance } = data;
-  db.prepare(`UPDATE pos_shifts SET closing_balance = ?, status = 'closed', closed_at = datetime('now') WHERE id = ? AND tenant_id = ?`)
-    .run(closingBalance || 0, id, tenantId);
+  const { closedBy, closedByName, closingBalance } = data;
+  const shift = db.prepare('SELECT * FROM pos_shifts WHERE id = ? AND tenant_id = ?').get(id, tenantId);
+  if (!shift) throw new Error('Смена не найдена');
+  if (shift.status !== 'open') throw new Error('Смена уже закрыта');
+
+  // Check for open orders
+  const openOrders = db.prepare(`SELECT COUNT(*) as cnt FROM orders WHERE shift_id = ? AND status NOT IN ('closed', 'cancelled')`).get(id);
+  if (openOrders && openOrders.cnt > 0) throw new Error(`Нельзя закрыть смену: ${openOrders.cnt} открытых заказов`);
+
+  db.prepare(`UPDATE pos_shifts SET closing_balance = ?, closed_by = ?, closed_by_name = ?, status = 'closed', closed_at = datetime('now') WHERE id = ? AND tenant_id = ?`)
+    .run(closingBalance || 0, closedBy, closedByName || '', id, tenantId);
   return db.prepare('SELECT * FROM pos_shifts WHERE id = ?').get(id);
 }
 
 function getCurrentShift(db, tenantId) {
   initTables(db);
   return db.prepare(`SELECT * FROM pos_shifts WHERE tenant_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1`).get(tenantId);
+}
+
+function recordShiftLogin(db, tenantId, shiftId, staff) {
+  initTables(db);
+  if (!shiftId) return null;
+  const result = db.prepare(`
+    INSERT INTO pos_shift_logins (tenant_id, shift_id, staff_id, staff_name, staff_role)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(tenantId, shiftId, staff.id, staff.username || staff.name || '', staff.role || '');
+  return db.prepare('SELECT * FROM pos_shift_logins WHERE id = ?').get(result.lastInsertRowid);
+}
+
+function getShiftEmployees(db, tenantId, shiftId) {
+  initTables(db);
+  const logins = db.prepare(`
+    SELECT staff_id as id, staff_name as name, staff_role as role, COUNT(*) as login_count, MAX(login_at) as last_login_at
+    FROM pos_shift_logins
+    WHERE tenant_id = ? AND shift_id = ?
+    GROUP BY staff_id, staff_name, staff_role
+    ORDER BY last_login_at DESC
+  `).all(tenantId, shiftId);
+  return logins;
+}
+
+function generateShiftReport(db, tenantId, shiftId) {
+  initTables(db);
+  const shift = db.prepare('SELECT * FROM pos_shifts WHERE id = ? AND tenant_id = ?').get(shiftId, tenantId);
+  if (!shift) throw new Error('Смена не найдена');
+
+  const orders = db.prepare(`SELECT * FROM orders WHERE shift_id = ?`).all(shiftId);
+  const totalOrders = orders.length;
+  const canceledOrders = orders.filter(o => o.status === 'cancelled').length;
+  const validOrders = orders.filter(o => o.status !== 'cancelled');
+  const totalRevenue = validOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const averageCheck = validOrders.length ? totalRevenue / validOrders.length : 0;
+
+  // Revenue by payment method
+  const methodMap = {};
+  for (const o of validOrders) {
+    const m = o.payment_method || 'cash';
+    methodMap[m] = (methodMap[m] || 0) + (o.total || 0);
+  }
+
+  // Tips - from orders if tips field exists
+  const tips = validOrders.reduce((s, o) => s + (o.tips || 0), 0);
+
+  // Per employee stats
+  const employeeMap = {};
+  for (const o of orders) {
+    const key = o.handled_by || o.user_id;
+    const name = o.handled_by_name || o.user_name || 'Неизвестно';
+    if (!employeeMap[key]) employeeMap[key] = { id: key, name, orders: 0, revenue: 0, payments: 0 };
+    employeeMap[key].orders += 1;
+    if (o.status !== 'cancelled') employeeMap[key].revenue += (o.total || 0);
+    if (o.payment_method && o.status === 'closed') employeeMap[key].payments += 1;
+  }
+  const employees = Object.values(employeeMap);
+
+  // Order types
+  const dineIn = orders.filter(o => (o.type || 'dine_in') === 'dine_in').length;
+  const delivery = orders.filter(o => o.type === 'delivery').length;
+  const pickup = orders.filter(o => o.type === 'pickup').length;
+
+  const reportData = {
+    employees,
+    orderTypes: { dine_in: dineIn, delivery: delivery, pickup: pickup },
+    paymentMethods: methodMap,
+  };
+
+  const existing = db.prepare('SELECT id FROM pos_shift_reports WHERE shift_id = ?').get(shiftId);
+  const data = {
+    totalOrders, totalRevenue,
+    cashRevenue: methodMap.cash || 0,
+    cardRevenue: methodMap.card || 0,
+    onlineRevenue: methodMap.online || 0,
+    sbpRevenue: methodMap.sbp || 0,
+    terminalRevenue: methodMap.terminal || 0,
+    otherRevenue: methodMap.other || 0,
+    tips, averageCheck, canceledOrders,
+    openedByName: shift.opened_by_name || '',
+    closedByName: shift.closed_by_name || '',
+    reportData: JSON.stringify(reportData),
+  };
+
+  if (existing) {
+    const fields = Object.keys(data);
+    const setClause = fields.map(f => `${f} = ?`).join(', ');
+    db.prepare(`UPDATE pos_shift_reports SET ${setClause}, generated_at = datetime('now') WHERE shift_id = ?`).run(...fields.map(f => data[f]), shiftId);
+  } else {
+    const fields = Object.keys(data);
+    const placeholders = fields.map(() => '?').join(', ');
+    db.prepare(`INSERT INTO pos_shift_reports (tenant_id, shift_id, ${fields.join(', ')}) VALUES (?, ?, ${placeholders})`).run(tenantId, shiftId, ...fields.map(f => data[f]));
+  }
+
+  return { ...data, reportData, shift: toCamelCase(shift) };
+}
+
+function getShiftReport(db, tenantId, shiftId) {
+  initTables(db);
+  const report = db.prepare('SELECT * FROM pos_shift_reports WHERE shift_id = ? AND tenant_id = ?').get(shiftId, tenantId);
+  if (!report) return null;
+  const parsed = { ...report, reportData: JSON.parse(report.report_data || '{}') };
+  return toCamelCase(parsed);
+}
+
+function getShiftOrderCount(db, tenantId, shiftId) {
+  initTables(db);
+  const result = db.prepare(`SELECT COUNT(*) as cnt FROM orders WHERE shift_id = ?`).get(shiftId);
+  return result ? result.cnt : 0;
 }
 
 module.exports = {
@@ -324,4 +494,9 @@ module.exports = {
   openShift,
   closeShift,
   getCurrentShift,
+  recordShiftLogin,
+  getShiftEmployees,
+  generateShiftReport,
+  getShiftReport,
+  getShiftOrderCount,
 };

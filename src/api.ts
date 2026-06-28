@@ -222,6 +222,14 @@ export async function adminLogin(username: string, password: string, twoFactorCo
   return data;
 }
 
+export async function posAuth(password: string): Promise<{ token: string; user: any }> {
+  const data = await request('/api/pos/auth', { method: 'POST', body: JSON.stringify({ password }) });
+  if (data.token) {
+    localStorage.setItem('fc_token', data.token);
+  }
+  return data;
+}
+
 // 2FA
 export async function get2FAStatus(staffId: number): Promise<{ enabled: boolean }> {
   return request(`/api/auth/2fa/status?staffId=${staffId}`);
@@ -267,6 +275,7 @@ export async function createOrder(data: {
   address?: string; items: any[]; total: number;
   payment_method?: string; type?: string; comment?: string;
   bonus_used?: number; promo_code?: string;
+  shift_id?: number; handled_by?: number; handled_by_name?: string;
 }): Promise<Order> {
   return request('/api/orders', { method: 'POST', body: JSON.stringify(data) });
 }
