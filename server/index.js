@@ -4605,11 +4605,16 @@ portalReady.finally(() => {
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────
-function shutdown(signal) {
+async function shutdown(signal) {
   console.log(`[${signal}] Shutting down gracefully…`);
   backup.stop();
-  if (typeof backup.doBackup === 'function') {
-    backup.doBackup(db).catch(() => {});
+  try {
+    if (typeof backup.doBackup === 'function') {
+      await backup.doBackup(DB_PATH, 'foodchain.db');
+      await backup.doBackup(process.env.DATABASE_PATH || path.join(__dirname, 'portal-backend', 'portal.db'), 'portal.db');
+    }
+  } catch (e) {
+    console.log('[shutdown] Backup error:', e.message);
   }
   try { db.close(); } catch(e) { console.log('[shutdown] DB close:', e.message); }
   server.close(() => {
