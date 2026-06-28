@@ -11,14 +11,29 @@ function init() {
     return null;
   }
 
-  supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const opts = {
+    auth: { autoRefreshToken: false, persistSession: false },
+  };
 
-  console.log('[supabase] Client initialized');
+  // Node.js < 22 needs ws package for Realtime
+  const nodeMajor = parseInt(process.versions.node, 10);
+  if (nodeMajor < 22) {
+    try {
+      const ws = require('ws');
+      opts.realtime = { transport: ws };
+    } catch (e) {
+      console.log('[supabase] ws package not available, realtime disabled');
+    }
+  }
+
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey, opts);
+    console.log('[supabase] Client initialized');
+  } catch (e) {
+    console.log('[supabase] Init failed:', e.message);
+    return null;
+  }
+
   return supabase;
 }
 
