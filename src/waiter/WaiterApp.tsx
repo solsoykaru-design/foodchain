@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Coffee, ClipboardList, Wallet, History, MessageSquare,
-  Bell, BellRing, AlertTriangle, LogOut,
+  Bell, BellRing, AlertTriangle, LogOut, Headset, Settings,
 } from 'lucide-react';
 import * as api from '../api';
 import type { Table, DineInCheck, WaiterCall, Dish, MenuCategory, Order } from '../types';
@@ -16,6 +16,7 @@ import KitchenChat from './components/KitchenChat';
 import WaiterChat from './components/WaiterChat';
 import QuickTemplates from './components/QuickTemplates';
 import VoiceOrder from './components/VoiceOrder';
+import HeadsetsAdmin from './components/HeadsetsAdmin';
 import { useWaiterSocket } from './hooks/useWaiterSocket';
 import type { ChatInfo } from '../types';
 
@@ -34,6 +35,7 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
   const [notifications, setNotifications] = useState<string[]>([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
+  const [headsetsAdminOpen, setHeadsetsAdminOpen] = useState(false);
   const notifAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // ─── WebSocket ──────────────────────────────────────────────
@@ -229,6 +231,10 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Headsets Admin */}
+            <button onClick={() => setHeadsetsAdminOpen(true)} className="p-2 text-zinc-500 hover:text-orange-400">
+              <Headset size={18} />
+            </button>
             {/* Notifications */}
             <button onClick={() => setShowNotifPanel(!showNotifPanel)} className="relative p-2 text-zinc-500 hover:text-white">
               {totalNotifications > 0 ? <BellRing size={18} className="text-orange-400" /> : <Bell size={18} />}
@@ -302,6 +308,11 @@ export default function WaiterApp({ user, onLogout }: { user: any; onLogout: () 
           onOrderCreated={() => { loadChecks(); loadTables(); }}
           onClose={() => setVoiceOrderOpen(false)}
         />
+      )}
+
+      {/* Headsets Admin Modal */}
+      {headsetsAdminOpen && (
+        <HeadsetsAdmin onClose={() => setHeadsetsAdminOpen(false)} />
       )}
 
       {/* Bottom Nav */}

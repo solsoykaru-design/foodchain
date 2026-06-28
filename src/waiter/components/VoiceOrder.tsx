@@ -9,6 +9,7 @@ interface VoiceItem {
   exclude: string[];
   menu_match: { id: number; name: string; price: number } | null;
   found: boolean;
+  zone?: 'kitchen' | 'bar' | 'hookah' | null;
 }
 
 interface ParsedResult {
@@ -63,11 +64,12 @@ const MAX_NOISE_BURSTS = 3;
 
 // ─── Help text ─────────────────────────────────────────
 const HELP_TEXT = [
-  '🔑 Скажите «Алиса, прими заказ» для активации',
-  '🎤 После триггера называйте: «Стол 5, паста Карбонара, кола»',
-  '📝 «Подтверди» — отправить на кухню',
-  '💰 «Оплатить чек 128» — приём оплаты',
-  '❌ «Стоп» или «Отмена» — сбросить и выключить',
+  '🎤 Называйте заказ: «Стол 5, паста Карбонара, кола»',
+  '🍳 Зоны: «кухня», «бар», «кальянная» — для маршрутизации',
+  '📝 «Оформляй заказ» — отправить на кухню/бар',
+  '💰 «Оплачено» — приём оплаты',
+  '❌ «Отмена» — сбросить заказ',
+  '🔊 Система автоматически определяет зону по блюду',
 ];
 
 interface MenuLookup {
@@ -779,6 +781,7 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
                   const mods = item.modifiers?.length ? item.modifiers.join(', ') : '';
                   const excs = item.exclude?.length ? `без ${item.exclude.join(', без ')}` : '';
                   const opts = [mods, excs].filter(Boolean).join('; ');
+                  const zoneLabel = item.zone === 'kitchen' ? '🍳' : item.zone === 'bar' ? '🍹' : item.zone === 'hookah' ? '💨' : '';
                   return <div key={idx} className="flex items-center justify-between bg-zinc-800/50 rounded-xl px-3 py-1.5">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {item.found ? <CheckCircle size={12} className="text-green-500 shrink-0" /> : <AlertTriangle size={12} className="text-yellow-500 shrink-0" />}
@@ -787,7 +790,10 @@ export default function VoiceOrder({ user, tables, dishes, onOrderCreated, onClo
                         {opts && <span className="text-[10px] text-zinc-500 truncate block">{opts}</span>}
                       </div>
                     </div>
-                    <span className="text-sm text-zinc-400 ml-2 shrink-0">×{item.quantity}</span>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      {zoneLabel && <span className="text-xs">{zoneLabel}</span>}
+                      <span className="text-sm text-zinc-400">×{item.quantity}</span>
+                    </div>
                   </div>;
                 })}
               </div>
