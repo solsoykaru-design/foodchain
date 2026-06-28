@@ -2546,9 +2546,8 @@ function OrderTrackingPage() {
           <div className="bg-zinc-900 rounded-3xl ring-1 ring-zinc-800 shadow-xl overflow-hidden" style={{ height: 240 }}>
             <MapContainer center={[55.751244, 37.618423]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false} className="z-0">
               <TileLayer
-                url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
-                subdomains="abc"
-                attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+                url="https://core-renderer-tiles.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=ru_RU"
+                attribution="&copy; Яндекс"
               />
               <CourierMapUpdater courierLocation={courierLoc} />
               {restaurantLoc && (
