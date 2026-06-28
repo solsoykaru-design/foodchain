@@ -4581,6 +4581,7 @@ require('./routes/mobile.js')(app, db, { safeError });
 require('./routes/mobile-push.js')(app, db, { safeError });
 require('./routes/voice.js')(app, db, config);
 require('./routes/pos.js')(app, db, config);
+require('./routes/stations.js')(app, db, config);
 
 // ─── Voice WebSocket Server ──────────────────────────────────────
 const VoiceHeadsetService = require('./services/voice-headset.service');

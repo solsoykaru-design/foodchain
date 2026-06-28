@@ -12,6 +12,12 @@ interface Dish {
   weight: number; calories: number; proteins: number; fats: number; carbs: number;
   isAvailable: boolean; isPopular: boolean; ingredients?: string;
   techCardId?: number | null;
+  stationId?: number | null;
+  stationName?: string;
+}
+
+interface Station {
+  id: number; name: string; color?: string;
 }
 
 interface CatNode {
@@ -23,7 +29,7 @@ interface CatNode {
 const emptyDish = {
   name: '', description: '', price: 0, categoryId: 0, imageUrl: '',
   weight: 0, calories: 0, proteins: 0, fats: 0, carbs: 0,
-  isAvailable: true, isPopular: false, ingredients: '',
+  isAvailable: true, isPopular: false, ingredients: '', stationId: null,
 };
 
 function findPath(tree: CatNode[], targetId: number): CatNode[] {
@@ -39,6 +45,7 @@ export default function MenuPage() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [catTree, setCatTree] = useState<CatNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stations, setStations] = useState<Station[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
   const [includeSubcats, setIncludeSubcats] = useState(true);
@@ -59,12 +66,14 @@ export default function MenuPage() {
 
   const load = useCallback(async () => {
     try {
-      const [d, tree] = await Promise.all([
+      const [d, tree, s] = await Promise.all([
         api.getDishes(selectedCatId || undefined, includeSubcats).catch(() => []),
         api.getMenuCategories(true).catch(() => []),
+        api.getStations().catch(() => []),
       ]);
       setDishes(d);
       setCatTree(tree);
+      setStations(s);
     } finally { setLoading(false); }
   }, [selectedCatId, includeSubcats]);
 
@@ -121,7 +130,7 @@ export default function MenuPage() {
           imageUrl = uploaded.url;
         } catch {}
       }
-      const payload = { ...form, imageUrl };
+      const payload = { ...form, imageUrl, stationId: form.stationId || null };
       if (editing) {
         await api.updateDish(editing.id, payload);
       } else {
@@ -326,8 +335,9 @@ export default function MenuPage() {
                     {dish.fats > 0 && <span>Ж {dish.fats}г</span>}
                     {dish.carbs > 0 && <span>У {dish.carbs}г</span>}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {dish.isPopular && <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">Популярное</span>}
+                    {dish.stationName && <span className="text-[10px] font-bold bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 px-2 py-0.5 rounded-full">{dish.stationName}</span>}
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dish.isAvailable ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
                       {dish.isAvailable ? 'В наличии' : 'Нет в наличии'}
                     </span>
@@ -407,6 +417,13 @@ export default function MenuPage() {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-zinc-500">Состав</label>
                 <input value={form.ingredients || ''} onChange={e => setForm({...form, ingredients: e.target.value})} placeholder="Ингредиенты через запятую" className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-zinc-500">Кухонная станция</label>
+                <select value={form.stationId || ''} onChange={e => setForm({...form, stationId: e.target.value ? Number(e.target.value) : null})} className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white outline-none">
+                  <option value="">Без станции</option>
+                  {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
               </div>
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-medium text-zinc-500">Изображение</label>

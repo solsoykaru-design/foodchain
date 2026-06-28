@@ -17,6 +17,10 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
   const [stepDetailsVisible, setStepDetailsVisible] = useState<Record<string, boolean>>({});
   const [sousChefMode, setSousChefMode] = useState(false);
   const [sousChefData, setSousChefData] = useState<any[]>([]);
+  const [stations, setStations] = useState<any[]>([]);
+  const [stationMode, setStationMode] = useState(false);
+  const [selectedStation, setSelectedStation] = useState<number | null>(null);
+  const [stationOrders, setStationOrders] = useState<any[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const getStepKey = (orderId: number, dishId: number) => `${orderId}-${dishId}`;
@@ -102,6 +106,17 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
     } catch {}
   }, []);
 
+  const loadStations = useCallback(async () => {
+    try { setStations(await api.getStations()); } catch {}
+  }, []);
+
+  const loadStationOrders = useCallback(async () => {
+    try {
+      const data = await api.getStationOrders(selectedStation || undefined);
+      setStationOrders(data);
+    } catch {}
+  }, [selectedStation]);
+
   const isOverdue = (itemStatus: any) => {
     if (!itemStatus?.expected_ready_at) return false;
     return new Date() > new Date(itemStatus.expected_ready_at + 'Z') && itemStatus.status === 'preparing';
@@ -115,9 +130,10 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 4000);
+    loadStations();
+    const interval = setInterval(() => { loadOrders(); if (stationMode) loadStationOrders(); }, 4000);
     return () => clearInterval(interval);
-  }, [loadOrders]);
+  }, [loadOrders, loadStationOrders, stationMode]);
 
   useEffect(() => {
     const unsub = api.onEvent('order:new', () => { loadOrders(); });
@@ -169,6 +185,14 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
     try {
       await api.completeKitchenOrder(orderId);
       setSelectedOrder(null);
+      loadOrders();
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const handleStationReady = async (orderId: number, itemId: number) => {
+    try {
+      await api.markStationReady(orderId, itemId);
+      loadStationOrders();
       loadOrders();
     } catch (e: any) { alert(e.message); }
   };
@@ -356,6 +380,14 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
             <button onClick={() => setShowStepsGlobal(!showStepsGlobal)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${showStepsGlobal ? 'bg-orange-500/20 text-orange-400' : 'bg-zinc-800 text-zinc-500'}`}>
               {showStepsGlobal ? '📖 Рецепты' : '📖 Скрыть'}
             </button>
+            <select
+              value={selectedStation || ''}
+              onChange={e => { const id = e.target.value ? Number(e.target.value) : null; setSelectedStation(id); setStationMode(!!id); if (id) loadStationOrders(); }}
+              className="px-2 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 text-zinc-300 outline-none"
+            >
+              <option value="">Все станции</option>
+              {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
             <button onClick={() => setSoundEnabled(!soundEnabled)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${soundEnabled ? 'bg-green-500/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>
               {soundEnabled ? '🔊 Звук' : '🔇 Тишина'}
             </button>
@@ -388,6 +420,51 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
       </div>
 
       <div className="max-w-lg mx-auto px-4 pb-8 space-y-4">
+        {/* Station KDS Mode */}
+        {stationMode && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-white flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                {stations.find(s => s.id === selectedStation)?.name || 'Станция'}
+              </h2>
+              <button onClick={() => { setStationMode(false); setSelectedStation(null); }} className="text-xs text-zinc-400">Все заказы</button>
+            </div>
+            {stationOrders.length === 0 && <p className="text-center text-zinc-500 py-10">Нет задач на станции</p>}
+            {stationOrders.map((so: any) => {
+              const items = JSON.parse(so.items || '[]');
+              return (
+                <div key={so.id} className="bg-zinc-900 rounded-2xl p-4 ring-1 ring-zinc-800">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="font-bold text-white">Заказ #{so.orderId}</span>
+                      <p className="text-xs text-zinc-500">{so.stationName}</p>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${so.status === 'ready' ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                      {so.status === 'ready' ? 'Готово' : 'В работе'}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 mb-4">
+                    {items.map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-zinc-300">{item.name}</span>
+                        <span className="text-zinc-500">×{item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {so.status !== 'ready' && (
+                    <button onClick={() => handleStationReady(so.orderId, so.id)} className="w-full bg-green-500 text-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                      <Check size={18} /> Готово
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!stationMode && (
+        <>
         {/* New Orders */}
         {newOrders.map(order => (
           <div key={order.id} className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
@@ -489,6 +566,8 @@ export default function KitchenApp({ user, onLogout }: { user: any; onLogout: ()
             <p className="text-zinc-500 font-semibold text-lg">Нет заказов</p>
             <p className="text-xs text-zinc-600 mt-1">Ожидайте поступления новых заказов</p>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

@@ -78,7 +78,7 @@ app.get('/api/menu-items', (req, res) => {
 app.get('/api/dishes', (req, res) => {
   try {
     const { category_id, include_subcategories } = req.query;
-    let sql = `SELECT d.*, mc.name as categoryName FROM dishes d LEFT JOIN menu_categories mc ON d.category_id = mc.id WHERE 1=1`;
+    let sql = `SELECT d.*, mc.name as categoryName, s.name as stationName FROM dishes d LEFT JOIN menu_categories mc ON d.category_id = mc.id LEFT JOIN stations s ON d.station_id = s.id WHERE 1=1`;
     const params = [];
     sql += ' AND d.tenant_id = ?'; params.push(req.tenant_id);
     if (category_id) {

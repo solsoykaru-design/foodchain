@@ -198,6 +198,13 @@ app.post('/api/orders', (req, res) => {
   io.emit('order:new', getOrderFull(orderId));
   emitOrderUpdate(orderId);
   broadcast({ type: 'order:new', orderId: Number(orderId) });
+
+  // Split order by kitchen stations
+  try {
+    const stationService = require('../services/station.service');
+    stationService.splitOrderByStations(db, req.tenant_id, orderId);
+  } catch (e) { console.error('[Stations] split error:', e.message); }
+
   const orderData = getOrderFull(orderId);
   orderData.bonusSaved = appliedBonus;
   res.status(201).json(orderData);
@@ -239,8 +246,13 @@ app.post('/api/orders/self-order', (req, res) => {
     const result = db.prepare("INSERT INTO orders (items, table_id, user_name, comment, status, source, created_at, tenant_id) VALUES (?, ?, ?, ?, 'new', 'qr_self_order', datetime('now'), ?)").run(
       JSON.stringify(items || []), table_id || null, guest_name || 'Гость', comment || '', req.tenant_id || 1
     );
-    res.json({ id: result.lastInsertRowid });
-  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+    const orderId = Number(result.lastInsertRowid);
+    try {
+      const stationService = require('../services/station.service');
+      stationService.splitOrderByStations(db, req.tenant_id || 1, orderId);
+    } catch (err) { console.error('[Stations] split error:', err.message); }
+    res.json({ id: orderId });
+  } catch (e) { res.status(500).json({ error: safeError(e.message)); }
 });
 app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'courier'), async (req, res) => {
   const { status, note } = req.body;

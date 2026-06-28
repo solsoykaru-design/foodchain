@@ -457,6 +457,40 @@ export async function deleteDish(id: number): Promise<void> {
   return request(`/api/dishes/${id}`, { method: 'DELETE' });
 }
 
+// Stations
+export async function getStations(): Promise<any[]> {
+  return request('/api/stations');
+}
+
+export async function createStation(data: any): Promise<any> {
+  return request('/api/stations', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateStation(id: number, data: any): Promise<any> {
+  return request(`/api/stations/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function deleteStation(id: number): Promise<void> {
+  return request(`/api/stations/${id}`, { method: 'DELETE' });
+}
+
+export async function setDishStation(dishId: number, stationId: number | null): Promise<any> {
+  return request(`/api/dishes/${dishId}/station`, { method: 'PUT', body: JSON.stringify({ stationId }) });
+}
+
+export async function getOrderStations(orderId: number): Promise<any[]> {
+  return request(`/api/orders/${orderId}/stations`);
+}
+
+export async function markStationReady(orderId: number, itemId: number): Promise<any> {
+  return request(`/api/orders/${orderId}/station-items/${itemId}/ready`, { method: 'PUT' });
+}
+
+export async function getStationOrders(stationId?: number): Promise<any[]> {
+  const qs = stationId ? `?station_id=${stationId}` : '';
+  return request(`/api/station-orders${qs}`);
+}
+
 export async function getFohOrders(): Promise<any> { return request('/api/kitchen/orders?status=preparing,ready'); }
 
 // Menu Categories

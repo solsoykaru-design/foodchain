@@ -1500,6 +1500,12 @@ app.post('/api/waiter/orders', (req, res) => {
     const order = getOrderFull(orderId);
     io.emit('order:new', order);
     broadcast({ type: 'order:new', orderId });
+
+    try {
+      const stationService = require('../services/station.service');
+      stationService.splitOrderByStations(db, 1, orderId);
+    } catch (err) { console.error('[Stations] split error:', err.message); }
+
     res.status(201).json(order);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -2552,6 +2558,12 @@ app.post('/api/waiter/voice/confirm', async (req, res) => {
     const order = getOrderFull(orderId);
     io.emit('order:new', order);
     broadcast({ type: 'order:new', orderId });
+
+    try {
+      const stationService = require('../services/station.service');
+      stationService.splitOrderByStations(db, 1, orderId);
+    } catch (err) { console.error('[Stations] split error:', err.message); }
+
     res.status(201).json({ order, orderId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
