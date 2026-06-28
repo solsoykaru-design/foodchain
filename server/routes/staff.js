@@ -94,7 +94,7 @@ app.post('/api/staff', (req, res) => {
     const info = db.prepare('INSERT INTO staff (first_name, last_name, role, phone, email, password, photo_url, is_active, hourly_rate, username, salary_type, salary_value, position, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
       first_name, last_name || '', role, phone || null, email || null, pwd, photo_url || null,
       is_active !== undefined ? (is_active ? 1 : 0) : 1, hourly_rate || 0,
-      username || null, st, sv, position || role, tenant_id || null
+      username || null, st, sv, position || role, tenant_id || req.tenant_id || null
     );
     const member = db.prepare('SELECT * FROM staff WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json(toCamelCase(member));

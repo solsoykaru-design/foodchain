@@ -67,21 +67,21 @@ app.post('/api/inventory-items', (req, res) => {
   try {
     const b = req.body;
     if (!b.name || !b.unit) return res.status(400).json({ error: 'Название и единица измерения обязательны' });
+    const tenantId = req.tenant_id || null;
+    const branchName = b.branch_id ? db.prepare('SELECT name FROM branches WHERE id = ?').get(b.branch_id)?.name || null : null;
     const info = db.prepare(`INSERT INTO inventory_items (
       name, unit, barcode, current_balance, last_price, price_per_unit, branch_id,
       category_name, category_id, supplier_id, is_ingredient, branch_name,
       brutto, netto, cold_loss_percent, weight_by_tech_card, article, gtin,
       base_price, with_vat, tax_rate, kcal, proteins, fats, carbs,
       calories_by_tech_card, heat_treatment, is_returnable, exclude_neg_control,
-      beer_type, alcohol_type, tobacco_type, sugar_type, id_1c
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      (SELECT name FROM branches WHERE id = ?),
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      beer_type, alcohol_type, tobacco_type, sugar_type, id_1c, tenant_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )`).run(
       b.name, b.unit, b.barcode || null, b.current_balance || 0,
       b.price_per_unit || 0, b.price_per_unit || 0,
       b.branch_id || null, b.category || null, b.category_id || null,
-      b.supplier_id || null, b.is_ingredient ? 1 : 0, b.branch_id || null,
+      b.supplier_id || null, b.is_ingredient ? 1 : 0, branchName,
       b.brutto || 0, b.netto || 0, b.cold_loss_percent || 0,
       b.weight_by_tech_card ? 1 : 0, b.article || null, b.gtin || null,
       b.base_price || 0, b.with_vat ? 1 : 0, b.tax_rate || 'Без НДС',
@@ -89,7 +89,7 @@ app.post('/api/inventory-items', (req, res) => {
       b.calories_by_tech_card ? 1 : 0, b.heat_treatment ? 1 : 0,
       b.is_returnable ? 1 : 0, b.exclude_neg_control ? 1 : 0,
       b.beer_type ? 1 : 0, b.alcohol_type ? 1 : 0,
-      b.tobacco_type ? 1 : 0, b.sugar_type ? 1 : 0, b.id_1c || null
+      b.tobacco_type ? 1 : 0, b.sugar_type ? 1 : 0, b.id_1c || null, tenantId
     );
     const item = db.prepare('SELECT * FROM inventory_items WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json({ id: item.id, name: item.name, unit: item.unit });

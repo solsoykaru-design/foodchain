@@ -352,8 +352,9 @@ const SQL_KEYWORDS = new Set(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 
 const ORIG_PREPARE = db.prepare.bind(db);
 db.prepare = function(sqlText) {
   if (typeof sqlText !== 'string') return ORIG_PREPARE(sqlText);
-  const upper = sqlText.trim().toUpperCase();
-  const firstWord = upper.split(/\s/)[0];
+  const upper = sqlText.toUpperCase();
+  const firstWordMatch = upper.match(/\b(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|PRAGMA)\b/);
+  const firstWord = firstWordMatch ? firstWordMatch[1] : '';
   if (!SQL_KEYWORDS.has(firstWord)) return ORIG_PREPARE(sqlText);
   if (upper.includes('TENANT_ID') || upper.includes('CURRENT_TENANT_ID')) return ORIG_PREPARE(sqlText);
   // Skip JOIN, subquery, UNION — too complex for auto-transform
@@ -384,8 +385,12 @@ db.prepare = function(sqlText) {
       modified = modified.replace(valMatch[1], valMatch[1] + ', current_tenant_id()');
     }
   } else if (firstWord === 'SELECT' || firstWord === 'UPDATE' || firstWord === 'DELETE') {
-    const whereIdx = upper.indexOf('WHERE');
-    const hasWhere = whereIdx !== -1 && whereIdx < insertPos;
+    // Find the real WHERE clause (whole word, last occurrence before ORDER/LIMIT/GROUP/HAVING)
+    let whereIdx = -1;
+    for (const m of upper.matchAll(/\bWHERE\b/g)) {
+      if (m.index < insertPos) whereIdx = m.index;
+    }
+    const hasWhere = whereIdx !== -1;
     const tail = modified.slice(insertPos).trim();
     if (hasWhere) {
       const beforeWhere = modified.slice(0, whereIdx).trimEnd();
@@ -768,7 +773,13 @@ db.exec(`
     name TEXT NOT NULL,
     icon TEXT,
     parent_id INTEGER,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    show_on_site INTEGER DEFAULT 1,
+    show_on_app INTEGER DEFAULT 1,
+    show_on_kiosk INTEGER DEFAULT 1,
+    show_on_waiter INTEGER DEFAULT 1,
+    show_on_aggregators INTEGER DEFAULT 1,
+    tenant_id INTEGER DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS dishes (
@@ -1543,7 +1554,14 @@ try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN base_currency TEX
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN branding TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN site_settings TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN app_settings TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN updated_at TEXT`); } catch(e) {}
+try { db.exec(`UPDATE foodchain_portal_tenants SET updated_at = datetime('now') WHERE updated_at IS NULL`); } catch(e) {}
 try { db.exec(`ALTER TABLE menu_categories ADD COLUMN image_url TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_site INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_app INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_kiosk INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_waiter INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_aggregators INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE inventory_items ADD COLUMN current_balance REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN username TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN salary_type TEXT DEFAULT 'per_order'`); } catch(e) {}
@@ -1998,7 +2016,14 @@ try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN base_currency TEX
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN branding TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN site_settings TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN app_settings TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE foodchain_portal_tenants ADD COLUMN updated_at TEXT`); } catch(e) {}
+try { db.exec(`UPDATE foodchain_portal_tenants SET updated_at = datetime('now') WHERE updated_at IS NULL`); } catch(e) {}
 try { db.exec(`ALTER TABLE menu_categories ADD COLUMN image_url TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_site INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_app INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_kiosk INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_waiter INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE menu_categories ADD COLUMN show_on_aggregators INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE inventory_items ADD COLUMN current_balance REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN username TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN salary_type TEXT DEFAULT 'per_order'`); } catch(e) {}
@@ -4506,6 +4531,10 @@ const config = {
   aggregatorIntegration, supplierPortal, emailService, pushService,
   authenticateToken, requireRole,
 };
+
+// Make services available to route modules
+config.shiftService = shiftService;
+config.autoOrdersService = autoOrdersService;
 
 function notifLog(channel, recipient, title, status, error, messageId) {
   try {

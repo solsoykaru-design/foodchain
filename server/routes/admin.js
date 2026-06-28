@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = function(app, db, config) {
-  const { JWT_SECRET, safeError, toCamelCaseArray, getLoyaltySettings, supplierPortal } = config;
+  const { JWT_SECRET, safeError, toCamelCaseArray, getLoyaltySettings, supplierPortal, shiftService, autoOrdersService } = config;
 
 app.get('/api/admin/auto-orders/status', (req, res) => {
   try {
