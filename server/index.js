@@ -93,15 +93,20 @@ app.use((req, res, next) => {
 // ─── Debug endpoint: check dist directories ──────────────
 app.get('/debug/dist', (req, res) => {
   const base = path.join(__dirname, '..');
-  const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-website', 'dist-kiosk', 'dist-techcard'];
+  const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-pos', 'dist-website', 'dist-kiosk', 'dist-techcard'];
   const result = {};
   for (const d of dirs) {
     const full = path.join(base, d);
-    result[d] = { exists: fs.existsSync(full), files: fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : [] };
+    const serverFull = path.join(__dirname, d);
+    const exists = fs.existsSync(full) || fs.existsSync(serverFull);
+    const files = fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : (fs.existsSync(serverFull) ? fs.readdirSync(serverFull).slice(0, 5) : []);
+    result[d] = { exists, files };
   }
   let rootFiles = [];
+  let serverFiles = [];
   try { rootFiles = fs.readdirSync(base); } catch(e) { rootFiles = ['ERROR: '+e.message]; }
-  res.json({ cwd: process.cwd(), dirname: __dirname, base, rootFiles: rootFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), dirs: result });
+  try { serverFiles = fs.readdirSync(__dirname); } catch(e) { serverFiles = ['ERROR: '+e.message]; }
+  res.json({ cwd: process.cwd(), dirname: __dirname, base, rootFiles: rootFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), serverFiles: serverFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), dirs: result });
 });
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
