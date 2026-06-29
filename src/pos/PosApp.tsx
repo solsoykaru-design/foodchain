@@ -70,6 +70,7 @@ interface Shift {
 interface CartItem {
   id: string;
   dishId: number;
+  categoryId?: number;
   name: string;
   price: number;
   quantity: number;
@@ -80,6 +81,7 @@ interface CartItem {
   cookTimeMinutes?: number;
   itemDiscount?: number;
   itemDiscountType?: 'percent' | 'amount';
+  itemStatus?: 'hold' | 'fired' | 'ready' | 'served' | string;
 }
 
 const POS_ROLES = ['admin', 'manager', 'waiter', 'bartender'];
@@ -111,7 +113,7 @@ export default function PosApp() {
   const [tables, setTables] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'sale' | 'tables' | 'orders' | 'history' | 'settings' | 'analytics' | 'queue'>('tables');
+  const [activeTab, setActiveTab] = useState<'sale' | 'tables' | 'orders' | 'history' | 'settings' | 'analytics' | 'queue' | 'aggregators' | 'accounting' | 'crm'>('tables');
   const [selectedCategory, setSelectedCategory] = useState<number | 'all' | 'fav' | 'combo'>('all');
   const [selectedCourse, setSelectedCourse] = useState<string | 'all'>('all');
   const [menuSort, setMenuSort] = useState<'default' | 'popular' | 'price_asc' | 'price_desc'>('default');
@@ -280,7 +282,7 @@ export default function PosApp() {
 
   useEffect(() => {
     const updateCount = () => {
-      import('../offline-queue').then(m => setOfflineQueueCount(m.getQueueCount())).catch(() => {});
+      import('../offline-queue').then(async m => setOfflineQueueCount(await m.getQueueCount())).catch(() => {});
     };
     updateCount();
     const id = setInterval(updateCount, 5000);
@@ -861,7 +863,7 @@ export default function PosApp() {
     else targetNames = ['напиток', 'десерт'];
     const targetCatIds = categories.filter(c => targetNames.some(n => c.name?.toLowerCase().includes(n))).map(c => c.id);
     const cartDishIds = new Set(cart.map(i => i.dishId));
-    return dishes.filter(d => targetCatIds.includes(d.categoryId) && !cartDishIds.has(d.id)).slice(0, 3);
+    return dishes.filter(d => d.categoryId != null && targetCatIds.includes(d.categoryId) && !cartDishIds.has(d.id)).slice(0, 3);
   }, [cart, categories, dishes]);
 
   const buildOrderPayload = useCallback(() => {

@@ -2,9 +2,10 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 
-const TEST_DB_PATH = path.join(__dirname, '..', 'test-foodchain.db');
+let TEST_DB_PATH = '';
 
 function createTestDb() {
+  TEST_DB_PATH = path.join(__dirname, '..', `test-foodchain-${process.pid}-${Date.now()}.db`);
   if (fs.existsSync(TEST_DB_PATH)) fs.unlinkSync(TEST_DB_PATH);
   const db = new Database(TEST_DB_PATH);
   db.pragma('journal_mode = WAL');
