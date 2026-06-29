@@ -349,7 +349,7 @@ module.exports = function(app, db, config) {
       const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
       if (!order) return res.status(404).json({ error: 'Заказ не найден' });
       let subtotal = 0;
-      const enriched = items.map((item: any) => {
+      const enriched = items.map((item) => {
         const dish = db.prepare('SELECT * FROM dishes WHERE id = ?').get(item.dishId || item.dish_id);
         const name = dish?.name || item.name;
         const price = dish?.price || item.price || 0;

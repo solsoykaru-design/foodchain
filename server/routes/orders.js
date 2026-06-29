@@ -252,7 +252,7 @@ app.post('/api/orders/self-order', (req, res) => {
       stationService.splitOrderByStations(db, req.tenant_id || 1, orderId);
     } catch (err) { console.error('[Stations] split error:', err.message); }
     res.json({ id: orderId });
-  } catch (e) { res.status(500).json({ error: safeError(e.message)); }
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'courier'), async (req, res) => {
   const { status, note } = req.body;
