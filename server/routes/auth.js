@@ -432,6 +432,14 @@ module.exports = function(app, db, config) {
         }
       }
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+      // Staff tokens (POS, waiter, etc.) reference the staff table
+      if (!user && decoded.role && decoded.role !== 'guest') {
+        const staff = db.prepare('SELECT * FROM staff WHERE id = ?').get(decoded.id);
+        if (staff) {
+          const tenant = db.prepare('SELECT * FROM foodchain_portal_tenants WHERE id = ?').get(decoded.tenant_id || staff.tenant_id);
+          return res.json({ user: { ...toCamelCase(staff), role: staff.role, tenantName: tenant?.nickname || tenant?.name || '', tenantId: decoded.tenant_id || staff.tenant_id } });
+        }
+      }
       if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
       res.json({ user: toCamelCase(user) });
     } catch (e) {
