@@ -73,6 +73,7 @@ export default function PosApp() {
   const [orderCount, setOrderCount] = useState(0);
   const [shiftEmployees, setShiftEmployees] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
+  const [openingShift, setOpeningShift] = useState(false);
 
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -113,6 +114,7 @@ export default function PosApp() {
   const loadShift = useCallback(async () => {
     try {
       const data = await api.request('/api/pos/shifts/current');
+      console.log('[POS] loadShift:', data);
       setShift(data.shift || null);
       setOrderCount(data.orderCount || 0);
     } catch (e) { console.error('shift load error', e); }
@@ -196,15 +198,25 @@ export default function PosApp() {
 
   // Shift actions
   const openShift = async () => {
-    if (!canManageShift) return;
+    if (!canManageShift || openingShift) return;
     setLoginError('');
+    setOpeningShift(true);
     try {
+      console.log('[POS] Opening shift...');
       const r = await api.request('/api/pos/shifts/open', {
         method: 'POST', body: JSON.stringify({ openingBalance: 0 })
       });
+      console.log('[POS] Open response:', r);
       setShift(r.shift);
       showMsg('Смена открыта');
-    } catch (e: any) { setLoginError(e.message || 'Ошибка открытия смены'); }
+      // Refresh shift from server to confirm
+      setTimeout(() => loadShift(), 500);
+    } catch (e: any) {
+      console.error('[POS] Open shift error:', e);
+      setLoginError(e.message || 'Ошибка открытия смены');
+    } finally {
+      setOpeningShift(false);
+    }
   };
 
   const closeShift = async () => {
@@ -363,8 +375,8 @@ export default function PosApp() {
           <p className="text-sm text-zinc-400 mb-6">Обратитесь к менеджеру или администратору</p>
           {loginError && <p className="text-red-400 text-sm mb-4">{loginError}</p>}
           {canManageShift ? (
-            <button onClick={openShift} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition mb-3">
-              Начать смену
+            <button onClick={openShift} disabled={openingShift} className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition mb-3">
+              {openingShift ? 'Открытие...' : 'Начать смену'}
             </button>
           ) : null}
           <button onClick={handleLogout} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-xl text-sm">
