@@ -34,6 +34,7 @@ import DetailedBalance from './stock/DetailedBalance';
 import Transfers from './stock/Transfers';
 import Calories from './stock/Calories';
 import FoodCost from './stock/FoodCost';
+import InventoryVariance from './stock/InventoryVariance';
 
 import SalesByCustomer from './marketing/SalesByCustomer';
 import PromoHistory from './marketing/PromoHistory';
@@ -50,6 +51,8 @@ import Issuers from './fulfillment/Issuers';
 import DeliveryOrders from './fulfillment/DeliveryOrders';
 import FulfillmentOrders from './fulfillment/FulfillmentOrders';
 import FulfillmentSummary from './fulfillment/FulfillmentSummary';
+
+import NetworkDashboard from './network/NetworkDashboard';
 
 export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState('sales/summary');
@@ -96,6 +99,7 @@ export default function ReportsPage() {
       case 'stock/transfers': return <Transfers {...props} />;
       case 'stock/calories': return <Calories {...props} />;
       case 'stock/food-cost': return <FoodCost />;
+      case 'stock/inventory-variance': return <InventoryVariance {...props} />;
       case 'marketing/sales-by-customer': return <SalesByCustomer {...props} />;
       case 'marketing/promo-history': return <PromoHistory {...props} />;
       case 'marketing/bonus-report': return <BonusReport {...props} />;
@@ -109,6 +113,7 @@ export default function ReportsPage() {
       case 'fulfillment/delivery-orders': return <DeliveryOrders {...props} />;
       case 'fulfillment/orders': return <FulfillmentOrders {...props} />;
       case 'fulfillment/summary': return <FulfillmentSummary {...props} />;
+      case 'network/dashboard': return <NetworkDashboard from={from} to={to} />;
       default: return <SalesSummary {...props} />;
     }
   };

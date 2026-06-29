@@ -405,4 +405,15 @@ async function broadcast(db, botToken, message) {
   }
 }
 
-module.exports = { getSettings, saveSettings, startIfConfigured, stopBot, startBot, getStats, broadcast, notifyOrderStatus };
+async function notifyOwner(db, tenantId, message) {
+  if (!TelegramBotCtor) return;
+  const settings = getSettings(db, tenantId);
+  if (!settings.token || !settings.ownerChatId) return;
+  const tmpBot = bot || new TelegramBotCtor(settings.token, { polling: false });
+  try {
+    await tmpBot.sendMessage(settings.ownerChatId, message, { parse_mode: 'Markdown' });
+  } catch (e) { console.warn('[TelegramBot] notifyOwner error:', e.message); }
+  finally { if (!bot && tmpBot) tmpBot.stopPolling().catch(() => {}); }
+}
+
+module.exports = { getSettings, saveSettings, startIfConfigured, stopBot, startBot, getStats, broadcast, notifyOrderStatus, notifyOwner };

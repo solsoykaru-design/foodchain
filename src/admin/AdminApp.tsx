@@ -50,6 +50,9 @@ import Integration1CPage from './Integration1CPage';
 import PaymentsPage from './PaymentsPage';
 import SecurityPage from './SecurityPage';
 import ForecastPage from './ForecastPage';
+import InventoryCountsPage from './InventoryCountsPage';
+import PurchaseOrdersPage from './PurchaseOrdersPage';
+import ProductionOrdersPage from './ProductionOrdersPage';
 import AutoOrdersPage from './AutoOrdersPage';
 import ReportsPage from './reports/ReportsPage';
 import AppManagementPage from './AppManagementPage';
@@ -57,6 +60,8 @@ import AdminChatsPage from './AdminChatsPage';
 import AdminStaffChatsPage from './AdminStaffChatsPage';
 import AdminCourierGuestChatsPage from './AdminCourierGuestChatsPage';
 import AdminLoyaltyPage from './AdminLoyaltyPage';
+import CdpSegmentsPage from './CdpSegmentsPage';
+import CampaignsPage from './CampaignsPage';
 import FiscalizationPage from './FiscalizationPage';
 import TerminalSettingsPage from './TerminalSettingsPage';
 import ShiftsPage from './ShiftsPage';
@@ -77,6 +82,9 @@ import FohDisplayPage from './FohDisplayPage';
 import YandexAfishaPage from './YandexAfishaPage';
 import SwaggerPage from './SwaggerPage';
 import ExtensionsPage from './ExtensionsPage';
+import AiAssistantPage from './AiAssistantPage';
+import DynamicPricingPage from './DynamicPricingPage';
+import ReferralProgramPage from './ReferralProgramPage';
 import TelephonyPage from './TelephonyPage';
 import HonestSignPage from './HonestSignPage';
 import TelephonyOperatorPage from './TelephonyOperatorPage';
@@ -93,7 +101,7 @@ import ThemeConstructor from '../themes/ThemeConstructor';
 import BrandingPage from './BrandingPage';
 import SiteSettingsPage from './SiteSettingsPage';
 import LanguageSelector from './LanguageSelector';
-import { LayoutDashboard, ShoppingBag, BookOpen, CalendarDays, CalendarX, Calculator, Warehouse, Truck, DollarSign, Megaphone, UsersRound, Settings, Shield, ShieldCheck, ChefHat, Bell, Moon, Sun, LogOut, Users, User, MessageSquare, MessageCircle, MapPin, FileText, FolderTree, CreditCard, Wallet, RefreshCw, ChevronDown, Package, Building2, Factory, Handshake, Receipt, Files, FileSpreadsheet, ClipboardList, ArrowDownUp, PackageSearch, FlaskConical, ArrowLeftRight, FileUp, Scissors, Cog, ShoppingCart, Hammer, Handshake as HandshakeIcon, Globe, Menu as MenuIcon, X, Palette, BarChart3, Calendar, GitCompare, Smartphone, Award, Printer, Mail, FileJson, Monitor, Puzzle, Phone, PhoneCall, Gamepad2, Code, Search } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, BookOpen, CalendarDays, CalendarX, Calculator, Warehouse, Truck, DollarSign, Megaphone, UsersRound, Settings, Shield, ShieldCheck, ChefHat, Bell, Moon, Sun, LogOut, Users, User, MessageSquare, MessageCircle, MapPin, FileText, FolderTree, CreditCard, Wallet, RefreshCw, ChevronDown, Package, Building2, Factory, Handshake, Receipt, Files, FileSpreadsheet, ClipboardList, ArrowDownUp, PackageSearch, FlaskConical, ArrowLeftRight, FileUp, Scissors, Cog, ShoppingCart, Hammer, Handshake as HandshakeIcon, Globe, Menu as MenuIcon, X, Palette, BarChart3, Calendar, GitCompare, Smartphone, Award, Printer, Mail, FileJson, Monitor, Puzzle, Phone, PhoneCall, Gamepad2, Code, Search, Sparkles, Bot, Tag, Gift } from 'lucide-react';
 
 export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
   const { adminPage, setAdminPage, addNotification } = useApp();
@@ -190,6 +198,9 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'payments' && <PaymentsPage key={refreshKey} />}
           {adminPage === 'security' && <SecurityPage key={refreshKey} />}
           {adminPage === 'forecast' && <ForecastPage key={refreshKey} />}
+          {adminPage === 'inventory_counts' && <InventoryCountsPage key={refreshKey} />}
+          {adminPage === 'purchase_orders' && <PurchaseOrdersPage key={refreshKey} />}
+          {adminPage === 'production_orders' && <ProductionOrdersPage key={refreshKey} />}
           {adminPage === 'auto_orders' && <AutoOrdersPage key={refreshKey} />}
           {adminPage === 'reports' && <ReportsPage key={refreshKey} />}
           {adminPage === 'theme_constructor' && <ThemeConstructor />}
@@ -200,6 +211,8 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'staff_chats' && <AdminStaffChatsPage key={refreshKey} />}
           {adminPage === 'courier_guest_chats' && <AdminCourierGuestChatsPage key={refreshKey} />}
           {adminPage === 'loyalty' && <AdminLoyaltyPage key={refreshKey} />}
+          {adminPage === 'cdp_segments' && <CdpSegmentsPage key={refreshKey} />}
+          {adminPage === 'campaigns' && <CampaignsPage key={refreshKey} />}
           {adminPage === 'fiscalization' && <FiscalizationPage key={refreshKey} />}
           {adminPage === 'terminal' && <TerminalSettingsPage key={refreshKey} />}
           {adminPage === 'shifts' && <ShiftsPage key={refreshKey} />}
@@ -219,6 +232,9 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'swagger_docs' && <SwaggerPage key={refreshKey} />}
           {adminPage === 'franchising' && <FranchisingPage key={refreshKey} />}
           {adminPage === 'extensions' && <ExtensionsPage key={refreshKey} />}
+          {adminPage === 'ai_assistant' && <AiAssistantPage key={refreshKey} />}
+          {adminPage === 'dynamic_pricing' && <DynamicPricingPage key={refreshKey} />}
+          {adminPage === 'referral_program' && <ReferralProgramPage key={refreshKey} />}
           {adminPage === 'telephony' && <TelephonyPage key={refreshKey} />}
           {adminPage === 'telephony_operator' && <TelephonyOperatorPage key={refreshKey} />}
           {adminPage === 'extensions_sdk' && <ExtensionsSdkPage key={refreshKey} />}
@@ -228,7 +244,7 @@ export default function AdminApp({ onLogout }: { onLogout?: () => void }) {
           {adminPage === 'honest_sign' && <HonestSignPage key={refreshKey} />}
           {adminPage === 'yuma_import' && <YumaImportPage key={refreshKey} />}
           {adminPage === 'profile' && <ProfilePage key={refreshKey} />}
-          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'stations', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'notification_logs', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import', 'profile'].includes(adminPage) && (
+          {!['dashboard', 'orders', 'categories', 'kitchen', 'menu', 'stations', 'tech_cards', 'bookings', 'inventory', 'inventory_items', 'stock_categories', 'warehouses', 'workshops', 'counterparties', 'wholesale_prices', 'pickup_points', 'delivery', 'finance', 'marketing', 'clients', 'reviews', 'staff', 'settings', 'payment_settings', 'salary', 'audit', 'documents', 'menu_items', 'menu_categories', 'menu_modifiers', 'menu_modifier_groups', 'menu_price_lists', 'menu_weekly_menu', 'menu_stop_lists', 'menu_languages', 'messages', 'notifications', 'push_settings', 'client_groups', 'branches', 'review_questions', 'theme_constructor', 'security', 'forecast', 'integration_1c', 'auto_orders', 'branding', 'site_settings', 'reports', 'app_management', 'chats', 'staff_chats', 'courier_guest_chats', 'loyalty', 'cdp_segments', 'campaigns', 'fiscalization', 'terminal', 'shifts', 'auto_writeoff', 'costing', 'email_settings', 'notification_logs', 'bank_statement', 'staff_schedule', 'crm_integration', 'tax_accounting', 'balance_sheet', 'supplier_portal', 'telegram_bot', 'barcodes', 'swagger_docs', 'yandex_afisha', 'franchising', 'honest_sign', 'foh_display', 'extensions', 'ai_assistant', 'dynamic_pricing', 'referral_program', 'telephony', 'telephony_operator', 'extensions_sdk', 'gamification', 'currency_settings', 'yuma_import', 'profile'].includes(adminPage) && (
             <div className="bg-white dark:bg-zinc-900 rounded-2xl p-8 text-center shadow-sm">
               <p className="text-zinc-500 dark:text-zinc-400">{t('page_developing')}: {adminPage}</p>
             </div>
@@ -301,6 +317,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       id: 'operations', label: t('sidebar_operations'), icon: LayoutDashboard,
       roles: ['superadmin', 'owner', 'manager', 'analyst', 'waiter', 'chef', 'courier'],
       items: [
+        { id: 'ai_assistant', icon: Bot, label: 'AI-ассистент' },
         { id: 'dashboard', icon: LayoutDashboard, label: t('sidebar_dashboard') },
         { id: 'orders', icon: ShoppingBag, label: t('sidebar_orders'), badge: (active: any, late: any) => active > 0 ? { count: active, late } : null },
         { id: 'kitchen', icon: ChefHat, label: t('sidebar_kitchen') },
@@ -329,6 +346,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             { id: 'wholesale_prices', icon: Receipt, label: t('sidebar_wholesale_prices') },
             { id: 'barcodes', icon: Printer, label: 'Штрихкоды' },
           { id: 'forecast', icon: BarChart3, label: 'Прогнозы' },
+          { id: 'inventory_counts', icon: PackageSearch, label: 'Акты пересчёта' },
+          { id: 'purchase_orders', icon: ShoppingCart, label: 'Заказы поставщикам' },
+          { id: 'production_orders', icon: Hammer, label: 'Производственные задания' },
           ]
         },
         { id: 'tech_cards', icon: FileText, label: t('sidebar_tech_cards') },
@@ -339,18 +359,18 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             { id: 'receipt', icon: ClipboardList, label: t('sidebar_doc_receipt'), onClick: () => { setDocType('receipt'); setAdminPage('documents'); } },
             { id: 'write_off', icon: PackageSearch, label: t('sidebar_doc_write_off'), onClick: () => { setDocType('write_off'); setAdminPage('documents'); } },
             { id: 'transfer', icon: ArrowLeftRight, label: t('sidebar_doc_transfer'), onClick: () => { setDocType('transfer'); setAdminPage('documents'); } },
-            { id: 'inventory', icon: PackageSearch, label: t('sidebar_doc_inventory'), onClick: () => { setDocType('inventory'); setAdminPage('documents'); } },
-            { id: 'production', icon: FlaskConical, label: t('sidebar_doc_production'), onClick: () => { setDocType('production'); setAdminPage('documents'); } },
             { id: 'return_', icon: ArrowDownUp, label: t('sidebar_doc_return'), onClick: () => { setDocType('return_'); setAdminPage('documents'); } },
             { id: 'shipment', icon: FileUp, label: t('sidebar_doc_shipment'), onClick: () => { setDocType('shipment'); setAdminPage('documents'); } },
             { id: 'breakdown', icon: Scissors, label: t('sidebar_doc_breakdown'), onClick: () => { setDocType('breakdown'); setAdminPage('documents'); } },
             { id: 'processing', icon: Cog, label: t('sidebar_doc_processing'), onClick: () => { setDocType('processing'); setAdminPage('documents'); } },
-            { id: 'contractor_order', icon: ShoppingCart, label: t('sidebar_doc_contractor_order'), onClick: () => { setDocType('contractor_order'); setAdminPage('documents'); } },
             { id: 'auto_orders', icon: ShoppingCart, label: 'Автозаказы' },
             { id: 'auto_writeoff', icon: CalendarX, label: 'Списание (сроки годности)' },
             { id: 'costing', icon: Calculator, label: 'Калькуляция себестоимости' },
-            { id: 'production_order', icon: Hammer, label: t('sidebar_doc_production_order'), onClick: () => { setDocType('production_order'); setAdminPage('documents'); } },
             { id: 'service', icon: HandshakeIcon, label: t('sidebar_doc_service'), onClick: () => { setDocType('service'); setAdminPage('documents'); } },
+          { id: 'old_inventory', icon: PackageSearch, label: 'Инвентаризация (старый)', onClick: () => { setDocType('inventory'); setAdminPage('documents'); } },
+          { id: 'old_production', icon: FlaskConical, label: 'Производство (старый)', onClick: () => { setDocType('production'); setAdminPage('documents'); } },
+          { id: 'old_contractor_order', icon: ShoppingCart, label: 'Заказы контрагентам (старый)', onClick: () => { setDocType('contractor_order'); setAdminPage('documents'); } },
+          { id: 'old_production_order', icon: Hammer, label: 'Заказы на производство (старый)', onClick: () => { setDocType('production_order'); setAdminPage('documents'); } },
           ]
         },
       ]
@@ -389,7 +409,11 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       roles: ['superadmin', 'owner', 'manager'],
       items: [
         { id: 'marketing', icon: Megaphone, label: t('sidebar_marketing_page') },
+        { id: 'cdp_segments', icon: Users, label: 'CDP / RFM сегменты' },
+        { id: 'campaigns', icon: Megaphone, label: 'Автокампании' },
         { id: 'loyalty', icon: Award, label: 'Программа лояльности' },
+        { id: 'dynamic_pricing', icon: Tag, label: 'Динамические цены' },
+        { id: 'referral_program', icon: Gift, label: 'Реферальная программа' },
         { id: 'gamification', icon: Gamepad2, label: 'Геймификация' },
         {
           id: 'messages_group', icon: MessageSquare, label: t('sidebar_messages'),

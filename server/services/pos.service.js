@@ -101,6 +101,18 @@ function initTables(db) {
       created_by_name TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS pos_action_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      shift_id INTEGER,
+      order_id INTEGER,
+      action TEXT NOT NULL,
+      details TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by INTEGER,
+      created_by_name TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS pos_shifts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER DEFAULT 1,
@@ -145,6 +157,16 @@ function initTables(db) {
       closed_by_name TEXT,
       report_data TEXT DEFAULT '{}',
       generated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pos_combos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      name TEXT NOT NULL,
+      price REAL NOT NULL,
+      items TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
     );
   `);
 
@@ -331,6 +353,32 @@ function getCashDrawerOps(db, tenantId, shiftId) {
   return db.prepare('SELECT * FROM pos_cash_drawer WHERE tenant_id = ? AND shift_id = ? ORDER BY created_at DESC').all(tenantId, shiftId);
 }
 
+// Combos
+function getCombos(db, tenantId) {
+  initTables(db);
+  return db.prepare('SELECT * FROM pos_combos WHERE tenant_id = ? AND is_active = 1 ORDER BY name').all(tenantId);
+}
+
+function createCombo(db, tenantId, data) {
+  initTables(db);
+  const { name, price, items } = data;
+  const result = db.prepare('INSERT INTO pos_combos (tenant_id, name, price, items) VALUES (?, ?, ?, ?)').run(tenantId, name, price, JSON.stringify(items));
+  return db.prepare('SELECT * FROM pos_combos WHERE id = ?').get(result.lastInsertRowid);
+}
+
+function updateCombo(db, tenantId, id, data) {
+  initTables(db);
+  const { name, price, items, isActive } = data;
+  db.prepare('UPDATE pos_combos SET name = ?, price = ?, items = ?, is_active = ? WHERE id = ? AND tenant_id = ?')
+    .run(name, price, JSON.stringify(items), isActive ? 1 : 0, id, tenantId);
+  return db.prepare('SELECT * FROM pos_combos WHERE id = ?').get(id);
+}
+
+function deleteCombo(db, tenantId, id) {
+  initTables(db);
+  db.prepare('UPDATE pos_combos SET is_active = 0 WHERE id = ? AND tenant_id = ?').run(id, tenantId);
+}
+
 // Shifts
 function openShift(db, tenantId, data) {
   initTables(db);
@@ -485,6 +533,17 @@ function ensureOpenShift(db, tenantId, defaultStaff) {
   });
 }
 
+function logAction(db, tenantId, { shiftId, orderId, action, details, createdBy, createdByName }) {
+  try {
+    db.prepare('INSERT INTO pos_action_logs (tenant_id, shift_id, order_id, action, details, created_by, created_by_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(tenantId, shiftId || null, orderId || null, action, details || '', createdBy || null, createdByName || '');
+  } catch (e) { console.error('[pos.action.log]', e.message); }
+}
+
+function getActionLogs(db, tenantId, limit = 100) {
+  return db.prepare('SELECT * FROM pos_action_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?').all(tenantId, limit);
+}
+
 module.exports = {
   initTables,
   getSettings,
@@ -502,6 +561,12 @@ module.exports = {
   markReceiptPrinted,
   cashOperation,
   getCashDrawerOps,
+  getCombos,
+  createCombo,
+  updateCombo,
+  deleteCombo,
+  logAction,
+  getActionLogs,
   openShift,
   closeShift,
   getCurrentShift,

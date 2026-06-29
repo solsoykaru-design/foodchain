@@ -2653,4 +2653,32 @@ app.post('/api/waiter/voice/refund', (req, res) => {
 });
 
 app.get('/api/v1', (req, res) => res.json({ name: 'FoodChain API', version: '1.0', status: 'ok' }));
+
+app.post('/api/offline/sync', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    let tenantId = req.tenant_id || 1;
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const payload = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+        tenantId = payload.tenantId || payload.tenant_id || tenantId;
+      } catch {}
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const ordersToday = db.prepare("SELECT * FROM orders WHERE tenant_id = ? AND date(created_at) = ? ORDER BY created_at DESC LIMIT 50").all(tenantId, today);
+    const lowStock = db.prepare("SELECT * FROM inventory_items WHERE tenant_id = ? AND min_stock > 0 AND current_stock < min_stock LIMIT 50").all(tenantId);
+    const pendingBookings = db.prepare("SELECT * FROM bookings WHERE tenant_id = ? AND status = 'pending' AND date >= date('now') ORDER BY date ASC LIMIT 50").all(tenantId);
+    const pendingDocs = db.prepare("SELECT * FROM documents WHERE tenant_id = ? AND status = 'draft' ORDER BY created_at DESC LIMIT 50").all(tenantId);
+
+    res.json({
+      syncData: {
+        ordersToday: toCamelCaseArray(ordersToday),
+        lowStock: toCamelCaseArray(lowStock),
+        pendingBookings: toCamelCaseArray(pendingBookings),
+        pendingDocuments: toCamelCaseArray(pendingDocs),
+      },
+    });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
 };

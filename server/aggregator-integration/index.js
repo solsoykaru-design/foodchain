@@ -67,6 +67,24 @@ function initTables(db) {
     ON aggregator_sync_log(provider, created_at)
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS aggregator_status_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      provider TEXT NOT NULL,
+      external_order_id TEXT NOT NULL,
+      internal_status TEXT NOT NULL,
+      attempts INTEGER DEFAULT 0,
+      last_error TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_agg_status_queue
+    ON aggregator_status_queue(provider, external_order_id, attempts)
+  `);
+
   try { db.exec(`ALTER TABLE orders ADD COLUMN external_order_id TEXT`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN external_provider TEXT`); } catch (e) {}
   try { db.exec(`ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'internal'`); } catch (e) {}
@@ -330,11 +348,26 @@ function setupRoutes(app, db, broadcast, io) {
       const settings = db.prepare('SELECT * FROM aggregator_settings WHERE tenant_id = ? AND provider = ? AND enabled = 1').get(tenantId, provider);
       if (!settings) return res.status(403).json({ error: 'Интеграция не активна' });
 
+      const credentials = (() => { try { return JSON.parse(settings.credentials || '{}'); } catch { return {}; } })();
+      const signature = req.headers['x-signature'] || req.headers['x-hub-signature-256'] || '';
+      if (p.verifyWebhook) {
+        const rawBody = req.rawBody || JSON.stringify(req.body);
+        if (!p.verifyWebhook(rawBody, signature, credentials)) {
+          logOperation(db, tenantId, provider, 'webhook_signature_failed', JSON.stringify(req.body), '', 'error', 'Invalid signature');
+          return res.status(401).json({ error: 'Неверная подпись' });
+        }
+      }
+
       const eventType = req.body?.event || req.body?.type || '';
       logOperation(db, tenantId, provider, 'webhook_received', JSON.stringify(req.body), '', 'success', null);
 
       if (eventType === 'order' || eventType === 'order:new' || req.body?.order) {
         const parsed = p.parseOrder(req.body);
+        const existing = db.prepare('SELECT id FROM orders WHERE external_order_id = ? AND external_provider = ?').get(parsed.externalOrderId, provider);
+        if (existing) {
+          logOperation(db, tenantId, provider, 'webhook_duplicate', JSON.stringify({ externalOrderId: parsed.externalOrderId }), JSON.stringify({ orderId: existing.id }), 'success', null);
+          return res.status(200).json({ ok: true, orderId: existing.id, duplicate: true });
+        }
         const itemsJson = JSON.stringify(parsed.items.map(i => ({
           dishId: 0,
           externalItemId: i.externalItemId,
@@ -401,7 +434,42 @@ function setupRoutes(app, db, broadcast, io) {
   });
 
   // Hook into order status changes to auto-sync to aggregators
-  const originalOrderStatusHandler = app.patch;
+  function scheduleStatusUpdate(db, tenantId, provider, externalOrderId, internalStatus, errorMessage) {
+    const existing = db.prepare('SELECT id FROM aggregator_status_queue WHERE provider = ? AND external_order_id = ? AND internal_status = ?').get(provider, externalOrderId, internalStatus);
+    if (existing) {
+      db.prepare('UPDATE aggregator_status_queue SET attempts = attempts + 1, last_error = ?, updated_at = datetime(\'now\') WHERE id = ?').run(errorMessage || null, existing.id);
+    } else {
+      db.prepare('INSERT INTO aggregator_status_queue (tenant_id, provider, external_order_id, internal_status, last_error) VALUES (?, ?, ?, ?, ?)').run(tenantId, provider, externalOrderId, internalStatus, errorMessage || null);
+    }
+  }
+
+  async function processStatusQueue(provider) {
+    const p = PROVIDERS[provider];
+    if (!p) return { processed: 0 };
+    const pending = db.prepare('SELECT * FROM aggregator_status_queue WHERE provider = ? AND attempts < 5 ORDER BY created_at ASC LIMIT 20').all(provider);
+    let processed = 0;
+    for (const q of pending) {
+      const settings = db.prepare('SELECT * FROM aggregator_settings WHERE provider = ? AND enabled = 1').get(provider);
+      if (!settings) continue;
+      const credentials = (() => { try { return JSON.parse(settings.credentials || '{}'); } catch { return {}; } })();
+      const order = db.prepare('SELECT * FROM orders WHERE external_order_id = ? AND external_provider = ?').get(q.external_order_id, provider);
+      if (!order) continue;
+      try {
+        const result = await p.updateStatus(order, q.external_order_id, q.internal_status, credentials);
+        if (result.ok) {
+          db.prepare('DELETE FROM aggregator_status_queue WHERE id = ?').run(q.id);
+          logOperation(db, settings.tenant_id || 1, provider, 'status_update_retry', `PUT /orders/${q.external_order_id}/status -> ${q.internal_status}`, JSON.stringify(result.data), 'success', null);
+          processed++;
+        } else {
+          scheduleStatusUpdate(db, settings.tenant_id || 1, provider, q.external_order_id, q.internal_status, JSON.stringify(result.data));
+        }
+      } catch (e) {
+        scheduleStatusUpdate(db, settings.tenant_id || 1, provider, q.external_order_id, q.internal_status, e.message);
+      }
+    }
+    return { processed };
+  }
+
   app.onOrderStatusChange = (orderId, status) => {
     try {
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -420,14 +488,26 @@ function setupRoutes(app, db, broadcast, io) {
         .then(result => {
           const logStatus = result.ok ? 'success' : 'error';
           logOperation(db, settings.tenant_id || 1, provider, 'status_update', `PUT /orders/${order.external_order_id}/status -> ${status}`, result.data, logStatus, result.ok ? null : (result.data?.message || JSON.stringify(result.data)));
+          if (!result.ok) scheduleStatusUpdate(db, settings.tenant_id || 1, provider, order.external_order_id, status, JSON.stringify(result.data));
         })
         .catch(err => {
           logOperation(db, settings.tenant_id || 1, provider, 'status_update', `PUT /orders/${order.external_order_id}/status -> ${status}`, '', 'error', err.message);
+          scheduleStatusUpdate(db, settings.tenant_id || 1, provider, order.external_order_id, status, err.message);
         });
     } catch (e) {
       console.error('AUTO_SYNC_STATUS_ERROR:', e.message);
     }
   };
+
+  // Retry endpoint
+  app.post('/api/admin/integrations/aggregators/:provider/retry', async (req, res) => {
+    try {
+      const provider = req.params.provider;
+      if (!PROVIDERS[provider]) return res.status(400).json({ error: 'Провайдер не поддерживается' });
+      const result = await processStatusQueue(provider);
+      res.json(result);
+    } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  });
 }
 
 module.exports = { initTables, setupRoutes, PROVIDERS, PROVIDER_NAMES };

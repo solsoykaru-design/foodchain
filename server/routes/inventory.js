@@ -663,4 +663,296 @@ app.get('/api/barcode/print', (req, res) => {
   <script>window.onload=setTimeout(()=>{window.print()},500);</script>
   </body></html>`);
 });
+
+// Inventory counts (acts of inventory / пересчёт)
+app.get('/api/inventory-counts', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT ic.*, (SELECT COUNT(*) FROM inventory_count_items WHERE count_id = ic.id) as items_count FROM inventory_counts ic WHERE ic.tenant_id = current_tenant_id() ORDER BY ic.created_at DESC').all();
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/inventory-counts/:id', (req, res) => {
+  try {
+    const count = db.prepare('SELECT * FROM inventory_counts WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!count) return res.status(404).json({ error: 'Акт не найден' });
+    const items = db.prepare(`
+      SELECT ici.*, ii.name as item_name, ii.unit as item_unit
+      FROM inventory_count_items ici
+      LEFT JOIN inventory_items ii ON ii.id = ici.item_id
+      WHERE ici.count_id = ?
+    `).all(req.params.id);
+    res.json({ ...toCamelCase(count), items: toCamelCaseArray(items) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/inventory-counts', (req, res) => {
+  try {
+    const { warehouseId, note, itemIds } = req.body;
+    const info = db.prepare(`INSERT INTO inventory_counts (tenant_id, warehouse_id, status, note) VALUES (?, ?, 'draft', ?)`).run(req.tenant_id || 1, warehouseId || null, note || null);
+    const countId = info.lastInsertRowid;
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      const placeholders = itemIds.map(() => '?').join(',');
+      const items = db.prepare(`SELECT id, COALESCE(current_balance, current_stock, 0) as stock, unit FROM inventory_items WHERE id IN (${placeholders}) AND tenant_id = current_tenant_id()`).all(...itemIds);
+      const insert = db.prepare('INSERT INTO inventory_count_items (count_id, item_id, expected_quantity, unit) VALUES (?, ?, ?, ?)');
+      for (const item of items) insert.run(countId, item.id, item.stock, item.unit || 'шт');
+    }
+    res.status(201).json({ id: countId });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/inventory-counts/:id/items/:itemId', (req, res) => {
+  try {
+    const { actualQuantity, note } = req.body;
+    const row = db.prepare('SELECT expected_quantity FROM inventory_count_items WHERE id = ? AND count_id = ?').get(req.params.itemId, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Позиция не найдена' });
+    const diff = (Number(actualQuantity) || 0) - row.expected_quantity;
+    db.prepare('UPDATE inventory_count_items SET actual_quantity = ?, difference = ?, note = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(Number(actualQuantity) || 0, diff, note || null, req.params.itemId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/inventory-counts/:id/apply', (req, res) => {
+  try {
+    const count = db.prepare('SELECT * FROM inventory_counts WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!count) return res.status(404).json({ error: 'Акт не найден' });
+    if (count.status === 'applied') return res.status(400).json({ error: 'Акт уже проведён' });
+    const items = db.prepare('SELECT * FROM inventory_count_items WHERE count_id = ?').all(req.params.id);
+    for (const item of items) {
+      if (item.actual_quantity === null) continue;
+      const diff = item.actual_quantity - item.expected_quantity;
+      if (diff !== 0) {
+        db.prepare('UPDATE inventory_items SET current_balance = MAX(0, ?), current_stock = MAX(0, ?) WHERE id = ?')
+          .run(item.actual_quantity, item.actual_quantity, item.item_id);
+        db.prepare(`INSERT INTO inventory_transactions (item_id, type, quantity, price_per_unit, total, supplier_name, note, document_number)
+          VALUES (?, 'adjustment', ?, 0, 0, 'inventory_count', ?, ?)`)
+          .run(item.item_id, diff, `Инвентаризация #${count.id}`, `INV-${count.id}`);
+      }
+    }
+    db.prepare("UPDATE inventory_counts SET status = 'applied', counted_at = datetime('now') WHERE id = ?").run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/inventory-counts/:id', (req, res) => {
+  try {
+    const count = db.prepare('SELECT status FROM inventory_counts WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!count) return res.status(404).json({ error: 'Акт не найден' });
+    if (count.status === 'applied') return res.status(400).json({ error: 'Нельзя удалить проведённый акт' });
+    db.prepare('DELETE FROM inventory_count_items WHERE count_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM inventory_counts WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// Purchase orders to suppliers
+app.get('/api/purchase-orders', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT po.*, s.name as supplier_name,
+        (SELECT COUNT(*) FROM purchase_order_items WHERE order_id = po.id) as items_count
+      FROM purchase_orders po
+      LEFT JOIN suppliers s ON s.id = po.supplier_id
+      WHERE po.tenant_id = current_tenant_id()
+      ORDER BY po.created_at DESC
+    `).all();
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/purchase-orders/:id', (req, res) => {
+  try {
+    const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    const items = db.prepare(`
+      SELECT poi.*, ii.name as item_name, ii.unit as item_unit
+      FROM purchase_order_items poi
+      LEFT JOIN inventory_items ii ON ii.id = poi.item_id
+      WHERE poi.order_id = ?
+    `).all(req.params.id);
+    res.json({ ...toCamelCase(order), items: toCamelCaseArray(items) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/purchase-orders', (req, res) => {
+  try {
+    const { supplierId, note, expectedDelivery, items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Добавьте позиции' });
+    const total = items.reduce((s, i) => s + (i.quantity || 0) * (i.pricePerUnit || 0), 0);
+    const info = db.prepare(`INSERT INTO purchase_orders (tenant_id, supplier_id, status, total, note, expected_delivery) VALUES (?, ?, 'draft', ?, ?, ?)`)
+      .run(req.tenant_id || 1, supplierId || null, total, note || null, expectedDelivery || null);
+    const orderId = info.lastInsertRowid;
+    const insert = db.prepare('INSERT INTO purchase_order_items (order_id, item_id, quantity, price_per_unit, total, unit) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const i of items) insert.run(orderId, i.itemId, i.quantity || 0, i.pricePerUnit || 0, (i.quantity || 0) * (i.pricePerUnit || 0), i.unit || 'шт');
+    res.status(201).json({ id: orderId });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/purchase-orders/:id', (req, res) => {
+  try {
+    const { supplierId, note, expectedDelivery, status, items } = req.body;
+    const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    if (items && Array.isArray(items)) {
+      db.prepare('DELETE FROM purchase_order_items WHERE order_id = ?').run(req.params.id);
+    const total = items.reduce((s, i) => s + (i.quantity || 0) * (i.pricePerUnit || 0), 0);
+      db.prepare('UPDATE purchase_orders SET supplier_id = ?, note = ?, expected_delivery = ?, status = ?, total = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(supplierId ?? order.supplier_id, note ?? order.note, expectedDelivery ?? order.expected_delivery, status ?? order.status, total, req.params.id);
+      const insert = db.prepare('INSERT INTO purchase_order_items (order_id, item_id, quantity, price_per_unit, total, unit) VALUES (?, ?, ?, ?, ?, ?)');
+      for (const i of items) insert.run(req.params.id, i.itemId, i.quantity || 0, i.pricePerUnit || 0, (i.quantity || 0) * (i.pricePerUnit || 0), i.unit || 'шт');
+    } else {
+      db.prepare('UPDATE purchase_orders SET supplier_id = ?, note = ?, expected_delivery = ?, status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(supplierId ?? order.supplier_id, note ?? order.note, expectedDelivery ?? order.expected_delivery, status ?? order.status, req.params.id);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/purchase-orders/:id/receive', (req, res) => {
+  try {
+    const { receivedItems } = req.body; // [{ itemId, quantity }]
+    const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    const items = db.prepare('SELECT * FROM purchase_order_items WHERE order_id = ?').all(req.params.id);
+    const map = new Map((receivedItems || []).map((r) => [r.itemId, Number(r.quantity) || 0]));
+    for (const item of items) {
+      const qty = map.get(item.item_id) || 0;
+      if (qty > 0) {
+        db.prepare('UPDATE inventory_items SET current_balance = COALESCE(current_balance, 0) + ?, current_stock = COALESCE(current_stock, 0) + ? WHERE id = ?')
+          .run(qty, qty, item.item_id);
+        db.prepare(`INSERT INTO inventory_transactions (item_id, type, quantity, price_per_unit, total, supplier_name, note, document_number)
+          VALUES (?, 'purchase', ?, ?, ?, ?, ?, ?)`)
+          .run(item.item_id, qty, item.price_per_unit, qty * item.price_per_unit, 'purchase_order', `Приёмка заказа поставщика #${order.id}`, `PO-${order.id}`);
+      }
+      db.prepare('UPDATE purchase_order_items SET received_quantity = COALESCE(received_quantity, 0) + ? WHERE id = ?').run(qty, item.id);
+    }
+    db.prepare("UPDATE purchase_orders SET status = 'received', updated_at = datetime('now') WHERE id = ?").run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/purchase-orders/:id', (req, res) => {
+  try {
+    const order = db.prepare('SELECT status FROM purchase_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    if (order.status === 'received') return res.status(400).json({ error: 'Нельзя удалить принятый заказ' });
+    db.prepare('DELETE FROM purchase_order_items WHERE order_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// Inventory variance report
+app.get('/api/reports/inventory-variance', (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let sql = `
+      SELECT ic.id as count_id, ic.counted_at, ic.status, ici.item_id, ii.name as item_name, ii.unit,
+        ici.expected_quantity, ici.actual_quantity, ici.difference,
+        COALESCE(ii.price_per_unit, ii.last_price, 0) as price_per_unit
+      FROM inventory_counts ic
+      JOIN inventory_count_items ici ON ici.count_id = ic.id
+      LEFT JOIN inventory_items ii ON ii.id = ici.item_id
+      WHERE ic.tenant_id = current_tenant_id() AND ic.status = 'applied'
+    `;
+    const params = [];
+    if (from) { sql += ' AND date(ic.counted_at) >= ?'; params.push(from); }
+    if (to) { sql += ' AND date(ic.counted_at) <= ?'; params.push(to); }
+    sql += ' ORDER BY ic.counted_at DESC, ii.name';
+    const rows = db.prepare(sql).all(...params);
+    const summary = {
+      totalCounts: new Set(rows.map(r => r.count_id)).size,
+      totalItems: rows.length,
+      positiveQty: rows.filter(r => r.difference > 0).reduce((s, r) => s + r.difference, 0),
+      negativeQty: rows.filter(r => r.difference < 0).reduce((s, r) => s + r.difference, 0),
+      positiveSum: rows.filter(r => r.difference > 0).reduce((s, r) => s + r.difference * r.price_per_unit, 0),
+      negativeSum: rows.filter(r => r.difference < 0).reduce((s, r) => s + r.difference * r.price_per_unit, 0),
+    };
+    res.json({ rows: toCamelCaseArray(rows), summary });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// Production orders / prep sheets
+app.get('/api/tech-cards', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM dish_tech_cards WHERE tenant_id = current_tenant_id() ORDER BY name').all();
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/tech-cards/:id/ingredients', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT tci.*, ii.name as item_name, ii.unit as item_unit
+      FROM dish_tech_card_ingredients tci
+      LEFT JOIN inventory_items ii ON ii.id = tci.item_id
+      WHERE tci.tech_card_id = ? AND tci.tenant_id = current_tenant_id()
+    `).all(req.params.id);
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/production-orders', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT po.*, dtc.name as tech_card_name,
+        (SELECT COUNT(*) FROM production_order_items WHERE order_id = po.id) as items_count
+      FROM production_orders po
+      LEFT JOIN dish_tech_cards dtc ON dtc.id = po.tech_card_id
+      WHERE po.tenant_id = current_tenant_id()
+      ORDER BY po.created_at DESC
+    `).all();
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/production-orders/:id', (req, res) => {
+  try {
+    const order = db.prepare('SELECT * FROM production_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Задание не найдено' });
+    const items = db.prepare(`
+      SELECT poi.*, ii.name as item_name, ii.unit as item_unit, COALESCE(ii.current_balance, ii.current_stock, 0) as stock
+      FROM production_order_items poi
+      LEFT JOIN inventory_items ii ON ii.id = poi.item_id
+      WHERE poi.order_id = ?
+    `).all(req.params.id);
+    res.json({ ...toCamelCase(order), items: toCamelCaseArray(items) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/production-orders', (req, res) => {
+  try {
+    const { name, techCardId, plannedQuantity, plannedAt, note } = req.body;
+    if (!techCardId || !plannedQuantity) return res.status(400).json({ error: 'Техкарта и количество обязательны' });
+    const info = db.prepare(`INSERT INTO production_orders (tenant_id, name, tech_card_id, planned_quantity, planned_at, note) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(req.tenant_id || 1, name || null, techCardId, plannedQuantity, plannedAt || null, note || null);
+    const orderId = info.lastInsertRowid;
+    const ingredients = db.prepare('SELECT * FROM dish_tech_card_ingredients WHERE tech_card_id = ? AND tenant_id = current_tenant_id()').all(techCardId);
+    const insert = db.prepare('INSERT INTO production_order_items (order_id, item_id, required_quantity, unit) VALUES (?, ?, ?, ?)');
+    for (const ing of ingredients) {
+      const factor = (ing.unit === 'г' || ing.unit === 'мл') ? 1 / 1000 : 1;
+      insert.run(orderId, ing.item_id, Math.round((ing.quantity || 0) * plannedQuantity * factor * 1000) / 1000, ing.unit);
+    }
+    res.status(201).json({ id: orderId });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/production-orders/:id/complete', (req, res) => {
+  try {
+    const { producedQuantity } = req.body;
+    const order = db.prepare('SELECT * FROM production_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Задание не найдено' });
+    const items = db.prepare('SELECT * FROM production_order_items WHERE order_id = ?').all(req.params.id);
+    const ratio = (Number(producedQuantity) || order.planned_quantity) / (order.planned_quantity || 1);
+    for (const item of items) {
+      const qty = Math.round(item.required_quantity * ratio * 1000) / 1000;
+      db.prepare('UPDATE inventory_items SET current_balance = MAX(0, COALESCE(current_balance, 0) - ?), current_stock = MAX(0, COALESCE(current_stock, 0) - ?) WHERE id = ?')
+        .run(qty, qty, item.item_id);
+      db.prepare(`INSERT INTO inventory_transactions (item_id, type, quantity, price_per_unit, total, supplier_name, note, document_number)
+        VALUES (?, 'production', ?, 0, 0, 'production_order', ?, ?)`)
+        .run(item.item_id, -qty, `Производство #${order.id}`, `PROD-${order.id}`);
+    }
+    db.prepare("UPDATE production_orders SET status = 'completed', produced_quantity = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(Number(producedQuantity) || order.planned_quantity, req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/production-orders/:id', (req, res) => {
+  try {
+    const order = db.prepare('SELECT status FROM production_orders WHERE id = ? AND tenant_id = current_tenant_id()').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Задание не найдено' });
+    if (order.status === 'completed') return res.status(400).json({ error: 'Нельзя удалить выполненное задание' });
+    db.prepare('DELETE FROM production_order_items WHERE order_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM production_orders WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 };
+

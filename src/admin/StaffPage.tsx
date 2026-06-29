@@ -45,7 +45,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ first_name: '', last_name: '', role: 'courier', phone: '', email: '', password: '', username: '', salary_types: [] as string[], salary_values: {} as Record<string, number> });
+  const [form, setForm] = useState({ first_name: '', last_name: '', role: 'courier', phone: '', email: '', password: '', pin: '', username: '', salary_types: [] as string[], salary_values: {} as Record<string, number> });
   const [permissions, setPermissions] = useState<Record<string, { view: boolean; edit: boolean }>>({});
   const [limits, setLimits] = useState<Record<string, { limit: number; current: number }> | null>(null);
 
@@ -90,9 +90,15 @@ export default function StaffPage() {
     setForm({...form, password: pwd});
   };
 
+  const genPin = () => {
+    let p = '';
+    for (let i = 0; i < 4; i++) p += Math.floor(Math.random() * 10).toString();
+    setForm({...form, pin: p});
+  };
+
   const openAdd = () => {
     setEditId(null);
-    setForm({ first_name: '', last_name: '', role: 'courier', phone: '', email: '', password: '', username: '', salary_types: [], salary_values: {} });
+    setForm({ first_name: '', last_name: '', role: 'courier', phone: '', email: '', password: '', pin: '', username: '', salary_types: [], salary_values: {} });
     setShowForm(true);
   };
 
@@ -100,7 +106,7 @@ export default function StaffPage() {
     setEditId(s.id);
     const st = Array.isArray(s.salaryType) ? s.salaryType : (s.salaryType ? [s.salaryType] : []);
     const sv = (s.salaryValue && typeof s.salaryValue === 'object') ? s.salaryValue : { per_order: 0, salary: 0, per_km: 0 };
-    setForm({ first_name: s.firstName, last_name: s.lastName || '', role: s.role, phone: s.phone || '', email: s.email || '', password: '', username: s.username || '', salary_types: st, salary_values: sv });
+    setForm({ first_name: s.firstName, last_name: s.lastName || '', role: s.role, phone: s.phone || '', email: s.email || '', password: '', pin: '', username: s.username || '', salary_types: st, salary_values: sv });
     setShowForm(true);
     loadPermissions(s.id);
   };
@@ -128,6 +134,7 @@ export default function StaffPage() {
     };
     if (editId) {
       if (form.password) body.password = form.password;
+      if (form.pin) body.pin = form.pin;
       if (['courier', 'waiter', 'chef'].includes(form.role)) {
         body.salary_type = form.salary_types;
         body.salary_value = form.salary_values;
@@ -139,6 +146,7 @@ export default function StaffPage() {
       body.salary_type = ['courier', 'waiter', 'chef'].includes(form.role) ? form.salary_types : null;
       body.salary_value = ['courier', 'waiter', 'chef'].includes(form.role) ? form.salary_values : null;
       if (form.password) body.password = form.password;
+      if (form.pin) body.pin = form.pin;
       await api.createStaff(body);
     }
       setShowForm(false);
@@ -306,6 +314,14 @@ export default function StaffPage() {
                     </div>
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-zinc-500">{editId ? 'Новый PIN (для POS)' : 'PIN (для POS)'}</label>
+                    <div className="flex gap-2 mt-1">
+                      <input type="text" inputMode="numeric" maxLength={6} value={form.pin} onChange={e => setForm({...form, pin: e.target.value.replace(/\D/g, '').slice(0, 6)})}
+                        className="flex-1 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white" />
+                      <button type="button" onClick={genPin} className="px-3 py-2.5 text-xs font-semibold bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-600 active:scale-[0.97]">Сгенерировать</button>
+                    </div>
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-zinc-500 mb-2 block">Тип зарплаты</label>
                     <div className="space-y-3">
                       {[
@@ -350,6 +366,14 @@ export default function StaffPage() {
                     <label className="text-xs font-medium text-zinc-500">{editId ? 'Новый пароль (оставьте пустым, чтобы не менять)' : 'Пароль'}</label>
                     <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
                       className="w-full border-2 border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500">{editId ? 'Новый PIN для POS (оставьте пустым, чтобы не менять)' : 'PIN для POS'}</label>
+                    <div className="flex gap-2 mt-1">
+                      <input type="text" inputMode="numeric" maxLength={6} value={form.pin} onChange={e => setForm({...form, pin: e.target.value.replace(/\D/g, '').slice(0, 6)})}
+                        className="flex-1 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white" />
+                      <button type="button" onClick={genPin} className="px-3 py-2.5 text-xs font-semibold bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-600 active:scale-[0.97]">Сгенерировать</button>
+                    </div>
                   </div>
                 </>
               )}

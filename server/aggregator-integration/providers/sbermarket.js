@@ -199,6 +199,16 @@ async function updateStatus(order, externalOrderId, internalStatus, credentials)
   return { ok, status, data };
 }
 
+function verifyWebhook(payload, signature, credentials) {
+  if (!signature || !credentials.webhook_secret) return true;
+  try {
+    const crypto = require('crypto');
+    const hmac = crypto.createHmac('sha256', credentials.webhook_secret);
+    hmac.update(typeof payload === 'string' ? payload : JSON.stringify(payload));
+    return signature === hmac.digest('hex');
+  } catch { return false; }
+}
+
 module.exports = {
   PROVIDER,
   testConnection,
@@ -206,4 +216,5 @@ module.exports = {
   parseOrder,
   updateStatus,
   mapStatusFromExternal,
+  verifyWebhook,
 };

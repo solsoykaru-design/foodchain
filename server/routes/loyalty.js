@@ -55,61 +55,6 @@ app.delete('/api/promocodes/:id', (req, res) => {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
-app.get('/api/campaigns', (req, res) => {
-  try {
-    const campaigns = db.prepare('SELECT * FROM campaigns ORDER BY created_at DESC').all();
-    res.json(toCamelCaseArray(campaigns));
-  } catch (e) {
-    res.status(500).json({ error: safeError(e.message) });
-  }
-});
-app.post('/api/campaigns', (req, res) => {
-  try {
-    const { name, type, trigger_type, message, button_text, segment, status } = req.body;
-    if (!name) return res.status(400).json({ error: 'Название кампании обязательно' });
-    const info = db.prepare('INSERT INTO campaigns (name, type, trigger_type, message, button_text, segment, status) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-      name, type || 'manual', trigger_type || null, message || '', button_text || null, segment || 'all', status || 'draft'
-    );
-    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(info.lastInsertRowid);
-    res.status(201).json(toCamelCase(campaign));
-  } catch (e) {
-    res.status(500).json({ error: safeError(e.message) });
-  }
-});
-app.put('/api/campaigns/:id', (req, res) => {
-  try {
-    const existing = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Кампания не найдена' });
-    const { name, type, trigger_type, message, button_text, segment, status } = req.body;
-    const sets = []; const params = [];
-    if (name !== undefined) { sets.push('name = ?'); params.push(name); }
-    if (type !== undefined) { sets.push('type = ?'); params.push(type); }
-    if (trigger_type !== undefined) { sets.push('trigger_type = ?'); params.push(trigger_type); }
-    if (message !== undefined) { sets.push('message = ?'); params.push(message); }
-    if (button_text !== undefined) { sets.push('button_text = ?'); params.push(button_text); }
-    if (segment !== undefined) { sets.push('segment = ?'); params.push(segment); }
-    if (status !== undefined) { sets.push('status = ?'); params.push(status); }
-    if (sets.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
-    params.push(req.params.id);
-    db.prepare(`UPDATE campaigns SET ${sets.join(', ')} WHERE id = ?`).run(...params);
-    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id);
-    res.json(toCamelCase(campaign));
-  } catch (e) {
-    res.status(500).json({ error: safeError(e.message) });
-  }
-});
-app.post('/api/campaigns/:id/send', (req, res) => {
-  try {
-    const existing = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Кампания не найдена' });
-    db.prepare("UPDATE campaigns SET status = 'active', sent_count = sent_count + 1 WHERE id = ?").run(req.params.id);
-    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id);
-    io.emit('campaign:sent', toCamelCase(campaign));
-    res.json(toCamelCase(campaign));
-  } catch (e) {
-    res.status(500).json({ error: safeError(e.message) });
-  }
-});
 app.get('/api/marketing/analytics', (req, res) => {
   try {
     const totalUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;

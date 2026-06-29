@@ -1,6 +1,13 @@
 
+const extensionsService = require('../services/extensions.service.js');
+const referralService = require('../services/referral.service.js');
+
 module.exports = function(app, db, config) {
   const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, pushService, notifLog, aggregatorIntegration, authenticateToken, requireRole } = config;
+
+  const dispatchOrderEvent = (tenantId, event, order) => {
+    try { extensionsService.dispatchEvent(db, tenantId, event, order); } catch (e) { console.error('[Extensions] dispatch error:', e.message); }
+  };
 
 app.get('/api/orders', (req, res) => {
   const { status, courier_id, user_id } = req.query;
@@ -83,30 +90,34 @@ app.get('/api/orders/:id/tracking', (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.put('/api/orders/:id/items', authenticateToken, requireRole('waiter'), (req, res) => {
+app.put('/api/orders/:id/items', authenticateToken, requireRole('waiter', 'admin', 'manager'), (req, res) => {
   try {
     const { items } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Состав заказа обязателен' });
 
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+    const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
 
     let subtotal = 0;
     for (const item of items) {
       const dish = db.prepare('SELECT * FROM dishes WHERE id = ?').get(item.dishId);
       if (dish) {
-        item.name = dish.name;
-        item.price = dish.price;
-        subtotal += dish.price * (item.quantity || 1);
+        item.name = item.name || dish.name;
+        item.price = Number(item.price || dish.price);
+        subtotal += item.price * (item.quantity || 1);
+      } else {
+        subtotal += Number(item.price || 0) * (item.quantity || 1);
       }
     }
 
     const itemsJson = JSON.stringify(items);
+    const discount = Number(order.discount || 0);
+    const total = Math.max(0, subtotal - discount);
     db.prepare("UPDATE orders SET items = ?, subtotal = ?, total = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(itemsJson, subtotal, subtotal, req.params.id);
+      .run(itemsJson, subtotal, total, req.params.id);
 
-    db.prepare("INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)")
-      .run(req.params.id, order.status, 'Состав заказа изменён');
+    db.prepare("INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)")
+      .run(req.params.id, order.status, 'Состав заказа изменён', req.tenant_id);
 
     const updated = emitOrderUpdate(req.params.id);
     res.json(updated);
@@ -151,8 +162,8 @@ app.get('/api/orders/:id/chat', (req, res) => {
     }
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders', (req, res) => {
-  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code, shift_id, handled_by, handled_by_name } = req.body;
+  app.post('/api/orders', (req, res) => {
+  const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code, shift_id, handled_by, handled_by_name, table_id } = req.body;
   // POS dine-in orders may not have a phone; allow empty phone for POS/terminal orders
   const isPosOrder = type === 'dine_in' || shift_id;
   if (!user_id || !user_name || (!isPosOrder && !user_phone)) return res.status(400).json({ error: 'Данные пользователя обязательны' });
@@ -178,10 +189,13 @@ app.post('/api/orders', (req, res) => {
 
   const itemsJson = JSON.stringify(items || []);
   const subtotal = total || 0;
-  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id, shift_id, handled_by, handled_by_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id, shift_id || null, handled_by || null, handled_by_name || null);
+  const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id, shift_id, handled_by, handled_by_name, table_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id, shift_id || null, handled_by || null, handled_by_name || null, table_id || null);
   const orderId = info.lastInsertRowid;
   db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)').run(orderId, 'new', 'Заказ создан', req.tenant_id);
+
+  const createdOrder = toCamelCase(getOrderFull(db, orderId, req.tenant_id));
+  dispatchOrderEvent(req.tenant_id, 'order.created', createdOrder);
 
   db.prepare('UPDATE users SET visits_count = visits_count + 1, total_spent = total_spent + ? WHERE id = ?').run(subtotal, user_id);
 
@@ -217,7 +231,7 @@ app.get('/api/orders/:id/splits', (req, res) => {
     res.json(toCamelCaseArray(splits));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.patch('/api/orders/:id/split', authenticateToken, requireRole('waiter'), (req, res) => {
+app.patch('/api/orders/:id/split', authenticateToken, requireRole('waiter', 'admin', 'manager'), (req, res) => {
   try {
     const { splits } = req.body;
     if (!splits || !Array.isArray(splits) || splits.length === 0) return res.status(400).json({ error: 'splits required' });
@@ -233,7 +247,7 @@ app.patch('/api/orders/:id/split', authenticateToken, requireRole('waiter'), (re
     res.json({ splits: created });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/order-splits/:id/pay', authenticateToken, requireRole('waiter'), (req, res) => {
+app.post('/api/order-splits/:id/pay', authenticateToken, requireRole('waiter', 'admin', 'manager'), (req, res) => {
   try {
     const { payment_method } = req.body;
     const split = db.prepare('SELECT * FROM order_splits WHERE id = ?').get(req.params.id);
@@ -253,10 +267,12 @@ app.post('/api/orders/self-order', (req, res) => {
       const stationService = require('../services/station.service');
       stationService.splitOrderByStations(db, req.tenant_id || 1, orderId);
     } catch (err) { console.error('[Stations] split error:', err.message); }
+    const selfOrder = toCamelCase(getOrderFull(db, orderId, req.tenant_id || 1));
+    dispatchOrderEvent(req.tenant_id || 1, 'order.created', selfOrder);
     res.json({ id: orderId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'courier'), async (req, res) => {
+app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'courier', 'admin', 'manager'), async (req, res) => {
   const { status, note } = req.body;
   if (!status) return res.status(400).json({ error: 'Статус обязателен' });
   if (!STATUS_CHAIN[status]) return res.status(400).json({ error: `Неизвестный статус: ${status}` });
@@ -326,9 +342,14 @@ app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'co
     db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(req.params.id, status, noteText);
     broadcast({ type: 'order:update', orderId: Number(req.params.id), status, note: noteText });
 
+    const updatedOrder = toCamelCase(getOrderFull(db, Number(req.params.id), req.tenant_id));
+    dispatchOrderEvent(req.tenant_id, 'order.status_changed', { order: updatedOrder, from: order.status, to: status });
+    if (status === 'paid' || (order.payment_method && status === 'closed')) dispatchOrderEvent(req.tenant_id, 'order.paid', updatedOrder);
+
     if (status === 'delivered') {
       db.prepare('UPDATE couriers SET total_deliveries = total_deliveries + 1 WHERE id = ?').run(order.courier_id);
       db.prepare('UPDATE users SET total_spent = total_spent + ? WHERE id = ?').run(order.total, order.user_id);
+      try { referralService.completeReferral(db, req.tenant_id || 1, order.user_id, order.total); } catch (e) { console.error('[Referral] complete error:', e.message); }
       // Auto-accrue loyalty bonuses
       try {
         const settings = getLoyaltySettings();
@@ -532,6 +553,9 @@ app.post('/api/website/orders', (req, res) => {
     const orderId = info.lastInsertRowid;
     db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'new', 'Заказ с сайта');
 
+    const webOrder = toCamelCase(getOrderFull(db, orderId, req.tenant_id || 1));
+    dispatchOrderEvent(req.tenant_id || 1, 'order.created', webOrder);
+
     if (appliedBonus > 0 && userId) {
       try {
         const bonus = db.prepare('SELECT * FROM user_bonuses WHERE user_id = ?').get(userId);
@@ -663,7 +687,7 @@ app.post('/api/orders/:id/serve', authenticateToken, requireRole('waiter'), (req
     res.json(getOrderFull(req.params.id));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/orders/:id/split', authenticateToken, requireRole('waiter'), (req, res) => {
+app.post('/api/orders/:id/split', authenticateToken, requireRole('waiter', 'admin', 'manager'), (req, res) => {
   try {
     const { items: splitItemIds } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -733,17 +757,49 @@ app.post('/api/orders/merge', authenticateToken, requireRole('waiter'), (req, re
 });
 app.post('/api/orders/:id/payment', authenticateToken, requireRole('waiter'), (req, res) => {
   try {
-    const { paymentMethod, amount, isPaid, bonusUsed } = req.body;
+    const { paymentMethod, amount, isPaid, bonusUsed, userId } = req.body;
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
 
-    const paidAmount = amount || order.total;
+    let finalTotal = Number(order.total) || 0;
+    const bonus = Number(bonusUsed) || 0;
+    const targetUserId = userId || order.user_id;
+    if (bonus > 0 && targetUserId) {
+      const account = db.prepare('SELECT * FROM user_bonuses WHERE user_id = ?').get(targetUserId);
+      if (!account || account.balance < bonus) return res.status(400).json({ error: 'Недостаточно бонусов' });
+      db.prepare('UPDATE user_bonuses SET balance = balance - ?, lifetime_spent = lifetime_spent + ? WHERE id = ?').run(bonus, bonus, account.id);
+      db.prepare('UPDATE users SET bonus_balance = bonus_balance - ? WHERE id = ?').run(bonus, targetUserId);
+      db.prepare('INSERT INTO bonus_transactions (user_id, bonus_id, type, amount, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(targetUserId, account.id, 'spend', bonus, `Списание за заказ #${order.id}`, 'order', order.id);
+      finalTotal = Math.max(0, finalTotal - bonus);
+    }
+
+    const paidAmount = amount || finalTotal;
     // Associate with open shift if any
     const activeShift = db.prepare("SELECT id FROM cashier_shifts WHERE status = 'open' AND tenant_id = 1 LIMIT 1").get();
     const shiftId = activeShift ? activeShift.id : 0;
-    db.prepare("UPDATE orders SET payment_method = ?, total = ?, is_paid = ?, status = 'paid', bonus_used = ?, shift_id = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(paymentMethod || order.payment_method, paidAmount, isPaid !== false ? 1 : 0, bonusUsed || 0, shiftId, req.params.id);
-    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(req.params.id, 'paid', `Оплачено: ${paidAmount}₽`);
+    db.prepare("UPDATE orders SET payment_method = ?, total = ?, is_paid = ?, status = 'paid', bonus_used = ?, user_id = ?, shift_id = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(paymentMethod || order.payment_method, paidAmount, isPaid !== false ? 1 : 0, bonus, targetUserId || order.user_id, shiftId, req.params.id);
+    db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(req.params.id, 'paid', `Оплачено: ${paidAmount}₽${bonus > 0 ? ` (бонусов ${bonus}₽)` : ''}`);
+
+    // Auto-accrue loyalty bonuses for dine-in POS if user_id set
+    try {
+      const settings = getLoyaltySettings();
+      if (targetUserId && settings.bonusPercent > 0) {
+        const bonusAmount = Math.round(paidAmount * (settings.bonusPercent / 100) * 100) / 100;
+        if (bonusAmount > 0) {
+          let account = db.prepare('SELECT * FROM user_bonuses WHERE user_id = ?').get(targetUserId);
+          if (!account) {
+            const info = db.prepare('INSERT INTO user_bonuses (user_id, balance, lifetime_earned) VALUES (?, 0, 0)').run(targetUserId);
+            account = db.prepare('SELECT * FROM user_bonuses WHERE id = ?').get(info.lastInsertRowid);
+          }
+          db.prepare('UPDATE user_bonuses SET balance = balance + ?, lifetime_earned = lifetime_earned + ? WHERE id = ?').run(bonusAmount, bonusAmount, account.id);
+          db.prepare('UPDATE users SET bonus_balance = bonus_balance + ? WHERE id = ?').run(bonusAmount, targetUserId);
+          db.prepare('INSERT INTO bonus_transactions (user_id, bonus_id, type, amount, description, reference_type, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(targetUserId, account.id, 'earned', bonusAmount, `Начисление за заказ #${order.id}`, 'order', order.id);
+        }
+      }
+    } catch (e) { console.error('[Loyalty] Accrue error:', e.message); }
 
     // If order has a check, update check total
     if (order.check_id) {
@@ -771,6 +827,12 @@ app.post('/api/orders/:id/payment', authenticateToken, requireRole('waiter'), (r
       }
     } catch (e) { console.error('[Fiscal] Auto-receipt creation error:', e.message); }
 
+    // Inventory write-off on paid order
+    try {
+      const posInventory = require('../services/pos-inventory.service');
+      posInventory.writeOffOrder(db, order.id);
+    } catch (e) { console.error('[POS Inventory] Write-off error:', e.message); }
+
     broadcast({ type: 'order:update', orderId: Number(req.params.id), status: 'paid' });
     io.emit('order:update', getOrderFull(req.params.id));
     res.json(getOrderFull(req.params.id));
@@ -778,7 +840,7 @@ app.post('/api/orders/:id/payment', authenticateToken, requireRole('waiter'), (r
 });
 app.patch('/api/orders/:id/items/:dishId/status', authenticateToken, requireRole('waiter', 'kitchen'), (req, res) => {
   try {
-    const { status, chefId } = req.body;
+    const { status, chefId, note } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
@@ -796,6 +858,7 @@ app.patch('/api/orders/:id/items/:dishId/status', authenticateToken, requireRole
       params.push(now, readyAt);
     }
     if (status === 'ready') { extraSet = ', completed_at = ?'; params.push(now); }
+    if (note) { extraSet += ', note = ?'; params.push(note); }
 
     const existing = db.prepare('SELECT * FROM order_item_statuses WHERE order_id = ? AND dish_id = ?').get(req.params.id, req.params.dishId);
     if (existing) {
@@ -803,7 +866,17 @@ app.patch('/api/orders/:id/items/:dishId/status', authenticateToken, requireRole
       db.prepare(`UPDATE order_item_statuses SET status = ?${extraSet}${chefId ? ', prepared_by = ?' : ''} WHERE order_id = ? AND dish_id = ?`).run(...params, ...(chefId ? [chefId] : []));
     } else {
       const insReadyAt = status === 'preparing' ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
-      db.prepare(`INSERT INTO order_item_statuses (status, started_at, expected_ready_at, order_id, dish_id, prepared_by) VALUES (?, ?, ?, ?, ?, ?)`).run(status, status === 'preparing' ? now : null, insReadyAt, req.params.id, req.params.dishId, chefId || null);
+      db.prepare(`INSERT INTO order_item_statuses (status, started_at, expected_ready_at, order_id, dish_id, prepared_by, note) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(status, status === 'preparing' ? now : null, insReadyAt, req.params.id, req.params.dishId, chefId || null, note || null);
+    }
+
+    // Insert history record for removed items with reason
+    if (status === 'removed' && note) {
+      db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)')
+        .run(req.params.id, 'item_removed', `Удалена позиция (ID ${req.params.dishId}): ${note}`, req.tenant_id);
+      try {
+        db.prepare('INSERT INTO pos_action_logs (tenant_id, shift_id, order_id, action, details, created_by, created_by_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(req.tenant_id, null, Number(req.params.id), 'item_removed', `dishId=${req.params.dishId}, reason=${note}`, req.user?.id, req.user?.username || req.user?.name);
+      } catch (_) {}
     }
 
     // Update item status in order's JSON items

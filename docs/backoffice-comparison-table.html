@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodChain Back-Office — сравнение с конкурентами</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a192f;
+      --bg-2: #0f1f3d;
+      --bg-3: #112240;
+      --card: rgba(17, 34, 64, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --text-2: #94a3b8;
+      --text-3: #64748b;
+      --accent: #00b4d8;
+      --accent-2: #0077b6;
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --yellow: #f59e0b;
+      --yellow-bg: rgba(245, 158, 11, 0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --gray: #64748b;
+      --radius: 14px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+      padding: 48px 24px;
+    }
+
+    .container {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 42px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      background: rgba(0, 180, 216, 0.08);
+      border: 1px solid rgba(0, 180, 216, 0.2);
+      border-radius: 999px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      margin-bottom: 12px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-size: 200% 200%;
+      animation: gradientShift 5s ease infinite;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .subtitle {
+      color: var(--text-2);
+      font-size: 1rem;
+      max-width: 760px;
+      margin: 0 auto 28px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-3);
+    }
+
+    .meta span {
+      background: var(--bg-3);
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .legend-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 24px;
+      margin-bottom: 32px;
+      padding: 18px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+      color: var(--text-2);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot.green { background: var(--green); box-shadow: 0 0 10px rgba(34, 197, 94, 0.35); }
+    .dot.yellow { background: var(--yellow); box-shadow: 0 0 10px rgba(245, 158, 11, 0.35); }
+    .dot.red { background: var(--red); box-shadow: 0 0 10px rgba(239, 68, 68, 0.35); }
+    .dot.gray { background: var(--gray); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1100px;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+      color: var(--text);
+      font-weight: 700;
+      padding: 16px 12px;
+      text-align: center;
+      border-bottom: 2px solid rgba(0, 180, 216, 0.25);
+      white-space: nowrap;
+    }
+
+    thead th:first-child {
+      text-align: left;
+      padding-left: 22px;
+      border-top-left-radius: var(--radius);
+    }
+
+    thead th:last-child { border-top-right-radius: var(--radius); }
+
+    tbody tr { transition: background 0.15s; }
+    tbody tr:hover { background: rgba(0, 180, 216, 0.04); }
+
+    td {
+      padding: 12px 10px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+    }
+
+    td:first-child {
+      text-align: left;
+      padding-left: 22px;
+      font-weight: 500;
+      color: var(--text);
+      max-width: 360px;
+    }
+
+    .section-row td {
+      background: linear-gradient(90deg, rgba(0, 180, 216, 0.12), rgba(0, 119, 182, 0.05));
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 14px 22px;
+      border-bottom: 1px solid rgba(0, 180, 216, 0.18);
+    }
+
+    .cell {
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: inline-block;
+      min-width: 28px;
+    }
+
+    .cell.green { background: var(--green-bg); color: var(--green); }
+    .cell.yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .cell.red { background: var(--red-bg); color: var(--red); }
+    .cell.gray { background: rgba(100, 116, 139, 0.12); color: var(--gray); }
+
+    .foodchain { color: var(--accent); font-weight: 800; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    .card h3 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card ul {
+      list-style: none;
+      font-size: 0.84rem;
+      color: var(--text-2);
+    }
+
+    .card li {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .card li:last-child { border-bottom: none; }
+
+    .icon { font-size: 1.1rem; line-height: 1; }
+
+    .scorecard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .score {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 28px;
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .score .number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .score .label {
+      font-size: 0.75rem;
+      color: var(--text-3);
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-3);
+      font-size: 0.78rem;
+      margin-top: 20px;
+    }
+
+    @media print {
+      body { background: #fff; color: #000; padding: 20px; }
+      .table-wrap, .card, .score { box-shadow: none; border-color: #ddd; }
+      thead th { background: #f0f0f0; color: #000; }
+      .gradient-text { -webkit-text-fill-color: #000; color: #000; }
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 24px 14px; }
+      .legend-bar { gap: 8px 14px; }
+      .score { min-width: 120px; padding: 16px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Сравнительная матрица</div>
+      <h1>FoodChain Back-Office <span class="gradient-text">vs конкуренты</span></h1>
+      <p class="subtitle">
+        Полное сравнение функционала back-office/POS для ресторанного бизнеса.
+        Актуально на июнь 2026.
+      </p>
+      <div class="meta">
+        <span>Конкуренты: iiko, R-Keeper, Poster, 1С:Ресторан, Toast, Lightspeed, Jowi</span>
+        <span>Источник: docs/backoffice-comparison.md</span>
+      </div>
+    </header>
+
+    <div class="scorecard">
+      <div class="score">
+        <div class="number">7</div>
+        <div class="label">конкурентов</div>
+      </div>
+      <div class="score">
+        <div class="number">45+</div>
+        <div class="label">функций</div>
+      </div>
+      <div class="score">
+        <div class="number">33</div>
+        <div class="label">реализовано</div>
+      </div>
+      <div class="score">
+        <div class="number">3</div>
+        <div class="label">частично</div>
+      </div>
+      <div class="score">
+        <div class="number">7</div>
+        <div class="label">пробелы</div>
+      </div>
+    </div>
+
+    <div class="legend-bar">
+      <div class="legend-item"><span class="cell green">●</span> Присутствует и развито</div>
+      <div class="legend-item"><span class="cell yellow">○</span> Есть, но ограничено / через интеграции</div>
+      <div class="legend-item"><span class="cell gray">—</span> Нет или неактуально</div>
+      <div class="legend-item"><span class="cell green">✅</span> Реализовано в FoodChain</div>
+      <div class="legend-item"><span class="cell yellow">🔄</span> Частично / заглушки</div>
+      <div class="legend-item"><span class="cell red">❌</span> Не реализовано</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Блок / функция</th>
+            <th>FoodChain</th>
+            <th>iiko</th>
+            <th>R-Keeper</th>
+            <th>Poster</th>
+            <th>1С:Ресторан</th>
+            <th>Toast</th>
+            <th>Lightspeed</th>
+            <th>Jowi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><td colspan="9">Операции (POS)</td></tr>
+          <tr><td>POS-терминал (столы, чеки, оплата)</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Кухонный дисплей (KDS)</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>План зала / бронирование</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Экран раздачи</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Онлайн-заказы / QR / киоск</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Доставка / диспетчеризация</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Интеграция агрегаторов доставки</td><td><span class="cell yellow">🔄</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">Склад</td></tr>
+          <tr><td>Справочник товаров / категории</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td></tr>
+          <tr><td>Технологические карты / рецептуры</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td></tr>
+          <tr><td>Автосписание по продажам</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Акты пересчёта (инвентаризация)</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Заказы поставщикам / приёмка</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Перемещения / возвраты</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Списание сроков годности</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Производственные задания / заготовки</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Прогноз спроса / автозаказы</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Штрихкодирование</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">CRM / Маркетинг</td></tr>
+          <tr><td>База клиентов / сегментация</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Программа лояльности / бонусы</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Отзывы / оценки</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Рассылки / push / SMS / email</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Триггерные маркетинговые кампании</td><td><span class="cell red">❌</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>RFM-анализ</td><td><span class="cell red">❌</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">Персонал</td></tr>
+          <tr><td>Сотрудники / роли / доступ</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Графики работы</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Расчёт зарплаты по сменам/часам</td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Учёт чаевых / премий</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">Финансы</td></tr>
+          <tr><td>Смены / X-Z отчёты</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Кассовые операции / инкассации</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Онлайн-оплаты / эквайринг</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Фискализация (54-ФЗ / KKT)</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Налоговый учёт / НДС</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Бухгалтерия / баланс / ОСВ</td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Экспорт в 1С / МойСклад / Битрикс24</td><td><span class="cell yellow">🔄</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">Аналитика</td></tr>
+          <tr><td>Дашборд / KPI</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Продажи / категории / блюда</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Прибыль / P&L / ABC</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Фудкост / себестоимость блюд</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Расхождения инвентаризации</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td><td><span class="cell gray">—</span></td></tr>
+
+          <tr class="section-row"><td colspan="9">Инфраструктура</td></tr>
+          <tr><td>Мульти-тенантность / франчайзинг</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Филиальная сеть</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>API / интеграции</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Маркетплейс приложений</td><td><span class="cell red">❌</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Мобильное приложение управляющего</td><td><span class="cell red">❌</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+          <tr><td>Офлайн-режим</td><td><span class="cell green">✅</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell gray">—</span></td></tr>
+          <tr><td>Резервное копирование</td><td><span class="cell green">✅</span></td><td><span class="cell yellow">○</span></td><td><span class="cell yellow">○</span></td><td><span class="cell green">●</span></td><td><span class="cell gray">—</span></td><td><span class="cell green">●</span></td><td><span class="cell green">●</span></td><td><span class="cell yellow">○</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary-grid">
+      <div class="card">
+        <h3><span class="icon">✅</span> Сильные стороны FoodChain</h3>
+        <ul>
+          <li><span class="icon">●</span> Полный склад: техкарты, автосписание, инвентаризация, заказы поставщикам, производство.</li>
+          <li><span class="icon">●</span> Все каналы продаж: POS, KDS, экран раздачи, QR, киоск, доставка.</li>
+          <li><span class="icon">●</span> Фудкост и P&L внутри системы.</li>
+          <li><span class="icon">●</span> Мульти-тенантность и франчайзинг из коробки.</li>
+          <li><span class="icon">●</span> Офлайн-режим и резервное копирование.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="icon">⚠️</span> Где уступает конкурентам</h3>
+        <ul>
+          <li><span class="icon">❌</span> Триггерные маркетинговые кампании.</li>
+          <li><span class="icon">❌</span> RFM-сегментация.</li>
+          <li><span class="icon">❌</span> Полноценный расчёт зарплаты (смены есть, расчёта нет).</li>
+          <li><span class="icon">❌</span> Внутренняя бухгалтерия (ОСВ, баланс).</li>
+          <li><span class="icon">❌</span> Мобильное приложение управляющего.</li>
+          <li><span class="icon">❌</span> Маркетплейс приложений / расширений.</li>
+          <li><span class="icon">❌</span> Честный знак / ЕГАИС (требует интеграции).</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3><span class="icon">🎯</span> Рекомендуемый порядок доработок</h3>
+        <ul>
+          <li><span class="icon">1</span> Маркетинг: триггерные кампании + RFM.</li>
+          <li><span class="icon">2</span> HR: полноценный расчёт зарплаты.</li>
+          <li><span class="icon">3</span> Финансы: внутренний баланс и P&L по филиалам.</li>
+          <li><span class="icon">4</span> Мобильное приложение управляющего (PWA/Capacitor).</li>
+          <li><span class="icon">5</span> Маркетплейс расширений.</li>
+          <li><span class="icon">6</span> Честный знак / ЕГАИС.</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      <p>Матрица составлена на основе публично заявленного функционала продуктов и может не учитывать последние обновления конкурентов.</p>
+      <p style="margin-top:6px;">FoodChain Enterprise — июнь 2026</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, DollarSign, Package, Megaphone, UsersRound, ClipboardCheck, ChevronDown } from 'lucide-react';
+import { BarChart3, DollarSign, Package, Megaphone, UsersRound, ClipboardCheck, Network, ChevronDown } from 'lucide-react';
 
 interface TreeItem {
   id: string;
@@ -14,6 +14,14 @@ interface TreeGroup {
 }
 
 const groups: TreeGroup[] = [
+  {
+    id: 'network',
+    label: 'Сеть',
+    icon: Network,
+    items: [
+      { id: 'network/dashboard', label: 'Сводка по сети' },
+    ],
+  },
   {
     id: 'sales',
     label: 'Продажи',
@@ -63,6 +71,7 @@ const groups: TreeGroup[] = [
       { id: 'stock/transfers', label: 'Перемещения' },
       { id: 'stock/calories', label: 'Калорийность' },
       { id: 'stock/food-cost', label: 'Фудкост / Себестоимость' },
+      { id: 'stock/inventory-variance', label: 'Расхождения инвентаризации' },
     ],
   },
   {

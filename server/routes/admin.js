@@ -1,4 +1,8 @@
 const jwt = require('jsonwebtoken');
+const aiAssistantService = require('../services/ai-assistant.service.js');
+const honestSignService = require('../services/honest-sign.service.js');
+const pricingService = require('../services/pricing.service.js');
+const referralService = require('../services/referral.service.js');
 
 module.exports = function(app, db, config) {
   const { JWT_SECRET, safeError, toCamelCaseArray, getLoyaltySettings, supplierPortal, shiftService, autoOrdersService } = config;
@@ -156,31 +160,75 @@ app.get('/api/admin/costing/status', (req, res) => {
 });
 app.get('/api/admin/honest-sign/settings', (req, res) => {
   try {
-    const s = db.prepare('SELECT * FROM honest_sign_settings WHERE tenant_id = ?').get(req.tenant_id || 1);
-    if (!s) { db.prepare('INSERT INTO honest_sign_settings (tenant_id) VALUES (?)').run(req.tenant_id || 1); return res.json({}); }
+    const s = honestSignService.getSettings(db, req.tenant_id || 1);
     res.json(s);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.put('/api/admin/honest-sign/settings', (req, res) => {
   try {
-    const { enabled, api_key, organization_inn } = req.body;
-    const existing = db.prepare('SELECT id FROM honest_sign_settings WHERE tenant_id = ?').get(req.tenant_id || 1);
-    if (existing) db.prepare("UPDATE honest_sign_settings SET enabled = ?, api_key = ?, organization_inn = ? WHERE tenant_id = ?").run(enabled ? 1 : 0, api_key || '', organization_inn || '', req.tenant_id || 1);
-    else db.prepare("INSERT INTO honest_sign_settings (tenant_id, enabled, api_key, organization_inn) VALUES (?, ?, ?, ?)").run(req.tenant_id || 1, enabled ? 1 : 0, api_key || '', organization_inn || '');
+    const { enabled, api_key, organization_inn, fsrar_id, gost_key_path, test_mode, api_url } = req.body;
+    const tid = req.tenant_id || 1;
+    const existing = db.prepare('SELECT id FROM honest_sign_settings WHERE tenant_id = ?').get(tid);
+    if (existing) db.prepare("UPDATE honest_sign_settings SET enabled = ?, api_key = ?, organization_inn = ?, fsrar_id = ?, gost_key_path = ?, test_mode = ?, api_url = ? WHERE tenant_id = ?").run(enabled ? 1 : 0, api_key || '', organization_inn || '', fsrar_id || '', gost_key_path || '', test_mode ? 1 : 0, api_url || '', tid);
+    else db.prepare("INSERT INTO honest_sign_settings (tenant_id, enabled, api_key, organization_inn, fsrar_id, gost_key_path, test_mode, api_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(tid, enabled ? 1 : 0, api_key || '', organization_inn || '', fsrar_id || '', gost_key_path || '', test_mode ? 1 : 0, api_url || '');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/admin/honest-sign/check', (req, res) => {
+app.post('/api/admin/honest-sign/check', async (req, res) => {
   try {
     const { marking_code } = req.body;
-    if (!marking_code || marking_code.length < 10) return res.json({ valid: false, error: 'Неверный формат кода' });
-    res.json({ valid: true, product_gtin: marking_code.substring(0, 14), message: 'Код корректен' });
+    const result = await honestSignService.checkCode(db, req.tenant_id || 1, marking_code);
+    res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/honest-sign/products', (req, res) => {
   try {
-    const products = db.prepare('SELECT hsp.*, ii.name as product_name FROM honest_sign_products hsp LEFT JOIN inventory_items ii ON ii.id = hsp.product_id WHERE hsp.tenant_id = ? ORDER BY hsp.created_at DESC').all(req.tenant_id || 1);
+    const products = honestSignService.getProducts(db, req.tenant_id || 1);
     res.json(products);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/honest-sign/products', (req, res) => {
+  try {
+    const result = honestSignService.registerProduct(db, req.tenant_id || 1, req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/honest-sign/codes', (req, res) => {
+  try {
+    const productId = req.query.product_id ? Number(req.query.product_id) : null;
+    const codes = honestSignService.getCodes(db, req.tenant_id || 1, productId);
+    res.json(codes);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/honest-sign/codes', (req, res) => {
+  try {
+    const { product_id, codes } = req.body;
+    const result = honestSignService.addMarkingCodes(db, req.tenant_id || 1, product_id, codes || []);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/honest-sign/documents', (req, res) => {
+  try {
+    const docs = honestSignService.getDocuments(db, req.tenant_id || 1);
+    res.json(docs);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/honest-sign/documents', (req, res) => {
+  try {
+    const result = honestSignService.createDocument(db, req.tenant_id || 1, req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/honest-sign/documents/:id/send', async (req, res) => {
+  try {
+    const result = await honestSignService.sendDocument(db, req.tenant_id || 1, req.params.id);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/honest-sign/sync', (req, res) => {
+  try {
+    const result = honestSignService.syncProducts(db, req.tenant_id || 1);
+    res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/supplier-portal/users', (req, res) => {
@@ -798,19 +846,40 @@ app.get('/api/admin/yandex-afisha/stats', (req, res) => {
     res.json({ total, confirmed, cancelled, conversion_rate: total > 0 ? Math.round(confirmed / total * 100) : 0, by_date: byDate });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+const extensionsService = require('../services/extensions.service.js');
+
+const BUILTIN_EXTENSIONS = [
+  { name: 'Яндекс Еда', description: 'Интеграция с Яндекс Еда', version: '2.0.0', developer: 'FoodChain', icon: '🍔', type: 'integration', builtin: true },
+  { name: 'МойСклад', description: 'Синхронизация с МойСклад', version: '1.0.0', developer: 'FoodChain', icon: '📦', type: 'integration' },
+  { name: 'Telegram Bot', description: 'Расширенный Telegram бот', version: '1.5.0', developer: 'FoodChain', icon: '🤖', type: 'integration', builtin: true },
+  { name: 'Excel Reports', description: 'Расширенные Excel-отчёты', version: '1.0.0', developer: 'FoodChain', icon: '📊', type: 'integration' },
+  { name: 'Email Marketing', description: 'Email-маркетинг', version: '1.2.0', developer: 'FoodChain', icon: '📧', type: 'integration', builtin: true },
+  { name: 'CRM Битрикс24', description: 'Интеграция с Битрикс24', version: '1.1.0', developer: 'FoodChain', icon: '💼', type: 'integration', builtin: true },
+  { name: 'OpenAPI', description: 'Генерация OpenAPI спецификации', version: '1.0.0', developer: 'FoodChain', icon: '📝', type: 'integration', builtin: true },
+];
+
 app.get('/api/admin/extensions', (req, res) => {
   try {
-    const installed = db.prepare('SELECT * FROM extensions WHERE tenant_id = ?').all(req.tenant_id || 1);
-    const catalog = [];
-    res.json({ installed, catalog });
+    const tid = req.tenant_id || 1;
+    const installed = db.prepare('SELECT * FROM extensions WHERE tenant_id = ?').all(tid);
+    for (const ext of installed) {
+      if (!ext.hook_secret) {
+        ext.hook_secret = extensionsService.generateSecret();
+        db.prepare('UPDATE extensions SET hook_secret = ? WHERE id = ?').run(ext.hook_secret, ext.id);
+      }
+      ext.hooks = db.prepare('SELECT * FROM extension_hooks WHERE extension_id = ?').all(ext.id);
+    }
+    res.json({ installed, catalog: BUILTIN_EXTENSIONS });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.post('/api/admin/extensions/install', (req, res) => {
   try {
     const { name, description, version, developer, icon, url, type } = req.body;
-    const existing = db.prepare('SELECT id FROM extensions WHERE name = ? AND tenant_id = ?').get(name, req.tenant_id || 1);
+    const tid = req.tenant_id || 1;
+    const existing = db.prepare('SELECT id FROM extensions WHERE name = ? AND tenant_id = ?').get(name, tid);
     if (existing) return res.json({ ok: true, message: 'Уже установлено' });
-    db.prepare("INSERT INTO extensions (name, description, version, developer, icon, url, type, is_active, tenant_id, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'))").run(name, description || '', version || '1.0.0', developer || '', icon || '', url || '', type || 'integration', req.tenant_id || 1);
+    const secret = extensionsService.generateSecret();
+    db.prepare("INSERT INTO extensions (name, description, version, developer, icon, url, type, is_active, tenant_id, hook_secret, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, datetime('now'))").run(name, description || '', version || '1.0.0', developer || '', icon || '', url || '', type || 'integration', tid, secret);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -825,7 +894,14 @@ app.post('/api/admin/extensions/:id/toggle', (req, res) => {
 app.delete('/api/admin/extensions/:id', (req, res) => {
   try {
     db.prepare('DELETE FROM extensions WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenant_id || 1);
+    db.prepare('DELETE FROM extension_hooks WHERE extension_id = ?').run(req.params.id);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/extensions/logs', (req, res) => {
+  try {
+    const logs = extensionsService.getWebhookLogs(db, req.tenant_id || 1, 100);
+    res.json(logs);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/telephony/settings', (req, res) => {
@@ -1004,6 +1080,106 @@ app.get('/api/admin/clients/search', (req, res) => {
     const tid = req.tenant_id || 1;
     const rows = db.prepare("SELECT id, name, phone, email, total_spent, visits_count FROM users WHERE tenant_id = ? AND (name LIKE ? OR phone LIKE ?) ORDER BY total_spent DESC LIMIT 20").all(tid, `%${q}%`, `%${q}%`);
     res.json(rows);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── AI Assistant ───────────────────────────────────────────────
+app.post('/api/admin/ai/chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Сообщение обязательно' });
+    const result = await aiAssistantService.chat(db, req.tenant_id || 1, message, history || []);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/ai/suggestions', authenticateToken, (req, res) => {
+  try {
+    res.json([
+      'Какие продажи сегодня?',
+      'Что заканчивается на складе?',
+      'Топ блюд за неделю',
+      'Сколько заказов в работе?',
+      'Рекомендации по закупкам',
+    ]);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Dynamic Pricing ────────────────────────────────────────────
+app.get('/api/admin/pricing/rules', authenticateToken, (req, res) => {
+  try {
+    const rules = pricingService.getRules(db, req.tenant_id || 1);
+    res.json(rules);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/pricing/rules', authenticateToken, (req, res) => {
+  try {
+    const result = pricingService.createRule(db, req.tenant_id || 1, req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/admin/pricing/rules/:id', authenticateToken, (req, res) => {
+  try {
+    pricingService.updateRule(db, req.tenant_id || 1, req.params.id, req.body);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/admin/pricing/rules/:id', authenticateToken, (req, res) => {
+  try {
+    pricingService.deleteRule(db, req.tenant_id || 1, req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/pricing/preview', authenticateToken, (req, res) => {
+  try {
+    const { dish_id, base_price, stock } = req.body;
+    const price = pricingService.getPriceForDish(db, req.tenant_id || 1, dish_id, Number(base_price), { stock });
+    res.json({ price });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Referral Program ───────────────────────────────────────────
+app.get('/api/admin/referral/settings', authenticateToken, (req, res) => {
+  try {
+    res.json(referralService.getSettings(db, req.tenant_id || 1));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/admin/referral/settings', authenticateToken, (req, res) => {
+  try {
+    referralService.updateSettings(db, req.tenant_id || 1, req.body);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/referral/stats', authenticateToken, (req, res) => {
+  try {
+    res.json(referralService.getStats(db, req.tenant_id || 1));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/admin/referral/list', authenticateToken, (req, res) => {
+  try {
+    const rows = db.prepare('SELECT r.*, ref.name as referee_name, ref.phone as referee_phone, u.name as referrer_name, u.phone as referrer_phone FROM referrals r LEFT JOIN users ref ON ref.id = r.referee_id LEFT JOIN users u ON u.id = r.referrer_id WHERE r.tenant_id = ? ORDER BY r.created_at DESC LIMIT 200').all(req.tenant_id || 1);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// Public/user endpoints
+app.get('/api/referral/code', authenticateToken, (req, res) => {
+  try {
+    const code = referralService.getUserReferralCode(db, req.tenant_id || 1, req.user.id);
+    res.json(code);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/referral/apply', authenticateToken, (req, res) => {
+  try {
+    const { code } = req.body;
+    const result = referralService.applyReferralCode(db, req.tenant_id || 1, req.user.id, code);
+    res.json(result);
+  } catch (e) { res.status(400).json({ error: safeError(e.message) }); }
+});
+app.get('/api/referral/my', authenticateToken, (req, res) => {
+  try {
+    const code = referralService.getUserReferralCode(db, req.tenant_id || 1, req.user.id);
+    const referrals = referralService.getReferrals(db, req.tenant_id || 1, req.user.id);
+    res.json({ code, referrals });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 };

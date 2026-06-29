@@ -30,6 +30,10 @@ export default function OrdersPage() {
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [modalOrderId, setModalOrderId] = useState<number | null>(null);
 
+  const toggleStatusFilter = (status: string) => {
+    setStatusFilters(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
+  };
+
   const loadOrders = () => {
     if (statusFilters.length === 0) {
       api.getOrders().then(setOrders).catch(() => {});

@@ -72,7 +72,7 @@ app.get('/api/staff', (req, res) => {
 });
 app.post('/api/staff', (req, res) => {
   try {
-    const { first_name, last_name, role, phone, email, password, photo_url, is_active, hourly_rate,
+    const { first_name, last_name, role, phone, email, password, pin, photo_url, is_active, hourly_rate,
       username, salary_type, salary_value, position, tenant_id } = req.body;
     if (!first_name || !role) return res.status(400).json({ error: 'Имя и роль обязательны' });
 
@@ -89,10 +89,11 @@ app.post('/api/staff', (req, res) => {
       if (existing) return res.status(400).json({ error: `Телефон ${phone} уже используется (${existing.first_name})` });
     }
     const pwd = password ? bcrypt.hashSync(password, 10) : crypto.randomBytes(4).toString('hex');
+    const staffPin = pin ? bcrypt.hashSync(pin, 10) : null;
     const st = salary_type ? (Array.isArray(salary_type) ? JSON.stringify(salary_type) : salary_type) : (role === 'courier' ? JSON.stringify(['per_order']) : null);
     const sv = salary_value ? (typeof salary_value === 'object' ? JSON.stringify(salary_value) : salary_value) : 0;
-    const info = db.prepare('INSERT INTO staff (first_name, last_name, role, phone, email, password, photo_url, is_active, hourly_rate, username, salary_type, salary_value, position, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-      first_name, last_name || '', role, phone || null, email || null, pwd, photo_url || null,
+    const info = db.prepare('INSERT INTO staff (first_name, last_name, role, phone, email, password, pin, photo_url, is_active, hourly_rate, username, salary_type, salary_value, position, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      first_name, last_name || '', role, phone || null, email || null, pwd, staffPin, photo_url || null,
       is_active !== undefined ? (is_active ? 1 : 0) : 1, hourly_rate || 0,
       username || null, st, sv, position || role, tenant_id || req.tenant_id || null
     );
@@ -107,7 +108,7 @@ app.put('/api/staff/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM staff WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Сотрудник не найден' });
-    const { first_name, last_name, role, phone, email, password, photo_url, is_active, hourly_rate,
+    const { first_name, last_name, role, phone, email, password, pin, photo_url, is_active, hourly_rate,
       username, salary_type, salary_value, position } = req.body;
     const sets = []; const params = [];
 
@@ -125,6 +126,7 @@ app.put('/api/staff/:id', (req, res) => {
     if (phone !== undefined) { sets.push('phone = ?'); params.push(phone || null); }
     if (email !== undefined) { sets.push('email = ?'); params.push(email || null); }
     if (password !== undefined) { sets.push('password = ?'); params.push(password ? bcrypt.hashSync(password, 10) : null); }
+    if (pin !== undefined) { sets.push('pin = ?'); params.push(pin ? bcrypt.hashSync(pin, 10) : null); }
     if (photo_url !== undefined) { sets.push('photo_url = ?'); params.push(photo_url); }
     if (is_active !== undefined) { sets.push('is_active = ?'); params.push(is_active ? 1 : 0); }
     if (hourly_rate !== undefined) { sets.push('hourly_rate = ?'); params.push(hourly_rate); }

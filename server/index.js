@@ -27,6 +27,7 @@ const integration1C = require(path.join(__dirname, 'services', 'integration-1c.s
 const autoOrdersService = require(path.join(__dirname, 'services', 'auto-orders.service.js'));
 const autoWriteoffService = require(path.join(__dirname, 'services', 'auto-writeoff.service.js'));
 const costingService = require(path.join(__dirname, 'services', 'costing.service.js'));
+const campaignTriggersService = require(path.join(__dirname, 'services', 'campaign-triggers.service.js'));
 const { seedDemoData } = require(path.join(__dirname, 'services', 'seed-demo-data.service.js'));
 const supplierPortal = require(path.join(__dirname, 'services', 'supplier-portal.service.js'));
 const backup = require(path.join(__dirname, 'backup.js'));
@@ -476,7 +477,7 @@ function requireRole(...roles) {
 }
 
 // ─── Tenant middleware: ensures req.tenant_id is set ───────────
-const PUBLIC_API_PATHS = ['/api/auth/', '/api/public/', '/api/internal/', '/api/tenants/search', '/api/tenants/register'];
+const PUBLIC_API_PATHS = ['/api/auth/', '/api/public/', '/api/internal/', '/api/tenants/search', '/api/tenants/register', '/api/pos/auth'];
 function ensureTenantId(req, res, next) {
   const requestPath = req.originalUrl || req.url;
   if (PUBLIC_API_PATHS.some(p => requestPath.startsWith(p))) return next();
@@ -638,10 +639,10 @@ const swaggerSpec = swaggerJsDoc({
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 const STATUS_CHAIN = {
-  new:        { next: ['confirmed', 'cancelled'] },
-  confirmed:  { next: ['preparing', 'cancelled'] },
-  preparing:  { next: ['ready', 'cancelled'] },
-  ready:      { next: ['served', 'assigned', 'cancelled'] },
+  new:        { next: ['confirmed', 'paid', 'cancelled'] },
+  confirmed:  { next: ['preparing', 'paid', 'cancelled'] },
+  preparing:  { next: ['ready', 'paid', 'cancelled'] },
+  ready:      { next: ['served', 'assigned', 'paid', 'cancelled'] },
   served:     { next: ['paid', 'cancelled'] },
   paid:       { next: ['closed', 'cancelled'] },
   closed:     { next: [] },
@@ -1608,6 +1609,19 @@ try { db.exec(`ALTER TABLE staff ADD COLUMN is_online INTEGER DEFAULT 0`); } cat
 try { db.exec(`ALTER TABLE staff ADD COLUMN last_location TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN tenant_id INTEGER`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN language TEXT DEFAULT 'ru'`); } catch(e) {}
+try { db.exec(`ALTER TABLE staff ADD COLUMN pin TEXT`); } catch(e) {}
+try {
+  const posRoles = ['admin', 'manager', 'waiter'];
+  const staffWithoutPin = db.prepare(`SELECT id, first_name FROM staff WHERE (pin IS NULL OR pin = '') AND role IN (${posRoles.map(() => '?').join(',')}) AND is_active = 1`).all(...posRoles);
+  const existingPins = new Set(db.prepare("SELECT pin FROM staff WHERE pin IS NOT NULL AND pin != ''").all().map(r => r.pin));
+  for (const s of staffWithoutPin) {
+    let pin;
+    do { pin = Math.floor(1000 + Math.random() * 9000).toString(); } while (existingPins.has(pin));
+    existingPins.add(pin);
+    db.prepare('UPDATE staff SET pin = ? WHERE id = ?').run(pin, s.id);
+    console.log(`[PIN] Generated PIN ${pin} for ${s.first_name} (id=${s.id})`);
+  }
+} catch (e) { console.error('[PIN] generation error:', e.message); }
 try { db.exec(`ALTER TABLE orders ADD COLUMN pickup_point_id INTEGER`); } catch(e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE reviews ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
@@ -1645,6 +1659,10 @@ try { db.exec(`
     enabled INTEGER DEFAULT 0,
     api_key TEXT DEFAULT '',
     organization_inn TEXT DEFAULT '',
+    fsrar_id TEXT DEFAULT '',
+    gost_key_path TEXT DEFAULT '',
+    test_mode INTEGER DEFAULT 1,
+    api_url TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS honest_sign_products (
@@ -1655,6 +1673,30 @@ try { db.exec(`
     gtin TEXT,
     marking_code TEXT,
     status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS marking_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    product_id INTEGER,
+    code TEXT NOT NULL,
+    status TEXT DEFAULT 'available',
+    document_id INTEGER,
+    source TEXT DEFAULT 'manual',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS honest_sign_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    type TEXT NOT NULL,
+    doc_number TEXT NOT NULL,
+    status TEXT DEFAULT 'draft',
+    xml_payload TEXT,
+    reason TEXT,
+    total_quantity REAL DEFAULT 0,
+    items_count INTEGER DEFAULT 0,
+    sent_at TEXT,
+    response TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 `); } catch(e) { console.error('[HonestSign] Table error:', e.message); }
@@ -1777,6 +1819,11 @@ try { db.exec(`ALTER TABLE tech_cards ADD COLUMN gross_weight REAL DEFAULT 0`); 
 try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/015_staff_chat_location.sql'), 'utf8')); } catch(e) {}
 try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/016_courier_returning.sql'), 'utf8')); } catch(e) {}
 try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/017_multi_tenant_auth.sql'), 'utf8')); } catch(e) {}
+try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/022_extensions_webhooks.sql'), 'utf8')); } catch(e) {}
+try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/023_honest_sign_egais.sql'), 'utf8')); } catch(e) {}
+try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/024_enterprise_payroll.sql'), 'utf8')); } catch(e) {}
+try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/025_dynamic_pricing.sql'), 'utf8')); } catch(e) {}
+try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/026_referral_program.sql'), 'utf8')); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_cards ADD COLUMN is_active INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_cards ADD COLUMN kbju_source TEXT DEFAULT 'auto'`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_cards ADD COLUMN cold_loss_percent REAL DEFAULT 0`); } catch(e) {}
@@ -1919,6 +1966,7 @@ try { db.exec(`ALTER TABLE dishes ADD COLUMN article TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE dishes ADD COLUMN type TEXT DEFAULT 'goods'`); } catch(e) {}
 try { db.exec(`ALTER TABLE dishes ADD COLUMN cost REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE dishes ADD COLUMN markup REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE dishes ADD COLUMN course TEXT DEFAULT 'main'`); } catch(e) {}
 try { db.exec(`ALTER TABLE dishes ADD COLUMN tech_card_id INTEGER`); } catch(e) {}
 
 // Staff schedules (employee scheduling)
@@ -2002,6 +2050,8 @@ db.exec(`
     month INTEGER NOT NULL,
     year INTEGER NOT NULL,
     accrued_amount REAL DEFAULT 0,
+    ndfl_amount REAL DEFAULT 0,
+    net_amount REAL DEFAULT 0,
     paid_amount REAL DEFAULT 0,
     paid_date TEXT,
     payment_method TEXT,
@@ -2010,6 +2060,7 @@ db.exec(`
     status TEXT DEFAULT 'calculated',
     calculated_at TEXT DEFAULT (datetime('now')),
     paid_at TEXT,
+    tenant_id INTEGER DEFAULT 1,
     FOREIGN KEY (staff_id) REFERENCES staff(id)
   );
 
@@ -2020,7 +2071,90 @@ db.exec(`
     amount REAL DEFAULT 0,
     detail TEXT,
     created_at TEXT DEFAULT (datetime('now')),
+    tenant_id INTEGER DEFAULT 1,
     FOREIGN KEY (staff_id) REFERENCES staff(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS payroll_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1 UNIQUE,
+    ndfl_rate REAL DEFAULT 0.13,
+    night_rate_multiplier REAL DEFAULT 1.5,
+    holiday_rate_multiplier REAL DEFAULT 2.0,
+    overtime_rate_multiplier REAL DEFAULT 1.5,
+    weekly_hours_norm REAL DEFAULT 40,
+    daily_hours_norm REAL DEFAULT 8,
+    kpi_enabled INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS timesheet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    staff_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    break_minutes INTEGER DEFAULT 0,
+    note TEXT,
+    is_approved INTEGER DEFAULT 0,
+    source TEXT DEFAULT 'manual',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS kpi_bonuses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    name TEXT NOT NULL,
+    role TEXT DEFAULT 'all',
+    metric TEXT NOT NULL,
+    threshold REAL DEFAULT 0,
+    bonus_amount REAL DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS dynamic_pricing_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    config TEXT DEFAULT '{}',
+    priority INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS referral_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1 UNIQUE,
+    enabled INTEGER DEFAULT 0,
+    referrer_bonus REAL DEFAULT 100,
+    referee_bonus REAL DEFAULT 100,
+    min_order_amount REAL DEFAULT 500,
+    bonus_type TEXT DEFAULT 'points',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS referral_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    user_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    used_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS referrals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    referrer_id INTEGER NOT NULL,
+    referee_id INTEGER NOT NULL,
+    code TEXT,
+    status TEXT DEFAULT 'pending',
+    order_amount REAL,
+    completed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
   );
 
   CREATE TABLE IF NOT EXISTS client_groups (
@@ -2070,12 +2204,26 @@ try { db.exec(`ALTER TABLE staff ADD COLUMN salary_value REAL DEFAULT 0`); } cat
 try { db.exec(`ALTER TABLE staff ADD COLUMN is_online INTEGER DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN last_location TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE staff ADD COLUMN position TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE staff ADD COLUMN pin TEXT`); } catch(e) {}
+try {
+  const posRoles = ['admin', 'manager', 'waiter'];
+  const staffWithoutPin = db.prepare(`SELECT id, first_name FROM staff WHERE (pin IS NULL OR pin = '') AND role IN (${posRoles.map(() => '?').join(',')}) AND is_active = 1`).all(...posRoles);
+  const existingPins = new Set(db.prepare("SELECT pin FROM staff WHERE pin IS NOT NULL AND pin != ''").all().map(r => r.pin));
+  for (const s of staffWithoutPin) {
+    let pin;
+    do { pin = Math.floor(1000 + Math.random() * 9000).toString(); } while (existingPins.has(pin));
+    existingPins.add(pin);
+    db.prepare('UPDATE staff SET pin = ? WHERE id = ?').run(pin, s.id);
+    console.log(`[PIN] Generated PIN ${pin} for ${s.first_name} (id=${s.id})`);
+  }
+} catch (e) { console.error('[PIN] generation error:', e.message); }
 try { db.exec(`ALTER TABLE orders ADD COLUMN pickup_point_id INTEGER`); } catch(e) {}
 // Multi-tenant: add tenant_id to tables that lack it
 try { db.exec(`ALTER TABLE couriers ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE order_status_history ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE notifications ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE booking_tables ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE booking_tables ADD COLUMN status TEXT DEFAULT 'free'`); } catch(e) {}
 try { db.exec(`ALTER TABLE bookings ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE suppliers ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE pickup_points ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
@@ -2824,80 +2972,13 @@ function checkRoleLimit(db, tenantId, role, isAddition = true) {
 
 
 
-// ─── Salary ───────────────────────────────────────────────────────
+// ─── Salary (delegated to enterprise payroll service) ─────────────
+const payrollService = require(path.join(__dirname, 'services', 'payroll.service.js'));
 function calcMonthDates(month, year) {
-  const m = String(month).padStart(2, '0');
-  return { start: `${year}-${m}-01`, end: `${year}-${m}-31` };
+  return payrollService.calcMonthDates(month, year);
 }
-
 function calculateStaffSalary(staffId, month, year) {
-  const staff = db.prepare('SELECT * FROM staff WHERE id = ?').get(staffId);
-  if (!staff) return null;
-  const { start, end } = calcMonthDates(month, year);
-
-  let st = staff.salary_type;
-  let sv = staff.salary_value;
-  if (typeof st === 'string') { try { st = JSON.parse(st); } catch(e) { st = [st]; } }
-  if (!Array.isArray(st)) st = [st];
-  if (typeof sv === 'string') { try { sv = JSON.parse(sv); } catch(e) { sv = {}; } }
-  if (typeof sv !== 'object' || sv === null) sv = {};
-
-  const details = {};
-  let total = 0;
-
-  if (st.includes('salary') || st.includes('fixed')) {
-    const amt = Number(sv.salary || sv.fixed || 0);
-    details.fixed = amt;
-    total += amt;
-  }
-
-  if (st.includes('per_order')) {
-    const rate = Number(sv.per_order || 0);
-    const orderColumn = staff.role === 'waiter' ? 'waiter_id' : 'courier_id';
-    const ordersCount = db.prepare(
-      `SELECT COUNT(*) as cnt FROM orders WHERE ${orderColumn} = ? AND status = 'delivered' AND date(updated_at) BETWEEN ? AND ?`
-    ).get(staffId, start, end).cnt;
-    const amt = rate * ordersCount;
-    details.per_order = { rate, count: ordersCount, amount: amt };
-    total += amt;
-  }
-
-  if (st.includes('per_km')) {
-    const rate = Number(sv.per_km || 0);
-    const locs = db.prepare(
-      "SELECT lat, lng FROM courier_locations WHERE courier_id = ? AND date(recorded_at) BETWEEN ? AND ? ORDER BY recorded_at ASC"
-    ).all(staffId, start, end);
-    let km = 0;
-    for (let i = 1; i < locs.length; i++) {
-      const dlat = (locs[i].lat - locs[i - 1].lat) * 111.32;
-      const dlng = (locs[i].lng - locs[i - 1].lng) * 111.32 * Math.cos(locs[i].lat * Math.PI / 180);
-      km += Math.sqrt(dlat * dlat + dlng * dlng);
-    }
-    const amt = rate * km;
-    details.per_km = { rate, km, amount: amt };
-    total += amt;
-  }
-
-  if (st.includes('hourly')) {
-    const rate = Number(sv.hourly || staff.hourly_rate || 0);
-    const shifts = db.prepare(
-      "SELECT start_time, end_time FROM staff_shifts WHERE staff_id = ? AND date BETWEEN ? AND ?"
-    ).all(staffId, start, end);
-    let hours = 0;
-    for (const shift of shifts) {
-      if (shift.start_time && shift.end_time) {
-        const [sh, sm] = shift.start_time.split(':').map(Number);
-        const [eh, em] = shift.end_time.split(':').map(Number);
-        hours += ((eh * 60 + em) - (sh * 60 + sm)) / 60;
-      }
-    }
-    const amt = rate * hours;
-    details.hourly = { rate, hours, amount: amt };
-    total += amt;
-  }
-
-  total = Math.round(total * 100) / 100;
-  return { staff_id: staffId, month, year, accrued_amount: total, details: JSON.stringify(details) };
+  return payrollService.calculateStaffSalary(db, 1, staffId, month, year);
 }
 
 
@@ -4060,6 +4141,7 @@ schedule1CSync();
 const autoOrdersCron = autoOrdersService.scheduleAutoCheck(db);
 const autoWriteoffCron = autoWriteoffService.scheduleAutoCheck(db);
 const costingCron = costingService.scheduleAutoRecalc(db);
+const campaignTriggersCron = campaignTriggersService.scheduleCampaignTriggers(db);
 
 // ─── Reports ──────────────────────────────────────────────────
 const reportsRouter = require('./reports');
@@ -4380,10 +4462,35 @@ try { db.exec(`
     price REAL DEFAULT 0,
     is_active INTEGER DEFAULT 0,
     tenant_id INTEGER DEFAULT 1,
+    hook_secret TEXT,
     installed_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 `); } catch(e) { console.error('[Extensions] Table error:', e.message); }
+try { db.exec(`
+  CREATE TABLE IF NOT EXISTS extension_hooks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    extension_id INTEGER NOT NULL,
+    event TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`); } catch(e) { console.error('[Extension hooks] Table error:', e.message); }
+try { db.exec(`
+  CREATE TABLE IF NOT EXISTS extension_webhook_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER DEFAULT 1,
+    hook_id INTEGER,
+    extension_id INTEGER,
+    event TEXT,
+    endpoint TEXT,
+    status INTEGER,
+    response TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`); } catch(e) { console.error('[Extension webhook logs] Table error:', e.message); }
 
 // ─── IP Telephony Tables ──────────────────────────────────────
 try { db.exec(`
@@ -4607,6 +4714,7 @@ require('./routes/mobile-push.js')(app, db, { safeError });
 require('./routes/voice.js')(app, db, config);
 require('./routes/pos.js')(app, db, config);
 require('./routes/stations.js')(app, db, config);
+require('./routes/reports.js')(app, db, config);
 
 // ─── Voice WebSocket Server ──────────────────────────────────────
 const VoiceHeadsetService = require('./services/voice-headset.service');

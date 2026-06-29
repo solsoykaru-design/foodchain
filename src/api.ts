@@ -222,9 +222,9 @@ export async function adminLogin(username: string, password: string, twoFactorCo
   return data;
 }
 
-export async function posAuth(password: string): Promise<{ token: string; user: any }> {
-  const data = await request('/api/pos/auth', { method: 'POST', body: JSON.stringify({ password }) });
-  if (data.token) {
+export async function posAuth(pin: string, twoFactorCode?: string): Promise<{ token: string; user: any; require2fa?: boolean }> {
+  const data = await request('/api/pos/auth', { method: 'POST', body: JSON.stringify({ pin, twoFactorCode }) });
+  if (data.token && !data.require2fa) {
     localStorage.setItem('fc_token', data.token);
   }
   return data;
@@ -305,6 +305,7 @@ export async function createOrder(data: {
   payment_method?: string; type?: string; comment?: string;
   bonus_used?: number; promo_code?: string;
   shift_id?: number; handled_by?: number; handled_by_name?: string;
+  table_id?: number;
 }): Promise<Order> {
   return request('/api/orders', { method: 'POST', body: JSON.stringify(data) });
 }
@@ -1030,6 +1031,9 @@ export async function getClient(id: number): Promise<any> {
 export async function updateClient(id: number, data: any): Promise<any> {
   return request(`/api/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }
+export async function getClientGroups(): Promise<any[]> {
+  return request('/api/client-groups');
+}
 
 // Courier App
 export async function courierLogin(username: string, password: string): Promise<any> {
@@ -1070,6 +1074,29 @@ export async function getSalaryReport(month?: number, year?: number): Promise<an
 export async function getSalaryHistory(staffId: number): Promise<{ salary: any[]; log: any[] }> {
   return request(`/api/salary/history/${staffId}`);
 }
+
+// Enterprise Payroll API
+export async function getPayrollSettings(): Promise<any> { return request('/api/payroll/settings'); }
+export async function updatePayrollSettings(data: any): Promise<any> { return request('/api/payroll/settings', { method: 'PUT', body: JSON.stringify(data) }); }
+export async function getTimesheet(params?: { staff_id?: number; month?: number; year?: number }): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (params?.staff_id) qs.set('staff_id', String(params.staff_id));
+  if (params?.month) qs.set('month', String(params.month));
+  if (params?.year) qs.set('year', String(params.year));
+  const q = qs.toString();
+  return request(`/api/timesheet${q ? '?' + q : ''}`);
+}
+export async function createTimesheetRecord(data: any): Promise<any> { return request('/api/timesheet', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deleteTimesheetRecord(id: number): Promise<any> { return request(`/api/timesheet/${id}`, { method: 'DELETE' }); }
+export async function exportTimesheet(month?: number, year?: number): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (month) qs.set('month', String(month));
+  if (year) qs.set('year', String(year));
+  return request(`/api/timesheet/export?${qs.toString()}`);
+}
+export async function getKpiBonuses(): Promise<any[]> { return request('/api/kpi-bonuses'); }
+export async function createKpiBonus(data: any): Promise<any> { return request('/api/kpi-bonuses', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deleteKpiBonus(id: number): Promise<any> { return request(`/api/kpi-bonuses/${id}`, { method: 'DELETE' }); }
 
 // Payment methods
 export async function getPaymentMethods(): Promise<any[]> {
@@ -1961,6 +1988,9 @@ export async function getReportFulfillmentDeliveryOrders(params: { from?: string
 export async function getReportFulfillmentOrders(params: { from?: string; to?: string; branch_id?: number } = {}): Promise<any> { return request(`/api/reports/fulfillment/orders${reportQs(params)}`); }
 export async function getReportFulfillmentSummary(params: { from?: string; to?: string; branch_id?: number } = {}): Promise<any> { return request(`/api/reports/fulfillment/summary${reportQs(params)}`); }
 
+// Network / consolidated analytics
+export async function getReportNetworkDashboard(params: { from?: string; to?: string; branch_id?: number } = {}): Promise<any> { return request(`/api/reports/network/dashboard${reportQs(params)}`); }
+
 // ─── Chat API ─────────────────────────────────────────────────
 export async function getChats(params?: { status?: string; waiter_id?: number; search?: string; tenant_id?: number }): Promise<any[]> {
   const q = new URLSearchParams();
@@ -2249,6 +2279,29 @@ export async function checkHonestSignCode(marking_code: string): Promise<any> {
 export async function getHonestSignProducts(): Promise<any[]> {
   return request('/api/admin/honest-sign/products');
 }
+export async function registerHonestSignProduct(data: any): Promise<any> { return request('/api/admin/honest-sign/products', { method: 'POST', body: JSON.stringify(data) }); }
+export async function getHonestSignCodes(productId?: number): Promise<any[]> { return request(`/api/admin/honest-sign/codes${productId ? '?product_id=' + productId : ''}`); }
+export async function addHonestSignCodes(product_id: number, codes: string[]): Promise<any> { return request('/api/admin/honest-sign/codes', { method: 'POST', body: JSON.stringify({ product_id, codes }) }); }
+export async function getHonestSignDocuments(): Promise<any[]> { return request('/api/admin/honest-sign/documents'); }
+export async function createHonestSignDocument(data: any): Promise<any> { return request('/api/admin/honest-sign/documents', { method: 'POST', body: JSON.stringify(data) }); }
+export async function sendHonestSignDocument(id: number): Promise<any> { return request(`/api/admin/honest-sign/documents/${id}/send`, { method: 'POST' }); }
+export async function syncHonestSignProducts(): Promise<any> { return request('/api/admin/honest-sign/sync', { method: 'POST' }); }
+
+// ─── Dynamic Pricing API ──────────────────────────────────────
+export async function getPricingRules(): Promise<any[]> { return request('/api/admin/pricing/rules'); }
+export async function createPricingRule(data: any): Promise<any> { return request('/api/admin/pricing/rules', { method: 'POST', body: JSON.stringify(data) }); }
+export async function updatePricingRule(id: number, data: any): Promise<any> { return request(`/api/admin/pricing/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+export async function deletePricingRule(id: number): Promise<any> { return request(`/api/admin/pricing/rules/${id}`, { method: 'DELETE' }); }
+export async function previewPricing(dish_id: number, base_price: number, stock?: number): Promise<any> { return request('/api/admin/pricing/preview', { method: 'POST', body: JSON.stringify({ dish_id, base_price, stock }) }); }
+
+// ─── Referral Program API ─────────────────────────────────────
+export async function getReferralSettings(): Promise<any> { return request('/api/admin/referral/settings'); }
+export async function updateReferralSettings(data: any): Promise<any> { return request('/api/admin/referral/settings', { method: 'PUT', body: JSON.stringify(data) }); }
+export async function getReferralStats(): Promise<any> { return request('/api/admin/referral/stats'); }
+export async function getReferralList(): Promise<any[]> { return request('/api/admin/referral/list'); }
+export async function getMyReferralCode(): Promise<any> { return request('/api/referral/code'); }
+export async function applyReferralCode(code: string): Promise<any> { return request('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }); }
+export async function getMyReferrals(): Promise<any> { return request('/api/referral/my'); }
 
 // ─── Gamification API ─────────────────────────────────────────
 export async function getGames(): Promise<any> { return request('/api/admin/games'); }
@@ -2296,6 +2349,14 @@ export async function getExtensions(): Promise<any> { return request('/api/admin
 export async function installExtension(data: any): Promise<any> { return request('/api/admin/extensions/install', { method: 'POST', body: JSON.stringify(data) }); }
 export async function toggleExtension(id: number): Promise<any> { return request(`/api/admin/extensions/${id}/toggle`, { method: 'POST' }); }
 export async function uninstallExtension(id: number): Promise<any> { return request(`/api/admin/extensions/${id}`, { method: 'DELETE' }); }
+export async function getExtensionHooks(): Promise<any> { return request('/api/admin/extensions/hooks'); }
+export async function createExtensionHook(data: any): Promise<any> { return request('/api/admin/extensions/hooks', { method: 'POST', body: JSON.stringify(data) }); }
+export async function deleteExtensionHook(id: number): Promise<any> { return request(`/api/admin/extensions/hooks/${id}`, { method: 'DELETE' }); }
+export async function getExtensionWebhookLogs(): Promise<any> { return request('/api/admin/extensions/logs'); }
+
+// ─── AI Assistant API ─────────────────────────────────────────
+export async function aiChat(message: string, history?: any[]): Promise<any> { return request('/api/admin/ai/chat', { method: 'POST', body: JSON.stringify({ message, history }) }); }
+export async function getAiSuggestions(): Promise<any> { return request('/api/admin/ai/suggestions'); }
 
 // ─── IP Telephony API ────────────────────────────────────────
 export async function getTelephonySettings(): Promise<any> { return request('/api/admin/telephony/settings'); }

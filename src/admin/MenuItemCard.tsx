@@ -3,12 +3,14 @@ import { X, Image as ImageIcon, Upload, FlaskConical, Plus } from 'lucide-react'
 import * as api from '../api';
 import { addToast } from '../ToastContext';
 import TechCardModal from './TechCardModal';
+import DishModifiersManager from './DishModifiersManager';
 
 interface MenuItem {
   id: number; name: string; imageUrl: string; barcode?: string; article?: string;
   weight: number; netto: number; unit: string; categoryId: number; categoryName?: string;
   type: string; isAvailable: boolean; price: number; cost: number; markup: number;
   techCardId?: number;
+  course?: string;
 }
 
 interface Category { id: number; name: string; }
@@ -19,11 +21,12 @@ interface Props {
   onSaved: () => void;
 }
 
-const emptyForm = {
-  id: 0, name: '', imageUrl: '', barcode: '', article: '',
-  weight: 0, netto: 0, unit: 'г', categoryId: 0,
-  type: 'goods', isAvailable: true, price: 0, cost: 0, markup: 0,
-};
+  const emptyForm = {
+    id: 0, name: '', imageUrl: '', barcode: '', article: '',
+    weight: 0, netto: 0, unit: 'г', categoryId: 0,
+    type: 'goods', isAvailable: true, price: 0, cost: 0, markup: 0,
+    course: 'main',
+  };
 
 export default function MenuItemCard({ item: initial, onClose, onSaved }: Props) {
   const isEdit = !!initial;
@@ -72,6 +75,7 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
         is_available: form.isAvailable ? 1 : 0,
         image_url: imageUrl,
         cost: form.cost || 0,
+        course: form.course || 'main',
       };
       if (isEdit) {
         await api.updateDish(form.id, payload);
@@ -159,6 +163,19 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
               </select>
             </div>
             <div>
+              <label className={lbl}>Курс подачи</label>
+              <select value={form.course || 'main'} onChange={e => setForm(p => ({ ...p, course: e.target.value }))} className={fld}>
+                <option value="appetizer">Закуска</option>
+                <option value="main">Основное блюдо</option>
+                <option value="dessert">Десерт</option>
+                <option value="drink">Напиток</option>
+                <option value="side">Гарнир</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className={lbl}>Техкарта</label>
               <div className="flex items-center gap-2 h-[38px]">
                 {form.techCardId ? (
@@ -201,6 +218,10 @@ export default function MenuItemCard({ item: initial, onClose, onSaved }: Props)
             <span>ID: <strong className="text-zinc-700 dark:text-zinc-300">{form.id || 'Новый'}</strong></span>
             <span>Тип: <strong className="text-zinc-700 dark:text-zinc-300">{form.type === 'service' ? 'Услуга' : 'Товар'}</strong></span>
           </div>
+
+          {isEdit && form.id > 0 && (
+            <DishModifiersManager dishId={form.id} />
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-zinc-200 dark:border-zinc-700 shrink-0">

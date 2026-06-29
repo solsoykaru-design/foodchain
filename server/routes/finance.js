@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const payrollService = require('../services/payroll.service.js');
 
 module.exports = function(app, db, config) {
   const { upload, safeError, toCamelCase, toCamelCaseArray } = config;
@@ -29,28 +30,18 @@ app.post('/api/salary/calculate', (req, res) => {
       const allStaff = db.prepare('SELECT id FROM staff WHERE is_active = 1').all();
       const results = [];
       for (const s of allStaff) {
-        const result = calculateStaffSalary(s.id, m, y);
+        const result = payrollService.calculateStaffSalary(db, req.tenant_id || 1, s.id, m, y);
         if (!result) continue;
-        const existing = db.prepare('SELECT id FROM salary WHERE staff_id = ? AND month = ? AND year = ?').get(s.id, m, y);
-        if (existing) {
-          db.prepare('UPDATE salary SET accrued_amount = ?, details = ?, status = ?, calculated_at = datetime(\'now\') WHERE id = ?').run(result.accrued_amount, result.details, 'calculated', existing.id);
-        } else {
-          db.prepare('INSERT INTO salary (staff_id, month, year, accrued_amount, details, status) VALUES (?, ?, ?, ?, ?, \'calculated\')').run(s.id, m, y, result.accrued_amount, result.details);
-        }
-        db.prepare('INSERT INTO salary_log (staff_id, action, amount, detail) VALUES (?, \'calculate\', ?, ?)').run(s.id, result.accrued_amount, 'Автоматический расчёт');
+        payrollService.saveOrUpdateSalary(db, req.tenant_id || 1, result);
+        db.prepare('INSERT INTO salary_log (staff_id, action, amount, detail, tenant_id) VALUES (?, \'calculate\', ?, ?, ?)').run(s.id, result.accrued_amount, 'Автоматический расчёт', req.tenant_id || 1);
         results.push(result);
       }
       res.json({ ok: true, count: results.length });
     } else if (staff_id) {
-      const result = calculateStaffSalary(staff_id, m, y);
+      const result = payrollService.calculateStaffSalary(db, req.tenant_id || 1, staff_id, m, y);
       if (!result) return res.status(404).json({ error: 'Сотрудник не найден' });
-      const existing = db.prepare('SELECT id FROM salary WHERE staff_id = ? AND month = ? AND year = ?').get(staff_id, m, y);
-      if (existing) {
-        db.prepare('UPDATE salary SET accrued_amount = ?, details = ?, status = ?, calculated_at = datetime(\'now\') WHERE id = ?').run(result.accrued_amount, result.details, 'calculated', existing.id);
-      } else {
-        db.prepare('INSERT INTO salary (staff_id, month, year, accrued_amount, details, status) VALUES (?, ?, ?, ?, ?, \'calculated\')').run(staff_id, m, y, result.accrued_amount, result.details);
-      }
-      db.prepare('INSERT INTO salary_log (staff_id, action, amount, detail) VALUES (?, \'calculate\', ?, ?)').run(staff_id, result.accrued_amount, 'Расчёт зарплаты');
+      payrollService.saveOrUpdateSalary(db, req.tenant_id || 1, result);
+      db.prepare('INSERT INTO salary_log (staff_id, action, amount, detail, tenant_id) VALUES (?, \'calculate\', ?, ?, ?)').run(staff_id, result.accrued_amount, 'Расчёт зарплаты', req.tenant_id || 1);
       res.json(result);
     } else {
       res.status(400).json({ error: 'Укажите staff_id или all = true' });
@@ -655,6 +646,86 @@ app.get('/api/finance/cashflow', (req, res) => {
     const outgoing = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM finance_transactions WHERE type IN ('expense','refund','salary') ${where}`).get(...params)?.total || 0;
     const byCategory = db.prepare(`SELECT category, type, SUM(amount) as total, COUNT(*) as count FROM finance_transactions WHERE 1=1 ${where} GROUP BY category, type ORDER BY total DESC`).all(...params);
     res.json({ incoming, outgoing, balance: incoming - outgoing, byCategory });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// ─── Enterprise Payroll ─────────────────────────────────────────
+app.get('/api/payroll/settings', (req, res) => {
+  try {
+    const s = payrollService.getSettings(db, req.tenant_id || 1);
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.put('/api/payroll/settings', (req, res) => {
+  try {
+    const { ndfl_rate, night_rate_multiplier, holiday_rate_multiplier, overtime_rate_multiplier, weekly_hours_norm, daily_hours_norm, kpi_enabled } = req.body;
+    const tid = req.tenant_id || 1;
+    const existing = db.prepare('SELECT id FROM payroll_settings WHERE tenant_id = ?').get(tid);
+    if (existing) {
+      db.prepare('UPDATE payroll_settings SET ndfl_rate = ?, night_rate_multiplier = ?, holiday_rate_multiplier = ?, overtime_rate_multiplier = ?, weekly_hours_norm = ?, daily_hours_norm = ?, kpi_enabled = ? WHERE tenant_id = ?')
+        .run(ndfl_rate ?? 0.13, night_rate_multiplier ?? 1.5, holiday_rate_multiplier ?? 2.0, overtime_rate_multiplier ?? 1.5, weekly_hours_norm ?? 40, daily_hours_norm ?? 8, kpi_enabled ? 1 : 0, tid);
+    } else {
+      db.prepare('INSERT INTO payroll_settings (tenant_id, ndfl_rate, night_rate_multiplier, holiday_rate_multiplier, overtime_rate_multiplier, weekly_hours_norm, daily_hours_norm, kpi_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(tid, ndfl_rate ?? 0.13, night_rate_multiplier ?? 1.5, holiday_rate_multiplier ?? 2.0, overtime_rate_multiplier ?? 1.5, weekly_hours_norm ?? 40, daily_hours_norm ?? 8, kpi_enabled ? 1 : 0);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/timesheet', (req, res) => {
+  try {
+    const { staff_id, month, year } = req.query;
+    const tid = req.tenant_id || 1;
+    let sql = 'SELECT t.*, sf.first_name, sf.last_name FROM timesheet t JOIN staff sf ON sf.id = t.staff_id WHERE t.tenant_id = ?';
+    const params = [tid];
+    if (staff_id) { sql += ' AND t.staff_id = ?'; params.push(Number(staff_id)); }
+    if (month && year) {
+      const { start, end } = payrollService.calcMonthDates(Number(month), Number(year));
+      sql += ' AND t.date BETWEEN ? AND ?'; params.push(start, end);
+    }
+    sql += ' ORDER BY t.date DESC, t.start_time DESC';
+    const rows = db.prepare(sql).all(...params);
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/timesheet', (req, res) => {
+  try {
+    const { staff_id, date, start_time, end_time, break_minutes, note } = req.body;
+    const info = db.prepare('INSERT INTO timesheet (tenant_id, staff_id, date, start_time, end_time, break_minutes, note) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(req.tenant_id || 1, staff_id, date, start_time || '', end_time || '', break_minutes || 0, note || '');
+    res.json({ id: info.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/timesheet/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM timesheet WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenant_id || 1);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/timesheet/export', (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const rows = payrollService.exportTimesheetForAuthorities(db, req.tenant_id || 1, Number(month) || new Date().getMonth() + 1, Number(year) || new Date().getFullYear());
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/kpi-bonuses', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM kpi_bonuses WHERE tenant_id = ? ORDER BY created_at DESC').all(req.tenant_id || 1);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/kpi-bonuses', (req, res) => {
+  try {
+    const { name, role, metric, threshold, bonus_amount } = req.body;
+    const info = db.prepare('INSERT INTO kpi_bonuses (tenant_id, name, role, metric, threshold, bonus_amount) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(req.tenant_id || 1, name, role || 'all', metric, threshold || 0, bonus_amount || 0);
+    res.json({ id: info.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.delete('/api/kpi-bonuses/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM kpi_bonuses WHERE id = ? AND tenant_id = ?').run(req.params.id, req.tenant_id || 1);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 };

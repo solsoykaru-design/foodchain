@@ -121,10 +121,10 @@ app.get('/api/dishes/:id', (req, res) => {
 });
 app.post('/api/dishes', (req, res) => {
   try {
-    const { name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, branch_id, tech_card_id } = req.body;
+    const { name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, course, branch_id, tech_card_id } = req.body;
     if (!name || price === undefined) return res.status(400).json({ error: 'Название и цена обязательны' });
-    const info = db.prepare(`INSERT INTO dishes (name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, branch_id, tech_card_id, tenant_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    const info = db.prepare(`INSERT INTO dishes (name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, course, branch_id, tech_card_id, tenant_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       name, description || '', compound || '[]', price, old_price || null, image_url || '', category_id || null,
       weight || netto || null, netto || weight || null, unit || 'г',
       calories || null, proteins || null, fats || null, carbs || null,
@@ -133,7 +133,7 @@ app.post('/api/dishes', (req, res) => {
       is_popular ? 1 : 0, is_new ? 1 : 0,
       typeof tags === 'string' ? tags : JSON.stringify(tags || []),
       typeof allergens === 'string' ? allergens : JSON.stringify(allergens || []),
-      barcode || null, article || null, type || 'goods', cost || 0, branch_id || null, tech_card_id || null,
+      barcode || null, article || null, type || 'goods', cost || 0, course || 'main', branch_id || null, tech_card_id || null,
       req.tenant_id
     );
     const dish = db.prepare('SELECT * FROM dishes WHERE id = ? AND tenant_id = ?').get(info.lastInsertRowid, req.tenant_id);
@@ -146,7 +146,7 @@ app.put('/api/dishes/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM dishes WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Блюдо не найдено' });
-    const { name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, branch_id, tech_card_id } = req.body;
+    const { name, description, compound, price, old_price, image_url, category_id, weight, netto, unit, calories, proteins, fats, carbs, kbju, is_available, is_popular, is_new, tags, allergens, barcode, article, type, cost, course, branch_id, tech_card_id } = req.body;
     const sets = []; const params = [];
     if (name !== undefined) { sets.push('name = ?'); params.push(name); }
     if (description !== undefined) { sets.push('description = ?'); params.push(description); }
@@ -170,6 +170,7 @@ app.put('/api/dishes/:id', (req, res) => {
     if (article !== undefined) { sets.push('article = ?'); params.push(article); }
     if (type !== undefined) { sets.push('type = ?'); params.push(type); }
     if (cost !== undefined) { sets.push('cost = ?'); params.push(cost); }
+    if (course !== undefined) { sets.push('course = ?'); params.push(course); }
     if (branch_id !== undefined) { sets.push('branch_id = ?'); params.push(branch_id); }
     if (tech_card_id !== undefined) { sets.push('tech_card_id = ?'); params.push(tech_card_id); }
     if (unit !== undefined) { sets.push('unit = ?'); params.push(unit); }
@@ -575,12 +576,12 @@ app.get('/api/tables', (req, res) => {
     res.status(500).json({ error: safeError(e.message) });
   }
 });
-app.post('/api/tables', (req, res) => {
+  app.post('/api/tables', (req, res) => {
   try {
-    const { name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active } = req.body;
+    const { name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active, status } = req.body;
     if (!name) return res.status(400).json({ error: 'Название стола обязательно' });
-    const info = db.prepare('INSERT INTO booking_tables (name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-      name, capacity || null, zone || null, x || 0, y || 0, width || 80, height || 80, color || '#4CAF50', shape || 'rectangle', branch_id || null, is_active !== undefined ? (is_active ? 1 : 0) : 1, req.tenant_id
+    const info = db.prepare('INSERT INTO booking_tables (name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active, status, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      name, capacity || null, zone || null, x || 0, y || 0, width || 80, height || 80, color || '#4CAF50', shape || 'rectangle', branch_id || null, is_active !== undefined ? (is_active ? 1 : 0) : 1, status || 'free', req.tenant_id
     );
     const table = db.prepare('SELECT * FROM booking_tables WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json(toCamelCase(table));
@@ -592,7 +593,7 @@ app.put('/api/tables/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM booking_tables WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Стол не найден' });
-    const { name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active } = req.body;
+    const { name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active, status } = req.body;
     const sets = []; const params = [];
     if (name !== undefined) { sets.push('name = ?'); params.push(name); }
     if (capacity !== undefined) { sets.push('capacity = ?'); params.push(capacity); }
@@ -605,6 +606,7 @@ app.put('/api/tables/:id', (req, res) => {
     if (shape !== undefined) { sets.push('shape = ?'); params.push(shape); }
     if (branch_id !== undefined) { sets.push('branch_id = ?'); params.push(branch_id); }
     if (is_active !== undefined) { sets.push('is_active = ?'); params.push(is_active ? 1 : 0); }
+    if (status !== undefined) { sets.push('status = ?'); params.push(status); }
     if (sets.length === 0) return res.status(400).json({ error: 'Нет полей для обновления' });
     params.push(req.params.id);
     db.prepare(`UPDATE booking_tables SET ${sets.join(', ')} WHERE id = ?`).run(...params);
