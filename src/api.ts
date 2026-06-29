@@ -8,13 +8,13 @@ const API_BASE = (() => {
       // If stored URL points to localhost but we're on a real domain, ignore it
       if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
         if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          return '';
+          return import.meta.env.VITE_API_URL?.trim() || '';
         }
       }
     } catch {}
     return stored.trim();
   }
-  return '';
+  return import.meta.env.VITE_API_URL?.trim() || '';
 })();
 
 const listeners: Record<string, Array<(data: any) => void>> = {};

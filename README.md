@@ -69,6 +69,18 @@ npm run build:exe
 
 Инсталлятор появится в папке `release/`.
 
+## Быстрый деплой на Render.com
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/solsoykaru-design/foodchain)
+
+Разворачиваются сразу:
+- API (`foodchain-api`)
+- Admin (`foodchain-admin`)
+- POS (`foodchain-pos`)
+- Manager (`foodchain-manager`)
+
+Подробнее — в `docs/RENDER_DEPLOY.md`.
+
 ## Документация
 
 - `docs/backoffice-audit-report.md` — аудит back-office и закрытые пробелы.
