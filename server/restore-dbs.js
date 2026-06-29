@@ -65,8 +65,13 @@ async function restoreFile(dbPath, key) {
 }
 
 (async () => {
-  console.log('[restore-dbs] Restoring databases from Supabase...');
-  await restoreFile(DB_PATH, 'foodchain.db');
-  await restoreFile(PORTAL_DB_PATH, 'portal.db');
-  console.log('[restore-dbs] Done');
+  try {
+    console.log('[restore-dbs] Restoring databases from Supabase...');
+    await restoreFile(DB_PATH, 'foodchain.db');
+    await restoreFile(PORTAL_DB_PATH, 'portal.db');
+    console.log('[restore-dbs] Done');
+  } catch (e) {
+    console.error('[restore-dbs] Fatal error:', e.message);
+  }
+  process.exit(0);
 })();

@@ -301,13 +301,35 @@ if (fs.existsSync(portalPath)) {
 }
 
 const DB_PATH = path.join(DATA_DIR, 'foodchain.db');
+const PORTAL_DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'portal-backend', 'portal.db');
 
-// ─── Restore DBs from Supabase backup before opening (Render free tier has no persistent disk) ───
-try {
-  const { execSync } = require('child_process');
-  execSync('node restore-dbs.js', { cwd: __dirname, stdio: 'inherit', timeout: 60000 });
-} catch (e) {
-  console.log('[startup] DB restore skipped:', e.message);
+function isValidSqliteFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(16);
+    fs.readSync(fd, buf, 0, 16, 0);
+    fs.closeSync(fd);
+    return buf.toString('ascii', 0, 16) === 'SQLite format 3\0';
+  } catch (e) {
+    return false;
+  }
+}
+
+// ─── Restore DBs from Supabase backup only when local files are missing/corrupt ───
+// Render attaches the persistent disk to new deploys, so normally the DBs already exist.
+// This block runs synchronously before server.listen; keep it fast to avoid port-scan timeouts.
+const needsRestore = !isValidSqliteFile(DB_PATH) || !isValidSqliteFile(PORTAL_DB_PATH);
+if (needsRestore) {
+  console.log('[startup] Local DBs missing or invalid, attempting Supabase restore...');
+  try {
+    const { execSync } = require('child_process');
+    execSync('node restore-dbs.js', { cwd: __dirname, stdio: 'inherit', timeout: 15000 });
+  } catch (e) {
+    console.log('[startup] DB restore skipped:', e.message);
+  }
+} else {
+  console.log('[startup] Local DBs found, skipping Supabase restore');
 }
 
 const db = new Database(DB_PATH);

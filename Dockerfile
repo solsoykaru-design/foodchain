@@ -34,7 +34,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 ENV DATA_DIR=/data
-ENV PORT=8080
+ENV PORT=10000
 ENV NODE_ENV=production
 
 COPY --from=build /app /app
@@ -42,6 +42,6 @@ COPY --from=build /app /app
 # Create data directory for persistent storage
 RUN mkdir -p /data
 
-EXPOSE 8080
+EXPOSE 10000
 
 CMD ["node", "server/index.js"]
