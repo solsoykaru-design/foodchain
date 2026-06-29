@@ -33,9 +33,12 @@ module.exports = function(app, db, config) {
         WHERE s.is_active = 1
       `).all();
 
+      console.log('[POS/auth] Trying login with password, total active staff:', staffList.length);
+
       const matches = [];
       for (const staff of staffList) {
         const role = String(staff.role || '').toLowerCase();
+        console.log('[POS/auth] Checking staff:', staff.username, 'role:', role, 'hasHash:', !!(staff.password && staff.password.startsWith('$2')));
         if (!POS_ROLES.includes(role)) continue;
         const storedHash = staff.password;
         let valid = false;
@@ -44,8 +47,11 @@ module.exports = function(app, db, config) {
         } else {
           valid = storedHash === password;
         }
+        console.log('[POS/auth] Match result for', staff.username, ':', valid);
         if (valid) matches.push(staff);
       }
+
+      console.log('[POS/auth] Total matches:', matches.length);
 
       if (matches.length === 0) {
         return res.status(401).json({ error: 'Неверный пароль или сотрудник не найден' });
