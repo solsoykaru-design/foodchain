@@ -29,7 +29,6 @@ const autoWriteoffService = require(path.join(__dirname, 'services', 'auto-write
 const costingService = require(path.join(__dirname, 'services', 'costing.service.js'));
 const { seedDemoData } = require(path.join(__dirname, 'services', 'seed-demo-data.service.js'));
 const supplierPortal = require(path.join(__dirname, 'services', 'supplier-portal.service.js'));
-const posService = require(path.join(__dirname, 'services', 'pos.service.js'));
 const backup = require(path.join(__dirname, 'backup.js'));
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -2132,14 +2131,6 @@ try { db.exec(`ALTER TABLE inventory_transactions ADD COLUMN tenant_id INTEGER D
 
 // ─── Backup ────────────────────────────────────────────────────────
 backup.init(db);
-
-// ─── Ensure POS shift is open for tenant 1 on startup ──────────────
-try {
-  const posShift = posService.ensureOpenShift(db, 1, { id: 1, name: 'Admin' });
-  if (posShift) console.log('[POS] Ensured open shift for tenant 1, shift #' + posShift.id);
-} catch (e) {
-  console.log('[POS] Could not ensure open shift:', e.message);
-}
 
 // ─── Validate Status Transition ──────────────────────────────────
 function validateTransition(orderId, fromStatus, toStatus) {

@@ -114,7 +114,6 @@ export default function PosApp() {
   const loadShift = useCallback(async () => {
     try {
       const data = await api.request('/api/pos/shifts/current');
-      console.log('[POS] loadShift:', data);
       setShift(data.shift || null);
       setOrderCount(data.orderCount || 0);
     } catch (e) { console.error('shift load error', e); }
@@ -202,17 +201,13 @@ export default function PosApp() {
     setLoginError('');
     setOpeningShift(true);
     try {
-      console.log('[POS] Opening shift...');
       const r = await api.request('/api/pos/shifts/open', {
         method: 'POST', body: JSON.stringify({ openingBalance: 0 })
       });
-      console.log('[POS] Open response:', r);
       setShift(r.shift);
       showMsg('Смена открыта');
-      // Refresh shift from server to confirm
       setTimeout(() => loadShift(), 500);
     } catch (e: any) {
-      console.error('[POS] Open shift error:', e);
       setLoginError(e.message || 'Ошибка открытия смены');
     } finally {
       setOpeningShift(false);
