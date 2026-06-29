@@ -21,6 +21,7 @@ const swaggerJsDoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const aggregatorIntegration = require(path.join(__dirname, 'aggregator-integration'));
 const paymentModule = require(path.join(__dirname, 'payment'));
+const stationService = require(path.join(__dirname, 'services', 'station.service.js'));
 const forecastService = require(path.join(__dirname, 'services', 'forecast.service.js'));
 const integration1C = require(path.join(__dirname, 'services', 'integration-1c.service'));
 const autoOrdersService = require(path.join(__dirname, 'services', 'auto-orders.service.js'));
@@ -1666,6 +1667,7 @@ try { db.exec(`ALTER TABLE inventory_items ADD COLUMN min_stock REAL DEFAULT 0`)
 try { db.exec(`ALTER TABLE inventory_items ADD COLUMN default_contragent_id INTEGER`); } catch(e) {}
 aggregatorIntegration.initTables(db);
 paymentModule.initTables(db);
+stationService.initTables(db);
 try { db.exec(`CREATE TABLE IF NOT EXISTS forecasts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id INTEGER NOT NULL,
