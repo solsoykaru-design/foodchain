@@ -474,6 +474,17 @@ function getShiftOrderCount(db, tenantId, shiftId) {
   return result ? result.cnt : 0;
 }
 
+function ensureOpenShift(db, tenantId, defaultStaff) {
+  initTables(db);
+  const current = getCurrentShift(db, tenantId);
+  if (current) return current;
+  return openShift(db, tenantId, {
+    staffId: defaultStaff?.id || 1,
+    staffName: defaultStaff?.name || 'System',
+    openingBalance: 0,
+  });
+}
+
 module.exports = {
   initTables,
   getSettings,
@@ -499,4 +510,5 @@ module.exports = {
   generateShiftReport,
   getShiftReport,
   getShiftOrderCount,
+  ensureOpenShift,
 };

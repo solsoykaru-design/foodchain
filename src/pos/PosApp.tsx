@@ -197,13 +197,14 @@ export default function PosApp() {
   // Shift actions
   const openShift = async () => {
     if (!canManageShift) return;
+    setLoginError('');
     try {
       const r = await api.request('/api/pos/shifts/open', {
         method: 'POST', body: JSON.stringify({ openingBalance: 0 })
       });
       setShift(r.shift);
       showMsg('Смена открыта');
-    } catch (e: any) { setLoginError(e.message); }
+    } catch (e: any) { setLoginError(e.message || 'Ошибка открытия смены'); }
   };
 
   const closeShift = async () => {
@@ -360,6 +361,7 @@ export default function PosApp() {
           <Lock size={48} className="mx-auto text-orange-500 mb-4" />
           <h2 className="text-xl font-bold mb-2">Смена не открыта</h2>
           <p className="text-sm text-zinc-400 mb-6">Обратитесь к менеджеру или администратору</p>
+          {loginError && <p className="text-red-400 text-sm mb-4">{loginError}</p>}
           {canManageShift ? (
             <button onClick={openShift} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition mb-3">
               Начать смену
