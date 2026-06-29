@@ -153,7 +153,9 @@ app.get('/api/orders/:id/chat', (req, res) => {
 });
 app.post('/api/orders', (req, res) => {
   const { user_id, user_name, user_phone, address, items, total, payment_method, type, comment, bonus_used, promo_code, shift_id, handled_by, handled_by_name } = req.body;
-  if (!user_id || !user_name || !user_phone) return res.status(400).json({ error: 'Данные пользователя обязательны' });
+  // POS dine-in orders may not have a phone; allow empty phone for POS/terminal orders
+  const isPosOrder = type === 'dine_in' || shift_id;
+  if (!user_id || !user_name || (!isPosOrder && !user_phone)) return res.status(400).json({ error: 'Данные пользователя обязательны' });
   
   let finalTotal = total || 0;
   let appliedBonus = 0;

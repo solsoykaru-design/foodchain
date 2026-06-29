@@ -77,10 +77,14 @@ app.get('/api/menu-items', (req, res) => {
 });
 app.get('/api/dishes', (req, res) => {
   try {
-    const { category_id, include_subcategories } = req.query;
+    const { category_id, include_subcategories, include_unavailable } = req.query;
     let sql = `SELECT d.*, mc.name as categoryName, s.name as stationName FROM dishes d LEFT JOIN menu_categories mc ON d.category_id = mc.id LEFT JOIN stations s ON d.station_id = s.id WHERE 1=1`;
     const params = [];
     sql += ' AND d.tenant_id = ?'; params.push(req.tenant_id);
+    // POS/guest apps should only see available dishes unless explicitly requested
+    if (include_unavailable !== 'true') {
+      sql += ' AND d.is_available = 1';
+    }
     if (category_id) {
       if (include_subcategories === 'true') {
         // get all child category IDs recursively
@@ -565,7 +569,7 @@ app.delete('/api/categories/:id', (req, res) => {
 });
 app.get('/api/tables', (req, res) => {
   try {
-    const tables = db.prepare('SELECT * FROM booking_tables ORDER BY name ASC').all();
+    const tables = db.prepare('SELECT * FROM booking_tables WHERE tenant_id = ? ORDER BY name ASC').all(req.tenant_id);
     res.json(toCamelCaseArray(tables));
   } catch (e) {
     res.status(500).json({ error: safeError(e.message) });
@@ -575,8 +579,8 @@ app.post('/api/tables', (req, res) => {
   try {
     const { name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active } = req.body;
     if (!name) return res.status(400).json({ error: 'Название стола обязательно' });
-    const info = db.prepare('INSERT INTO booking_tables (name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-      name, capacity || null, zone || null, x || 0, y || 0, width || 80, height || 80, color || '#4CAF50', shape || 'rectangle', branch_id || null, is_active !== undefined ? (is_active ? 1 : 0) : 1
+    const info = db.prepare('INSERT INTO booking_tables (name, capacity, zone, x, y, width, height, color, shape, branch_id, is_active, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      name, capacity || null, zone || null, x || 0, y || 0, width || 80, height || 80, color || '#4CAF50', shape || 'rectangle', branch_id || null, is_active !== undefined ? (is_active ? 1 : 0) : 1, req.tenant_id
     );
     const table = db.prepare('SELECT * FROM booking_tables WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json(toCamelCase(table));

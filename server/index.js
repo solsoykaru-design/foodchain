@@ -887,7 +887,8 @@ db.exec(`
     color TEXT,
     shape TEXT DEFAULT 'rectangle',
     branch_id INTEGER,
-    is_active INTEGER DEFAULT 1
+    is_active INTEGER DEFAULT 1,
+    tenant_id INTEGER DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS bookings (
