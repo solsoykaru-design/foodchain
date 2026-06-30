@@ -2,6 +2,7 @@
 module.exports = function(app, db, config) {
   const { io, safeError, toCamelCase, toCamelCaseArray } = config;
   const campaignDispatcher = require('../services/campaign-dispatcher.service');
+  const telegramBot = require('../services/telegram-bot.service');
 
 app.get('/api/users', (req, res) => {
   const { search } = req.query;
@@ -42,6 +43,10 @@ app.post('/api/reviews', (req, res) => {
   }
 
   io.emit('review:new', toCamelCase(review));
+
+  const order = db.prepare('SELECT id, total FROM orders WHERE id = ?').get(order_id);
+  telegramBot.notifyOwner(db, req.tenant_id || 1, `✍️ *Новый отзыв*\n\nЗаказ #${order?.id || order_id}\nОценка: ${'⭐'.repeat(rating)}\n${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`).catch(e => console.error('[Reviews] Telegram owner notify error:', e.message));
+
   res.status(201).json(toCamelCase(review));
 });
 app.patch('/api/notifications/:id/read', (req, res) => {
