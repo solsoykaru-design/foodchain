@@ -114,3 +114,36 @@ export async function getQueueCount(): Promise<number> {
   const pending = await getPendingRequests();
   return pending.length;
 }
+
+export async function processQueue(): Promise<{ processed: number; failed: number }> {
+  const pending = await getPendingRequests();
+  const API_BASE = (localStorage.getItem('foodchain_api_url') || import.meta.env.VITE_API_URL || '').trim();
+  let processed = 0;
+  let failed = 0;
+
+  for (const req of pending) {
+    try {
+      const res = await fetch(`${API_BASE}${req.url}`, {
+        method: req.method,
+        headers: req.headers || {},
+        body: req.body,
+      });
+      if (res.ok) {
+        await markRequestDone(req.id!);
+        processed++;
+      } else {
+        const text = await res.text().catch(() => 'HTTP error');
+        await markRequestFailed(req.id!, text);
+        failed++;
+      }
+    } catch (e: any) {
+      await markRequestFailed(req.id!, e.message || 'Network error');
+      failed++;
+    }
+  }
+
+  if (processed > 0 || failed > 0) {
+    console.log(`[OfflineQueue] processed=${processed}, failed=${failed}`);
+  }
+  return { processed, failed };
+}

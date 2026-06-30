@@ -5,6 +5,7 @@ import AdminApp, { AdminAppWrapper } from './admin/AdminApp';
 import CourierApp from './courier/CourierApp';
 import { PhoneFrame, WindowsFrame } from './frames';
 import { PriceProvider } from './PriceContext';
+import { processQueue } from './offline-queue';
 
 type AppMode = "guest" | "admin" | "courier";
 
@@ -23,6 +24,15 @@ function AppContent() {
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Process offline request queue on mount and when connection restores
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    processQueue().catch(() => {});
+    const handleOnline = () => processQueue().catch(() => {});
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
   }, []);
 
   if (!isDesktop) {
