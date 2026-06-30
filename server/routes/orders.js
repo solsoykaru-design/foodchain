@@ -3,6 +3,7 @@ const extensionsService = require('../services/extensions.service.js');
 const referralService = require('../services/referral.service.js');
 const pricingService = require('../services/pricing.service');
 const telegramBot = require('../services/telegram-bot.service');
+const orderNotifications = require('../services/order-notifications.service');
 
 module.exports = function(app, db, config) {
   const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, pushService, notifLog, aggregatorIntegration, authenticateToken, requireRole } = config;
@@ -353,6 +354,9 @@ app.patch('/api/orders/:id/status', authenticateToken, requireRole('waiter', 'co
     db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(req.params.id, status, noteText);
     broadcast({ type: 'order:update', orderId: Number(req.params.id), status, note: noteText });
     try { telegramBot.notifyOrderStatus(db, Number(req.params.id), status); } catch (e) { console.error('[Orders] Telegram notify error:', e.message); }
+    orderNotifications.notifyCustomer(db, req.tenant_id || 1, order, status)
+      .then(notifyResult => { if (notifyResult.sent) console.log(`[OrderNotify] #${req.params.id} status ${status} notifications sent`); })
+      .catch(e => console.error('[Orders] Customer notify error:', e.message));
 
     const updatedOrder = toCamelCase(getOrderFull(db, Number(req.params.id), req.tenant_id));
     dispatchOrderEvent(req.tenant_id, 'order.status_changed', { order: updatedOrder, from: order.status, to: status });
