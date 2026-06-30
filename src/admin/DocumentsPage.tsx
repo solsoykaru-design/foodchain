@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
 import { setDocType, getDocType, onDocTypeChange } from './docStore';
 import { addToast } from '../ToastContext';
-import { Search, Plus, Upload, Edit3, Trash2, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Check, Ban, Printer } from 'lucide-react';
+import { Search, Plus, Upload, Edit3, Trash2, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Check, Ban, Printer, Download } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Черновик',
@@ -197,6 +197,23 @@ export default function DocumentsPage() {
     input.click();
   };
 
+  const handlePrint = async () => {
+    if (!selectedId) { addToast('Выберите документ', 'warning'); return; }
+    try {
+      const token = localStorage.getItem('fc_token');
+      const res = await fetch(`${api.API_BASE}/api/documents/${selectedId}/print`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Ошибка печати');
+      const html = await res.text();
+      const w = window.open('', '_blank', 'width=800,height=600');
+      if (!w) return;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+    } catch (e: any) { addToast(e.message, 'error'); }
+  };
+
   const addItem = (inv: any) => {
     setForm(prev => ({
       ...prev,
@@ -285,6 +302,9 @@ export default function DocumentsPage() {
 
           <button onClick={handleImport} className="flex items-center gap-1.5 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors">
             <Upload size={16} /> Импорт
+          </button>
+          <button onClick={handlePrint} disabled={!selectedId} className="flex items-center gap-1.5 px-4 py-2 bg-zinc-600 hover:bg-zinc-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50">
+            <Printer size={16} /> Печать
           </button>
         </div>
       </div>

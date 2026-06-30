@@ -642,6 +642,37 @@ app.delete('/api/documents/:id', (req, res) => {
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+app.get('/api/documents/:id/print', (req, res) => {
+  try {
+    const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+    if (typeof doc.items === 'string') try { doc.items = JSON.parse(doc.items); } catch (e) { doc.items = []; }
+    const items = (doc.items || []).map(i => ({
+      name: i.itemName || i.item_name || i.name || '—',
+      quantity: Number(i.quantity || 0).toFixed(2),
+      unit: i.unit || 'шт',
+      price: Number(i.pricePerUnit || i.price_per_unit || i.price || 0).toFixed(2),
+      cost: Number(i.cost || (i.quantity * (i.pricePerUnit || i.price_per_unit || i.price || 0))).toFixed(2),
+    }));
+    const total = Number(doc.sum || items.reduce((s, it) => s + parseFloat(it.cost), 0)).toFixed(2);
+    const statusLabel = { draft: 'Черновик', confirmed: 'Подтверждён', completed: 'Проведён', cancelled: 'Отменён' }[doc.status] || doc.status;
+    const html = `<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><title>Документ ${doc.number}</title>
+<style>body{font-family:Arial,sans-serif;margin:40px;color:#000} h1{font-size:20px} table{width:100%;border-collapse:collapse;margin-top:16px} th,td{border:1px solid #ccc;padding:8px;text-align:left} th{background:#f0f0f0} .right{text-align:right} .total{font-weight:bold;margin-top:16px;text-align:right}</style>
+</head><body>
+<h1>${TYPE_LABELS[doc.type] || doc.type} №${doc.number}</h1>
+<p>Дата: ${doc.date || doc.doc_date || '—'}<br/>Контрагент: ${doc.counterparty || '—'}<br/>Статус: ${statusLabel}<br/>Склад: ${doc.warehouse_from || ''} ${doc.warehouse_to ? '→ ' + doc.warehouse_to : ''}</p>
+<table><thead><tr><th>№</th><th>Товар</th><th class="right">Кол-во</th><th>Ед.</th><th class="right">Цена</th><th class="right">Сумма</th></tr></thead><tbody>
+${items.map((it, idx) => `<tr><td>${idx + 1}</td><td>${it.name}</td><td class="right">${it.quantity}</td><td>${it.unit}</td><td class="right">${it.price}</td><td class="right">${it.cost}</td></tr>`).join('')}
+</tbody></table>
+<p class="total">Итого: ${total} ₽</p>
+<p style="margin-top:40px;color:#666;font-size:12px">Примечание: ${doc.note || '—'}</p>
+<script>window.onload=()=>setTimeout(()=>window.print(),300)</script>
+</body></html>`;
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
 app.post('/api/documents/import', upload.single('file'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'File is required' });
