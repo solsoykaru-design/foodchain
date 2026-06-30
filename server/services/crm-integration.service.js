@@ -14,18 +14,18 @@ const CRM_PROVIDERS = {
 };
 
 function saveSettings(db, provider, settings, tenantId = 1) {
-  const existing = db.prepare('SELECT id FROM integration_settings WHERE type = ? AND tenant_id = ?').get(`crm_${provider}`, tenantId);
+  const existing = db.prepare('SELECT id FROM crm_integration_settings WHERE provider = ? AND tenant_id = ?').get(provider, tenantId);
   const data = JSON.stringify(settings);
   if (existing) {
-    db.prepare('UPDATE integration_settings SET value = ? WHERE type = ? AND tenant_id = ?').run(data, `crm_${provider}`, tenantId);
+    db.prepare('UPDATE crm_integration_settings SET value = ? WHERE provider = ? AND tenant_id = ?').run(data, provider, tenantId);
   } else {
-    db.prepare('INSERT INTO integration_settings (type, value, tenant_id) VALUES (?, ?, ?)').run(`crm_${provider}`, data, tenantId);
+    db.prepare('INSERT INTO crm_integration_settings (tenant_id, provider, value) VALUES (?, ?, ?)').run(tenantId, provider, data);
   }
   return { success: true };
 }
 
 function getSettings(db, provider, tenantId = 1) {
-  const row = db.prepare('SELECT value FROM integration_settings WHERE type = ? AND tenant_id = ?').get(`crm_${provider}`, tenantId);
+  const row = db.prepare('SELECT value FROM crm_integration_settings WHERE provider = ? AND tenant_id = ?').get(provider, tenantId);
   if (!row) return {};
   try { return JSON.parse(row.value); } catch { return {}; }
 }

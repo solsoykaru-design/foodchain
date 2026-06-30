@@ -1847,6 +1847,7 @@ try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/024_enterprise_pa
 try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/025_dynamic_pricing.sql'), 'utf8')); } catch(e) {}
   try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/026_referral_program.sql'), 'utf8')); } catch(e) {}
   try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/027_courier_shift_payroll.sql'), 'utf8')); } catch(e) {}
+  try { db.exec(fs.readFileSync(path.join(__dirname, 'migrations/028_crm_integration_settings.sql'), 'utf8')); } catch(e) {}
   try { db.exec(`ALTER TABLE tech_cards ADD COLUMN is_active INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_cards ADD COLUMN kbju_source TEXT DEFAULT 'auto'`); } catch(e) {}
 try { db.exec(`ALTER TABLE tech_cards ADD COLUMN cold_loss_percent REAL DEFAULT 0`); } catch(e) {}
