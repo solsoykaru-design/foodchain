@@ -1094,6 +1094,17 @@ export async function exportTimesheet(month?: number, year?: number): Promise<an
   if (year) qs.set('year', String(year));
   return request(`/api/timesheet/export?${qs.toString()}`);
 }
+export async function calculateCourierShiftPayroll(month?: number, year?: number, role?: string): Promise<any> {
+  return request('/api/timesheet/payroll/calculate', { method: 'POST', body: JSON.stringify({ month, year, role }) });
+}
+export async function getCourierShiftPayroll(params?: { month?: number; year?: number; staff_id?: number }): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (params?.month) qs.set('month', String(params.month));
+  if (params?.year) qs.set('year', String(params.year));
+  if (params?.staff_id) qs.set('staff_id', String(params.staff_id));
+  return request(`/api/courier-shift-payroll?${qs.toString()}`);
+}
+export async function getTimesheetPayroll(id: number): Promise<any> { return request(`/api/timesheet/${id}/payroll`); }
 export async function getKpiBonuses(): Promise<any[]> { return request('/api/kpi-bonuses'); }
 export async function createKpiBonus(data: any): Promise<any> { return request('/api/kpi-bonuses', { method: 'POST', body: JSON.stringify(data) }); }
 export async function deleteKpiBonus(id: number): Promise<any> { return request(`/api/kpi-bonuses/${id}`, { method: 'DELETE' }); }

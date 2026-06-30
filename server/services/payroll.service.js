@@ -281,4 +281,5 @@ module.exports = {
   exportTimesheetForAuthorities,
   getSettings,
   calcMonthDates,
+  calculateShiftBreakdown,
 };

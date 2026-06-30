@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const payrollService = require('../services/payroll.service.js');
+const shiftPayrollService = require('../services/shift-payroll.service.js');
 
 module.exports = function(app, db, config) {
   const { upload, safeError, toCamelCase, toCamelCaseArray } = config;
@@ -708,6 +709,34 @@ app.get('/api/timesheet/export', (req, res) => {
     res.json(rows);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+
+// Courier per-shift payroll
+app.get('/api/timesheet/:id/payroll', (req, res) => {
+  try {
+    const calc = shiftPayrollService.calculateShiftEarnings(db, req.tenant_id || 1, Number(req.params.id));
+    if (!calc) return res.status(404).json({ error: 'Смена не найдена' });
+    res.json(toCamelCase(calc));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/timesheet/payroll/calculate', (req, res) => {
+  try {
+    const { month, year, role } = req.body;
+    const m = month || new Date().getMonth() + 1;
+    const y = year || new Date().getFullYear();
+    const result = shiftPayrollService.calculateMonthForRole(db, req.tenant_id || 1, m, y, role || 'courier');
+    res.json({ calculated: result.length, shifts: result.map(toCamelCase) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/courier-shift-payroll', (req, res) => {
+  try {
+    const { month, year, staff_id } = req.query;
+    const m = Number(month) || new Date().getMonth() + 1;
+    const y = Number(year) || new Date().getFullYear();
+    const rows = shiftPayrollService.getStoredPayroll(db, req.tenant_id || 1, m, y, staff_id);
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.get('/api/kpi-bonuses', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM kpi_bonuses WHERE tenant_id = ? ORDER BY created_at DESC').all(req.tenant_id || 1);
