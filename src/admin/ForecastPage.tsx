@@ -16,6 +16,7 @@ export default function ForecastPage() {
   const [toDate, setToDate] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [accuracy, setAccuracy] = useState<Record<number, number>>({});
 
   const loadForecasts = useCallback(async () => {
     setLoading(true);
@@ -25,8 +26,14 @@ export default function ForecastPage() {
       if (filterProduct) params.product_id = Number(filterProduct);
       if (fromDate) params.from_date = fromDate;
       if (toDate) params.to_date = toDate;
-      const data = await api.getForecast(params);
+      const [data, acc] = await Promise.all([
+        api.getForecast(params),
+        api.getForecastAccuracy(14).catch(() => []),
+      ]);
       setForecasts(data);
+      const accMap: Record<number, number> = {};
+      for (const a of acc) accMap[a.productId] = a.mape;
+      setAccuracy(accMap);
     } catch (e: any) {
       setError(e.message || 'Ошибка загрузки прогнозов');
     }
@@ -187,6 +194,11 @@ export default function ForecastPage() {
                         <td className="px-3 py-3 text-zinc-900 dark:text-white font-medium flex items-center gap-2">
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           {product.productName || `ID ${product.productId}`}
+                          {accuracy[product.productId] !== undefined && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${accuracy[product.productId] <= 20 ? 'bg-green-100 text-green-700' : accuracy[product.productId] <= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                              точность {accuracy[product.productId]}%
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-zinc-700 dark:text-zinc-300">{product.currentStock ?? 0}</td>
                         <td className="px-3 py-3 text-zinc-700 dark:text-zinc-300">{totalForecast.toFixed(2)}</td>

@@ -1187,6 +1187,9 @@ export async function getForecastHistory(productId: number, days = 90): Promise<
 export async function adjustForecast(forecastId: number, quantity: number): Promise<any> {
   return request('/api/forecast/adjust', { method: 'PUT', body: JSON.stringify({ forecast_id: forecastId, quantity }) });
 }
+export async function getForecastAccuracy(days?: number): Promise<any[]> {
+  return request(`/api/forecast/accuracy${days ? `?days=${days}` : ''}`);
+}
 
 // Stock Item Card
 export async function getStockItem(id: number): Promise<any> {

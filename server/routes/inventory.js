@@ -608,6 +608,13 @@ app.put('/api/forecast/adjust', (req, res) => {
     res.json(toCamelCase(updated));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+app.get('/api/forecast/accuracy', (req, res) => {
+  try {
+    const { days } = req.query;
+    const result = forecastService.getForecastAccuracy(db, req.tenant_id || 1, days ? Number(days) : 14);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
 app.get('/api/inventory/by-barcode/:barcode', (req, res) => {
   try {
     const item = db.prepare("SELECT ii.*, COALESCE(ii.current_balance, ii.current_stock, 0) as currentBalance FROM inventory_items ii WHERE ii.barcode = ? LIMIT 1").get(req.params.barcode);
