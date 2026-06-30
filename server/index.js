@@ -145,10 +145,11 @@ app.use((req, res, next) => {
     return next();
   }
   // Для остальных используем helmet
-  helmet({ 
+  helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    xFrameOptions: { action: 'sameorigin' },
   })(req, res, next);
 });
 app.use('/api', apiLimiter);
