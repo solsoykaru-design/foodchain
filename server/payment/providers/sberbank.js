@@ -7,19 +7,19 @@ const PROVIDER = 'sberbank';
 // Webhook notifications from Sberpay QR come through T-Bank (tbank.js handles them).
 
 async function createPayment(params) {
-  return { ok: false, status: 501, data: { message: 'Прямая интеграция со Сбербанком требует настройки. Используйте Т-Банк для SberPay QR.' } };
+  return { ok: false, status: 400, data: { message: 'Прямая интеграция со Сбербанком не реализована. Для SberPay QR используйте Т-Банк.' } };
 }
 
 async function confirmPayment() {
-  return { ok: false, status: 501, data: { message: 'Not implemented' } };
+  return { ok: false, status: 400, data: { message: 'Прямая интеграция со Сбербанком не реализована.' } };
 }
 
 async function getPaymentStatus() {
-  return { ok: false, status: 501, data: { message: 'Not implemented' } };
+  return { ok: false, status: 400, data: { message: 'Прямая интеграция со Сбербанком не реализована.' } };
 }
 
 async function refundPayment() {
-  return { ok: false, status: 501, data: { message: 'Not implemented' } };
+  return { ok: false, status: 400, data: { message: 'Прямая интеграция со Сбербанком не реализована.' } };
 }
 
 async function testConnection(credentials) {

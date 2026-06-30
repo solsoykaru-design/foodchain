@@ -100,28 +100,38 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Debug endpoint: check dist directories ──────────────
-app.get('/debug/dist', (req, res) => {
-  const base = path.join(__dirname, '..');
-  const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-pos', 'dist-website', 'dist-kiosk', 'dist-techcard'];
-  const result = {};
-  for (const d of dirs) {
-    const full = path.join(base, d);
-    const serverFull = path.join(__dirname, d);
-    const exists = fs.existsSync(full) || fs.existsSync(serverFull);
-    const files = fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : (fs.existsSync(serverFull) ? fs.readdirSync(serverFull).slice(0, 5) : []);
-    result[d] = { exists, files };
-  }
-  let rootFiles = [];
-  let serverFiles = [];
-  try { rootFiles = fs.readdirSync(base); } catch(e) { rootFiles = ['ERROR: '+e.message]; }
-  try { serverFiles = fs.readdirSync(__dirname); } catch(e) { serverFiles = ['ERROR: '+e.message]; }
-  res.json({ cwd: process.cwd(), dirname: __dirname, base, rootFiles: rootFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), serverFiles: serverFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), dirs: result });
-});
+// ─── Debug endpoint: check dist directories (dev only) ──────────────
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/debug/dist', (req, res) => {
+    const base = path.join(__dirname, '..');
+    const dirs = ['dist-admin', 'dist-waiter', 'dist-guest', 'dist-courier', 'dist-kitchen', 'dist-pos', 'dist-website', 'dist-kiosk', 'dist-techcard'];
+    const result = {};
+    for (const d of dirs) {
+      const full = path.join(base, d);
+      const serverFull = path.join(__dirname, d);
+      const exists = fs.existsSync(full) || fs.existsSync(serverFull);
+      const files = fs.existsSync(full) ? fs.readdirSync(full).slice(0, 5) : (fs.existsSync(serverFull) ? fs.readdirSync(serverFull).slice(0, 5) : []);
+      result[d] = { exists, files };
+    }
+    let rootFiles = [];
+    let serverFiles = [];
+    try { rootFiles = fs.readdirSync(base); } catch(e) { rootFiles = ['ERROR: '+e.message]; }
+    try { serverFiles = fs.readdirSync(__dirname); } catch(e) { serverFiles = ['ERROR: '+e.message]; }
+    res.json({ cwd: process.cwd(), dirname: __dirname, base, rootFiles: rootFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), serverFiles: serverFiles.filter(f => !f.startsWith('.') && !f.startsWith('node_modules')), dirs: result });
+  });
+}
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*').split(',').map(s => s.trim());
+const isDev = process.env.NODE_ENV !== 'production';
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || (isDev ? '' : '*')).split(',').map(s => s.trim()).filter(Boolean);
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return callback(null, true);
+  if (isDev && /^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+  console.warn('[cors] Blocked origin:', origin);
+  return callback(new Error('Not allowed by CORS'), false);
+};
 const corsOptions = {
-  origin: true,
+  origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -194,10 +204,6 @@ app.get('/api/health', (req, res) => {
     },
     supabase: supabaseStatus,
     uptime: process.uptime().toFixed(0) + 's',
-    env: {
-      OPENCODE_API_KEY: (process.env.OPENCODE_API_KEY || '').substring(0, 8) + '...',
-      OPENCODE_MODEL: process.env.OPENCODE_MODEL || 'not set',
-    }
   });
 });
 
@@ -225,18 +231,20 @@ if (adminDist) {
   });
 }
 
-// Vosk model proxy (COEP requires same-origin for model files)
-app.use('/vosk-models', (req, res) => {
-  const filePath = req.path.replace(/^\//, '');
-  const targetUrl = `https://alphacephei.com/vosk/models/${filePath}`;
-  https.get(targetUrl, (proxyRes) => {
-    delete proxyRes.headers['content-disposition'];
-    delete proxyRes.headers['content-encoding'];
-    proxyRes.pipe(res);
-  }).on('error', () => {
-    res.status(502).send('Proxy error');
+// Vosk model proxy (dev only — unrestricted external proxy is unsafe in production)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/vosk-models', (req, res) => {
+    const filePath = req.path.replace(/^\//, '');
+    const targetUrl = `https://alphacephei.com/vosk/models/${filePath}`;
+    https.get(targetUrl, (proxyRes) => {
+      delete proxyRes.headers['content-disposition'];
+      delete proxyRes.headers['content-encoding'];
+      proxyRes.pipe(res);
+    }).on('error', () => {
+      res.status(502).send('Proxy error');
+    });
   });
-});
+}
 
 const courierDist = findDistDir('dist-courier');
 if (courierDist) {
