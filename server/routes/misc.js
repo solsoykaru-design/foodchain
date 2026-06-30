@@ -5,6 +5,7 @@ const multer = require('multer');
 
 module.exports = function(app, db, config) {
   const { io, JWT_SECRET, PORTAL_SYNC_KEY, upload, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, STATUS_CHAIN, checkRoleLimit, emailService, pushService, notifLog, uploadChat, uploadAppImage } = config;
+  const challengesService = require('../services/challenges.service');
 
 app.get('/tg-app', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'tg-app.html')));
 app.get('/login', (req, res) => {
@@ -2414,16 +2415,8 @@ app.get('/api/games/challenges', (req, res) => {
     const guestId = req.query.guest_id;
     if (!guestId) return res.json([]);
     const tid = req.tenant_id || 1;
-    const ordersCount = db.prepare('SELECT COUNT(*) as c FROM orders WHERE user_id = ? AND tenant_id = ?').get(guestId, tid).c;
-    const reviewsCount = db.prepare('SELECT COUNT(*) as c FROM reviews WHERE user_id = ? AND tenant_id = ?').get(guestId, tid).c;
-    const bonus = db.prepare('SELECT COALESCE(balance,0) as b FROM user_bonuses WHERE user_id = ? AND tenant_id = ?').get(guestId, tid);
-    const challenges = [
-      { id: 'orders_5', title: 'Постоянный гость', desc: 'Сделайте 5 заказов', icon: '🛵', max: 5, progress: ordersCount },
-      { id: 'orders_10', title: 'Завсегдатай', desc: 'Сделайте 10 заказов', icon: '⭐', max: 10, progress: ordersCount },
-      { id: 'reviews_3', title: 'Критик', desc: 'Оставьте 3 отзыва', icon: '✍️', max: 3, progress: reviewsCount },
-      { id: 'bonus_500', title: 'Бонус-хантер', desc: 'Накопите 500 бонусов', icon: '💰', max: 500, progress: bonus?.b || 0 },
-    ];
-    res.json(challenges);
+    const result = challengesService.checkAndReward(db, tid, Number(guestId));
+    res.json(result.challenges);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/exchange-rates', (req, res) => {
