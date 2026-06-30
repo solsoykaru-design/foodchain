@@ -6,6 +6,7 @@ const multer = require('multer');
 module.exports = function(app, db, config) {
   const { io, JWT_SECRET, PORTAL_SYNC_KEY, upload, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, STATUS_CHAIN, checkRoleLimit, emailService, pushService, notifLog, uploadChat, uploadAppImage } = config;
   const challengesService = require('../services/challenges.service');
+  const orderOwnerNotify = require('../services/order-owner-notify.service');
 
 app.get('/tg-app', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'tg-app.html')));
 app.get('/login', (req, res) => {
@@ -1501,6 +1502,7 @@ app.post('/api/waiter/orders', (req, res) => {
     const order = getOrderFull(orderId);
     io.emit('order:new', order);
     broadcast({ type: 'order:new', orderId });
+    orderOwnerNotify.notifyNewOrder(db, req.tenant_id || 1, orderId, 'официант');
 
     try {
       const stationService = require('../services/station.service');
@@ -1587,7 +1589,9 @@ app.post('/api/waiter/split-check/:checkId', (req, res) => {
         .run(order.user_id, order.user_name, order.user_phone, JSON.stringify(splitItems), splitTotal, splitTotal,
           order.type, order.table_number, order.waiter_id, order.waiter_name, check.id,
           `Разделён из заказа #${order.id}`);
-      moved.push(Number(info.lastInsertRowid));
+      const splitOrderId = Number(info.lastInsertRowid);
+      moved.push(splitOrderId);
+      orderOwnerNotify.notifyNewOrder(db, req.tenant_id || 1, splitOrderId, 'разделение');
     }
     res.json({ split: moved });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const orderOwnerNotify = require('../services/order-owner-notify.service');
 
 const PROVIDERS = {
   yandex: require('./providers/yandex'),
@@ -401,6 +402,7 @@ function setupRoutes(app, db, broadcast, io) {
         const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
         if (io) io.emit('order:new', order);
         if (broadcast) broadcast({ type: 'order:new', orderId, external: true, provider });
+        orderOwnerNotify.notifyNewOrder(db, tenantId, orderId, PROVIDER_NAMES[provider] || provider);
 
         logOperation(db, tenantId, provider, 'order_receive', JSON.stringify({ externalOrderId: parsed.externalOrderId }), JSON.stringify({ orderId }), 'success', null);
 

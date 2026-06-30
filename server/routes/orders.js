@@ -4,6 +4,7 @@ const referralService = require('../services/referral.service.js');
 const pricingService = require('../services/pricing.service');
 const telegramBot = require('../services/telegram-bot.service');
 const orderNotifications = require('../services/order-notifications.service');
+const orderOwnerNotify = require('../services/order-owner-notify.service');
 
 module.exports = function(app, db, config) {
   const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, pushService, notifLog, aggregatorIntegration, authenticateToken, requireRole } = config;
@@ -226,6 +227,7 @@ app.get('/api/orders/:id/chat', (req, res) => {
   io.emit('order:new', getOrderFull(orderId));
   emitOrderUpdate(orderId);
   broadcast({ type: 'order:new', orderId: Number(orderId) });
+  orderOwnerNotify.notifyNewOrder(db, req.tenant_id, orderId, 'сайт/админка');
 
   // Split order by kitchen stations
   try {
@@ -281,6 +283,7 @@ app.post('/api/orders/self-order', (req, res) => {
     } catch (err) { console.error('[Stations] split error:', err.message); }
     const selfOrder = toCamelCase(getOrderFull(db, orderId, req.tenant_id || 1));
     dispatchOrderEvent(req.tenant_id || 1, 'order.created', selfOrder);
+    orderOwnerNotify.notifyNewOrder(db, req.tenant_id || 1, orderId, 'QR-самозаказ');
     res.json({ id: orderId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
@@ -587,6 +590,7 @@ app.post('/api/website/orders', (req, res) => {
     io.emit('order:new', getOrderFull(orderId));
     emitOrderUpdate(orderId);
     broadcast({ type: 'order:new', orderId: Number(orderId), source: 'website' });
+    orderOwnerNotify.notifyNewOrder(db, req.tenant_id || 1, orderId, 'сайт');
     res.status(201).json({ orderId, id: orderId, ...getOrderFull(orderId) });
   } catch (e) {
     res.status(500).json({ error: safeError(e.message) });
@@ -736,6 +740,7 @@ app.post('/api/orders/:id/split', authenticateToken, requireRole('waiter', 'admi
     io.emit('order:update', getOrderFull(req.params.id));
     const newOrder = getOrderFull(newOrderId);
     io.emit('order:new', newOrder);
+    orderOwnerNotify.notifyNewOrder(db, req.tenant_id, newOrderId, 'разделение');
 
     res.json({ original: getOrderFull(req.params.id), split: newOrder });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
