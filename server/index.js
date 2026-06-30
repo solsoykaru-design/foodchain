@@ -4738,8 +4738,9 @@ require('./routes/reports.js')(app, db, config);
 
 // ─── Background schedulers ───────────────────────────────────────
 autoWriteoffService.scheduleAutoCheck(db);
+autoOrdersService.scheduleAutoCheck(db);
 campaignTriggersService.scheduleCampaignTriggers(db);
-console.log('[schedulers] Auto-writeoff and campaign trigger schedulers started');
+console.log('[schedulers] Auto-writeoff, auto-orders and campaign trigger schedulers started');
 
 // ─── Voice WebSocket Server ──────────────────────────────────────
 const VoiceHeadsetService = require('./services/voice-headset.service');
