@@ -83,8 +83,9 @@ function getPriceForDish(db, tenantId, dishId, basePrice, context = {}) {
 
 function recalculateOrder(db, tenantId, orderItems, context = {}) {
   return orderItems.map(item => {
-    const dishId = item.dish_id || item.id;
-    const newPrice = getPriceForDish(db, tenantId, dishId, Number(item.base_price || item.price || 0), { ...context, stock: item.stock });
+    const dishId = item.dishId || item.dish_id || item.id;
+    const basePrice = Number(item.base_price || item.price || 0);
+    const newPrice = getPriceForDish(db, tenantId, dishId, basePrice, { ...context, stock: item.stock });
     return { ...item, price: newPrice, total: newPrice * (item.quantity || 1) };
   });
 }

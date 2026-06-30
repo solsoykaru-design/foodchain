@@ -7,6 +7,7 @@ const terminalIntegration = require('../services/terminal-integration.service');
 const fiscalization = require('../services/fiscalization.service');
 const posPrint = require('../services/pos-print.service');
 const telegramBot = require('../services/telegram-bot.service');
+const pricingService = require('../services/pricing.service');
 
 module.exports = function(app, db, config) {
   const { authenticateToken, requireRole, toCamelCase } = config;
@@ -35,6 +36,23 @@ module.exports = function(app, db, config) {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+  }
+
+  function applyDynamicPricing(items, tenantId) {
+    const enriched = (items || []).map(item => {
+      const dishId = item.dishId || item.dish_id || item.id;
+      const dish = dishId ? db.prepare('SELECT * FROM dishes WHERE id = ?').get(dishId) : null;
+      const basePrice = Number(dish?.price || item.base_price || item.price || 0);
+      return {
+        ...item,
+        name: item.name || dish?.name || '',
+        dish_id: dishId || item.dish_id || item.id,
+        base_price: basePrice,
+        price: basePrice,
+        quantity: item.quantity || 1,
+      };
+    });
+    return pricingService.recalculateOrder(db, tenantId || 1, enriched);
   }
 
   // PIN-first POS auth, password fallback
@@ -396,14 +414,8 @@ module.exports = function(app, db, config) {
       if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Состав обязателен' });
       const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
       if (!order) return res.status(404).json({ error: 'Заказ не найден' });
-      let subtotal = 0;
-      const enriched = items.map((item) => {
-        const dish = db.prepare('SELECT * FROM dishes WHERE id = ?').get(item.dishId || item.dish_id);
-        const name = dish?.name || item.name;
-        const price = dish?.price || item.price || 0;
-        subtotal += price * (item.quantity || 1);
-        return { ...item, name, price };
-      });
+      const enriched = applyDynamicPricing(items, req.tenant_id);
+      const subtotal = enriched.reduce((sum, item) => sum + item.total, 0);
       db.prepare('UPDATE orders SET items = ?, subtotal = ?, total = ?, updated_at = datetime("now") WHERE id = ?')
         .run(JSON.stringify(enriched), subtotal, subtotal, req.params.id);
       db.prepare('INSERT INTO order_status_history (order_id, status, note, tenant_id) VALUES (?, ?, ?, ?)')

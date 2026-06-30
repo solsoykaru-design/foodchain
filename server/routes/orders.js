@@ -1,9 +1,27 @@
 
 const extensionsService = require('../services/extensions.service.js');
 const referralService = require('../services/referral.service.js');
+const pricingService = require('../services/pricing.service');
 
 module.exports = function(app, db, config) {
   const { io, broadcast, safeError, toCamelCase, toCamelCaseArray, getOrderFull, emitOrderUpdate, STATUS_CHAIN, STATUS_LABELS, validateTransition, getLoyaltySettings, getGuestBonusInfo, emailService, pushService, notifLog, aggregatorIntegration, authenticateToken, requireRole } = config;
+
+  function applyDynamicPricing(items, tenantId) {
+    const enriched = (items || []).map(item => {
+      const dishId = item.dishId || item.dish_id || item.id;
+      const dish = dishId ? db.prepare('SELECT * FROM dishes WHERE id = ?').get(dishId) : null;
+      const basePrice = Number(dish?.price || item.base_price || item.price || 0);
+      return {
+        ...item,
+        name: item.name || dish?.name || '',
+        dish_id: dishId || item.dish_id || item.id,
+        base_price: basePrice,
+        price: basePrice,
+        quantity: item.quantity || 1,
+      };
+    });
+    return pricingService.recalculateOrder(db, tenantId || 1, enriched);
+  }
 
   const dispatchOrderEvent = (tenantId, event, order) => {
     try { extensionsService.dispatchEvent(db, tenantId, event, order); } catch (e) { console.error('[Extensions] dispatch error:', e.message); }
@@ -98,19 +116,10 @@ app.put('/api/orders/:id/items', authenticateToken, requireRole('waiter', 'admin
     const order = db.prepare('SELECT * FROM orders WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id);
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
 
-    let subtotal = 0;
-    for (const item of items) {
-      const dish = db.prepare('SELECT * FROM dishes WHERE id = ?').get(item.dishId);
-      if (dish) {
-        item.name = item.name || dish.name;
-        item.price = Number(item.price || dish.price);
-        subtotal += item.price * (item.quantity || 1);
-      } else {
-        subtotal += Number(item.price || 0) * (item.quantity || 1);
-      }
-    }
+    const pricedItems = applyDynamicPricing(items, req.tenant_id);
+    const subtotal = pricedItems.reduce((sum, item) => sum + item.total, 0);
 
-    const itemsJson = JSON.stringify(items);
+    const itemsJson = JSON.stringify(pricedItems);
     const discount = Number(order.discount || 0);
     const total = Math.max(0, subtotal - discount);
     db.prepare("UPDATE orders SET items = ?, subtotal = ?, total = ?, updated_at = datetime('now') WHERE id = ?")
@@ -167,10 +176,12 @@ app.get('/api/orders/:id/chat', (req, res) => {
   // POS dine-in orders may not have a phone; allow empty phone for POS/terminal orders
   const isPosOrder = type === 'dine_in' || shift_id;
   if (!user_id || !user_name || (!isPosOrder && !user_phone)) return res.status(400).json({ error: 'Данные пользователя обязательны' });
-  
-  let finalTotal = total || 0;
+
+  const pricedItems = applyDynamicPricing(items, req.tenant_id);
+  const subtotal = pricedItems.reduce((sum, item) => sum + item.total, 0);
+  let finalTotal = subtotal;
   let appliedBonus = 0;
-  
+
   // Apply bonus if requested
   if (bonus_used && bonus_used > 0) {
     try {
@@ -187,8 +198,7 @@ app.get('/api/orders/:id/chat', (req, res) => {
     } catch (e) {}
   }
 
-  const itemsJson = JSON.stringify(items || []);
-  const subtotal = total || 0;
+  const itemsJson = JSON.stringify(pricedItems);
   const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, promo_code, status, bonus_used, tenant_id, shift_id, handled_by, handled_by_name, table_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`).run(user_id, user_name, user_phone, address || '', itemsJson, subtotal, finalTotal, appliedBonus, payment_method || 'cash', type || 'delivery', comment || '', promo_code || null, appliedBonus, req.tenant_id, shift_id || null, handled_by || null, handled_by_name || null, table_id || null);
   const orderId = info.lastInsertRowid;
@@ -531,7 +541,9 @@ app.post('/api/website/orders', (req, res) => {
     const { items, subtotal, total, discount, promoCode, address, comment, paymentMethod, type, userName, userPhone, userId, pickupPointId, bonusUsed, source } = req.body;
     if (!userName || !userPhone) return res.status(400).json({ error: 'Имя и телефон обязательны' });
 
-    let finalTotal = total || subtotal || 0;
+    const pricedItems = applyDynamicPricing(items, req.tenant_id || 1);
+    const computedSubtotal = pricedItems.reduce((sum, item) => sum + item.total, 0);
+    let finalTotal = computedSubtotal;
     let appliedBonus = 0;
 
     if (bonusUsed && bonusUsed > 0 && userId) {
@@ -546,10 +558,10 @@ app.post('/api/website/orders', (req, res) => {
       } catch (e) {}
     }
 
-    const itemsJson = JSON.stringify(items || []);
+    const itemsJson = JSON.stringify(pricedItems);
     const info = db.prepare(`INSERT INTO orders (user_id, user_name, user_phone, address, items, subtotal, total, discount, payment_method, type, comment, status, bonus_used, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, 'website')`)
-      .run(userId || 0, userName, userPhone, address || '', itemsJson, subtotal || 0, finalTotal, discount || 0, paymentMethod || 'cash', type || 'delivery', comment || '', appliedBonus);
+      .run(userId || 0, userName, userPhone, address || '', itemsJson, computedSubtotal, finalTotal, discount || 0, paymentMethod || 'cash', type || 'delivery', comment || '', appliedBonus);
     const orderId = info.lastInsertRowid;
     db.prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?, ?, ?)').run(orderId, 'new', 'Заказ с сайта');
 
