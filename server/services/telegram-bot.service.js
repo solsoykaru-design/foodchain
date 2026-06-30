@@ -321,7 +321,8 @@ function handleLinkPhone(db, bot, msg) {
   }
 }
 
-async function notifyOrderStatus(bot, db, orderId, status) {
+async function notifyOrderStatus(db, orderId, status) {
+  if (!bot) return;
   try {
     const subscribers = db.prepare('SELECT chat_id FROM telegram_order_subscriptions WHERE order_id = ?').all(orderId);
     if (subscribers.length === 0) return;
