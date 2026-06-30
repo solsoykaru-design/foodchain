@@ -25,7 +25,7 @@ COPY server/ ./server/
 COPY main.cjs ./
 
 # Copy frontend builds (skip if not exists)
-RUN for dir in dist-admin dist-guest dist-waiter dist-courier dist-kitchen dist-techcard dist-kiosk dist-website portal; do \
+RUN for dir in dist-admin dist-manager dist-guest dist-waiter dist-courier dist-kitchen dist-techcard dist-kiosk dist-website portal; do \
       if [ -d "$dir" ]; then mkdir -p /app/$dir && cp -r $dir/* /app/$dir/ 2>/dev/null || true; fi; \
     done
 

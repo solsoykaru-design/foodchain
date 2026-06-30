@@ -69,15 +69,16 @@ npm run build:exe
 
 Инсталлятор появится в папке `release/`.
 
-## Быстрый деплой на Render.com
+## Деплой на Render (существующий сервис `foodchain`)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/solsoykaru-design/foodchain)
+Проект развёрнут как единый Docker-сервис `foodchain`. После push в `master` Render автоматически пересоберёт и перезапустит его.
 
-Разворачиваются сразу:
-- API (`foodchain-api`)
-- Admin (`foodchain-admin`)
-- POS (`foodchain-pos`)
-- Manager (`foodchain-manager`)
+Доступные пути после деплоя:
+- `/admin` — админ-панель
+- `/pos` — POS-терминал
+- `/manager` — приложение управляющего
+- `/api` — API
+- `/api/health` — проверка работоспособности
 
 Подробнее — в `docs/RENDER_DEPLOY.md`.
 

@@ -265,6 +265,14 @@ if (posDist) {
   });
 }
 
+const managerDist = findDistDir('dist-manager');
+if (managerDist) {
+  app.use('/manager', express.static(managerDist));
+  app.use('/manager', (req, res) => {
+    res.sendFile(path.join(managerDist, 'index.html'));
+  });
+}
+
 const websiteDist = path.join(__dirname, 'dist-website');
 
 const kioskDist = path.join(__dirname, 'dist-kiosk');
