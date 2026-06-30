@@ -850,6 +850,26 @@ app.get('/api/courier-shift-payroll', (req, res) => {
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
+// Shift KPI achievements
+app.post('/api/timesheet/kpi/calculate', (req, res) => {
+  try {
+    const { month, year } = req.body;
+    const m = month || new Date().getMonth() + 1;
+    const y = year || new Date().getFullYear();
+    const result = shiftPayrollService.calculateMonthKpi(db, req.tenant_id || 1, m, y);
+    res.json({ calculated: result.length, achievements: result.map(toCamelCase) });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/timesheet/kpi', (req, res) => {
+  try {
+    const { month, year, staff_id } = req.query;
+    const m = Number(month) || new Date().getMonth() + 1;
+    const y = Number(year) || new Date().getFullYear();
+    const rows = shiftPayrollService.getStoredShiftKpi(db, req.tenant_id || 1, m, y, staff_id);
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.get('/api/kpi-bonuses', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM kpi_bonuses WHERE tenant_id = ? ORDER BY created_at DESC').all(req.tenant_id || 1);

@@ -44,6 +44,8 @@ export default function SalaryPage() {
   const [kpiBonuses, setKpiBonuses] = useState<any[]>([]);
   const [shiftPayroll, setShiftPayroll] = useState<Record<number, any>>({});
   const [shiftPayrollLoading, setShiftPayrollLoading] = useState(false);
+  const [shiftKpi, setShiftKpi] = useState<Record<number, number>>({});
+  const [shiftKpiLoading, setShiftKpiLoading] = useState(false);
   const [timesheetForm, setTimesheetForm] = useState({ staff_id: '', date: '', start_time: '', end_time: '', break_minutes: 0, note: '' });
   const [kpiForm, setKpiForm] = useState({ name: '', role: 'all', metric: 'orders_delivered', threshold: 0, bonus_amount: 0 });
   const [addForm, setAddForm] = useState<any>({ first_name: '', last_name: '', role: 'courier', phone: '', email: '', password: '', username: '', salary_types: [] as string[], salary_values: {} as Record<string, number> });
@@ -51,7 +53,7 @@ export default function SalaryPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [records, rep, staff, settings, ts, kpi, csp] = await Promise.all([
+      const [records, rep, staff, settings, ts, kpi, csp, skpi] = await Promise.all([
         api.getSalary({ month, year }),
         api.getSalaryReport(month, year),
         api.getStaff(),
@@ -59,6 +61,7 @@ export default function SalaryPage() {
         api.getTimesheet({ month, year }),
         api.getKpiBonuses(),
         api.getCourierShiftPayroll({ month, year }).catch(() => []),
+        api.getShiftKpi({ month, year }).catch(() => []),
       ]);
       setSalaryRecords(records);
       setReport(rep);
@@ -69,6 +72,9 @@ export default function SalaryPage() {
       const payrollMap: Record<number, any> = {};
       for (const p of csp) { if (p.timesheetId) payrollMap[p.timesheetId] = p; }
       setShiftPayroll(payrollMap);
+      const kpiMap: Record<number, number> = {};
+      for (const k of skpi) { if (k.timesheetId) kpiMap[k.timesheetId] = (kpiMap[k.timesheetId] || 0) + (k.bonusAmount || 0); }
+      setShiftKpi(kpiMap);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -195,6 +201,19 @@ export default function SalaryPage() {
     setShiftPayrollLoading(false);
   };
 
+  const calculateShiftKpiAll = async () => {
+    setShiftKpiLoading(true);
+    try {
+      await api.calculateShiftKpi(month, year);
+      const skpi = await api.getShiftKpi({ month, year });
+      const kpiMap: Record<number, number> = {};
+      for (const k of skpi) { if (k.timesheetId) kpiMap[k.timesheetId] = (kpiMap[k.timesheetId] || 0) + (k.bonusAmount || 0); }
+      setShiftKpi(kpiMap);
+      addToast('Расчёт KPI по сменам выполнен', 'success');
+    } catch (e: any) { addToast(e.message, 'error'); }
+    setShiftKpiLoading(false);
+  };
+
   const exportTimesheetCSV = async () => {
     try {
       const rows = await api.exportTimesheet(month, year);
@@ -270,6 +289,10 @@ export default function SalaryPage() {
                 className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition">
                 <Calculator size={16} /> {shiftPayrollLoading ? 'Расчёт...' : 'Рассчитать зарплату курьеров'}
               </button>
+              <button onClick={calculateShiftKpiAll} disabled={shiftKpiLoading}
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition">
+                <Award size={16} /> {shiftKpiLoading ? 'Расчёт...' : 'Рассчитать KPI по сменам'}
+              </button>
               <button onClick={exportTimesheetCSV} className="bg-zinc-800 text-zinc-300 px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-zinc-700 transition"><FileSpreadsheet size={16} /> Табель для контролирующих органов</button>
             </div>
           )}
@@ -336,10 +359,11 @@ export default function SalaryPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b border-zinc-800 text-zinc-500 text-xs"><th className="text-left px-3 py-2">Сотрудник</th><th className="text-left px-3 py-2">Дата</th><th className="text-left px-3 py-2">Начало</th><th className="text-left px-3 py-2">Конец</th><th className="text-left px-3 py-2">Перерыв</th><th className="text-right px-3 py-2">Заказов</th><th className="text-right px-3 py-2">Зарплата за смену</th><th className="text-left px-3 py-2">Примечание</th><th></th></tr></thead>
+                  <thead><tr className="border-b border-zinc-800 text-zinc-500 text-xs"><th className="text-left px-3 py-2">Сотрудник</th><th className="text-left px-3 py-2">Дата</th><th className="text-left px-3 py-2">Начало</th><th className="text-left px-3 py-2">Конец</th><th className="text-left px-3 py-2">Перерыв</th><th className="text-right px-3 py-2">Заказов</th><th className="text-right px-3 py-2">Зарплата за смену</th><th className="text-right px-3 py-2">KPI бонусы</th><th className="text-left px-3 py-2">Примечание</th><th></th></tr></thead>
                   <tbody>
                     {timesheet.map(t => {
                       const payroll = shiftPayroll[t.id];
+                      const kpiBonus = shiftKpi[t.id];
                       return (
                       <tr key={t.id} className="border-b border-zinc-800/50">
                         <td className="px-3 py-2 text-white">{t.firstName} {t.lastName}</td>
@@ -349,6 +373,7 @@ export default function SalaryPage() {
                         <td className="px-3 py-2 text-zinc-400">{t.breakMinutes} мин</td>
                         <td className="px-3 py-2 text-right text-zinc-400">{payroll ? payroll.ordersCount : '—'}</td>
                         <td className="px-3 py-2 text-right font-medium text-emerald-400">{payroll ? `${payroll.totalAmount.toFixed(2)} ₽` : '—'}</td>
+                        <td className="px-3 py-2 text-right font-medium text-violet-400">{kpiBonus ? `${kpiBonus.toFixed(2)} ₽` : '—'}</td>
                         <td className="px-3 py-2 text-zinc-400">{t.note}</td>
                         <td className="px-3 py-2"><button onClick={() => deleteTimesheetRecord(t.id)} className="text-red-400 hover:text-red-300 text-xs">Удалить</button></td>
                       </tr>

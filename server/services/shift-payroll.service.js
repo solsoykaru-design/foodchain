@@ -157,9 +157,98 @@ function getStoredPayroll(db, tenantId, month, year, staffId = null) {
   return db.prepare(sql).all(...params);
 }
 
+function calculateShiftKpi(db, tenantId, timesheetId) {
+  const shift = db.prepare(`
+    SELECT t.*, s.first_name, s.last_name, s.role
+    FROM timesheet t
+    JOIN staff s ON s.id = t.staff_id
+    WHERE t.id = ? AND t.tenant_id = ?
+  `).get(timesheetId, tenantId);
+  if (!shift) return [];
+
+  const { start, end } = shiftRange(shift);
+  const startStr = toSqlite(start);
+  const endStr = toSqlite(end);
+
+  const kpis = db.prepare('SELECT * FROM kpi_bonuses WHERE (role = ? OR role = "all") AND tenant_id = ? AND is_active = 1').all(shift.role || '', tenantId);
+  const achievements = [];
+
+  for (const kpi of kpis) {
+    let value = 0;
+    if (kpi.metric === 'orders_delivered') {
+      value = db.prepare(`
+        SELECT COUNT(*) as cnt FROM orders
+        WHERE courier_id = ? AND status = 'delivered'
+          AND datetime(updated_at) >= datetime(?) AND datetime(updated_at) <= datetime(?)
+          AND tenant_id = ?
+      `).get(shift.staff_id, startStr, endStr, tenantId).cnt;
+    } else if (kpi.metric === 'sales_amount') {
+      value = db.prepare(`
+        SELECT COALESCE(SUM(total), 0) as sum FROM orders
+        WHERE (waiter_id = ? OR courier_id = ?) AND status != 'cancelled'
+          AND datetime(created_at) >= datetime(?) AND datetime(created_at) <= datetime(?)
+          AND tenant_id = ?
+      `).get(shift.staff_id, shift.staff_id, startStr, endStr, tenantId).sum;
+    } else if (kpi.metric === 'shifts_count') {
+      value = 1;
+    }
+    const achieved = value >= (kpi.threshold || 0) ? 1 : 0;
+    achievements.push({
+      timesheet_id: shift.id,
+      staff_id: shift.staff_id,
+      date: shift.date,
+      kpi_name: kpi.name,
+      metric: kpi.metric,
+      threshold: kpi.threshold || 0,
+      value,
+      bonus_amount: achieved ? Number(kpi.bonus_amount || 0) : 0,
+      achieved,
+    });
+  }
+
+  // Upsert
+  for (const a of achievements) {
+    const existing = db.prepare('SELECT id FROM shift_kpi_achievements WHERE tenant_id = ? AND timesheet_id = ? AND kpi_name = ?').get(tenantId, a.timesheet_id, a.kpi_name);
+    if (existing) {
+      db.prepare(`UPDATE shift_kpi_achievements SET staff_id = ?, date = ?, metric = ?, threshold = ?, value = ?, bonus_amount = ?, achieved = ?, calculated_at = datetime('now') WHERE id = ?`)
+        .run(a.staff_id, a.date, a.metric, a.threshold, a.value, a.bonus_amount, a.achieved, existing.id);
+    } else {
+      db.prepare(`INSERT INTO shift_kpi_achievements (tenant_id, timesheet_id, staff_id, date, kpi_name, metric, threshold, value, bonus_amount, achieved)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(tenantId, a.timesheet_id, a.staff_id, a.date, a.kpi_name, a.metric, a.threshold, a.value, a.bonus_amount, a.achieved);
+    }
+  }
+
+  return achievements;
+}
+
+function calculateMonthKpi(db, tenantId, month, year) {
+  const { start, end } = payrollService.calcMonthDates(month, year);
+  const rows = db.prepare('SELECT id FROM timesheet WHERE tenant_id = ? AND date BETWEEN ? AND ?').all(tenantId, start, end);
+  const result = [];
+  for (const { id } of rows) {
+    result.push(...calculateShiftKpi(db, tenantId, id));
+  }
+  return result;
+}
+
+function getStoredShiftKpi(db, tenantId, month, year, staffId = null) {
+  const { start, end } = payrollService.calcMonthDates(month, year);
+  let sql = `SELECT ska.*, s.first_name, s.last_name FROM shift_kpi_achievements ska
+    JOIN staff s ON s.id = ska.staff_id
+    WHERE ska.tenant_id = ? AND ska.date BETWEEN ? AND ?`;
+  const params = [tenantId, start, end];
+  if (staffId) { sql += ' AND ska.staff_id = ?'; params.push(Number(staffId)); }
+  sql += ' ORDER BY ska.date DESC, s.first_name ASC';
+  return db.prepare(sql).all(...params);
+}
+
 module.exports = {
   calculateShiftEarnings,
   saveShiftPayroll,
   calculateMonthForRole,
   getStoredPayroll,
+  calculateShiftKpi,
+  calculateMonthKpi,
+  getStoredShiftKpi,
 };
