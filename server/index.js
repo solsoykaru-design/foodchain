@@ -210,11 +210,6 @@ if (guestDist) {
 
 const adminDist = findDistDir('dist-admin');
 if (adminDist) {
-  app.use('/admin', (req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    next();
-  });
   app.use('/admin', express.static(adminDist));
   app.use('/admin', (req, res) => {
     res.sendFile(path.join(adminDist, 'index.html'));

@@ -2342,7 +2342,7 @@ export async function linkTelephonyOrder(call_id: string, order_id: number): Pro
 
 export function getSwaggerJson(): string { return API_BASE + '/api-docs/swagger.json'; }
 export function getSwaggerYaml(): string { return API_BASE + '/api-docs/swagger.yaml'; }
-export function getSwaggerUI(): string { return API_BASE + '/api-docs'; }
+export function getSwaggerUI(): string { return API_BASE + '/api-docs/'; }
 
 // ─── Extensions API ──────────────────────────────────────────
 export async function getExtensions(): Promise<any> { return request('/api/admin/extensions'); }
