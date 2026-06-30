@@ -5,7 +5,7 @@ const pricingService = require('../services/pricing.service.js');
 const referralService = require('../services/referral.service.js');
 
 module.exports = function(app, db, config) {
-  const { JWT_SECRET, safeError, toCamelCaseArray, getLoyaltySettings, supplierPortal, shiftService, autoOrdersService } = config;
+  const { JWT_SECRET, safeError, toCamelCaseArray, getLoyaltySettings, supplierPortal, shiftService, autoOrdersService, authenticateToken } = config;
 
 app.get('/api/admin/auto-orders/status', (req, res) => {
   try {

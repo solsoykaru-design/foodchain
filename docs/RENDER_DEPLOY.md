@@ -70,6 +70,12 @@ render cp foodchain:/tmp/foodchain-backup.db ./foodchain-backup.db
 
 ## Устранение неполадок
 
+**No open ports detected / сервис не принимает трафик**
+- Убедитесь, что тип сервиса — **Web Service**, а не Background Worker.
+- В настройках сервиса на вкладке **Environment** должна быть переменная `PORT` со значением `10000`.
+- Если меняли порт сервиса в Render, укажите то же значение в переменной `PORT`.
+- Сделайте **Manual Deploy** → **Deploy latest commit** (иногда помогает **Clear build cache & deploy**).
+
 **После деплоя /admin или /pos выдают 404**
 - Убедитесь, что в репозитории закоммичены папки `dist-admin`, `dist-pos`, `dist-manager`.
 - Проверьте логи сборки Docker на Render.
