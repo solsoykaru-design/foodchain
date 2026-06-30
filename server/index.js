@@ -4733,6 +4733,21 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: safeError(err?.message || 'Внутренняя ошибка сервера') });
 });
 
+// ─── Start HTTP server ───────────────────────────────────────────
+console.log(`[server] Starting server on port ${PORT}...`);
+server.on('error', (err) => {
+  console.error('[server] Listen error:', err.message);
+});
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  if (superadminPassword) {
+    console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
+  }
+  // Start Telegram bot if configured
+  try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
+  try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
+});
+
 // ─── Backup endpoints ────────────────────────────────────────────
 app.post('/api/backup', authenticateToken, requireRole('superadmin'), (req, res) => {
   Promise.all([
@@ -4802,19 +4817,7 @@ if (!superadmin) {
 }
 
 portalReady.finally(() => {
-  console.log(`[server] Starting server on port ${PORT}...`);
-  server.on('error', (err) => {
-    console.error('[server] Listen error:', err.message);
-  });
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-    if (superadminPassword) {
-      console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
-    }
-    // Start Telegram bot if configured
-    try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
-    try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
-  });
+  // Portal handler is now ready (or failed); it will be used by the /portal middleware.
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────
