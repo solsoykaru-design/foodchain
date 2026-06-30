@@ -1,6 +1,7 @@
 
 module.exports = function(app, db, config) {
   const { io, broadcast, safeError, toCamelCase } = config;
+  const courierAnalytics = require('../services/courier-analytics.service');
 
 app.put('/api/couriers/:id/location', (req, res) => {
   try {
@@ -245,4 +246,22 @@ app.delete('/api/courier/templates/personal/:id', (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+
+// Courier analytics
+app.get('/api/courier/:id/analytics', (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const stats = courierAnalytics.getCourierStats(db, req.tenant_id || 1, Number(req.params.id), from, to);
+    if (!stats) return res.status(404).json({ error: 'Курьер не найден' });
+    res.json(stats);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/courier/analytics/leaderboard', (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const leaderboard = courierAnalytics.getLeaderboard(db, req.tenant_id || 1, from, to);
+    res.json(leaderboard);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 };
