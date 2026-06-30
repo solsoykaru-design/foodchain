@@ -1,6 +1,6 @@
 import type { Order, OrderStatus, Review, BarcodeGenerateResult } from './types';
 
-const API_BASE = (() => {
+export const API_BASE = (() => {
   const stored = localStorage.getItem('foodchain_api_url');
   if (stored && stored.trim()) {
     try {

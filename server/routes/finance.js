@@ -417,6 +417,56 @@ app.get('/api/finance/tax/declaration', (req, res) => {
     res.json(taxAccountingService.getVatDeclaration(db, year, month, req.tenant_id || 1));
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
+
+function csvEscape(str) {
+  const s = String(str ?? '');
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+app.get('/api/finance/tax/export', (req, res) => {
+  try {
+    const { type = 'sales', format = 'csv', year, month } = req.query;
+    const y = parseInt(year) || new Date().getFullYear();
+    const m = parseInt(month) || (new Date().getMonth() + 1);
+    let data;
+    let filename;
+    if (type === 'sales') {
+      data = taxAccountingService.getSalesLedger(db, y, m, req.tenant_id || 1);
+      filename = `sales_ledger_${y}_${String(m).padStart(2, '0')}.${format}`;
+    } else if (type === 'purchases') {
+      data = taxAccountingService.getPurchaseLedger(db, y, m, req.tenant_id || 1);
+      filename = `purchase_ledger_${y}_${String(m).padStart(2, '0')}.${format}`;
+    } else {
+      data = taxAccountingService.getVatDeclaration(db, y, m, req.tenant_id || 1);
+      filename = `vat_declaration_${y}_${String(m).padStart(2, '0')}.${format}`;
+    }
+
+    if (format === 'csv') {
+      let csv = '\uFEFF';
+      if (type === 'declaration') {
+        csv += 'Раздел,Ставка,Нетто,НДС\n';
+        for (const r of data.salesByRate) csv += `Продажи,${csvEscape(r.rate)},${r.net.toFixed(2)},${r.vat.toFixed(2)}\n`;
+        for (const r of data.purchaseByRate) csv += `Закупки,${csvEscape(r.rate)},${r.net.toFixed(2)},${r.vat.toFixed(2)}\n`;
+        csv += `Итого,,НДС к уплате,${data.summary.payable.toFixed(2)}\n`;
+      } else if (type === 'sales') {
+        csv += 'Заказ,Дата,Тип,Сумма,НДС\n';
+        for (const e of data.entries) csv += `${e.order_id},${csvEscape(e.date)},${csvEscape(e.order_type)},${e.total.toFixed(2)},${e.vatTotal.toFixed(2)}\n`;
+        csv += `,,Итого,${data.summary.totalGross.toFixed(2)},${data.summary.totalVat.toFixed(2)}\n`;
+      } else {
+        csv += 'Документ,Дата,Товар,Сумма,НДС,Ставка\n';
+        for (const e of data.entries) csv += `${e.doc_id},${csvEscape(e.date)},${csvEscape(e.item)},${e.gross.toFixed(2)},${e.vat.toFixed(2)},${csvEscape(e.vatRate)}\n`;
+        csv += `,,Итого,${data.summary.totalGross.toFixed(2)},${data.summary.totalVat.toFixed(2)},\n`;
+      }
+      res.set('Content-Type', 'text/csv; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(csv);
+    }
+
+    res.status(400).json({ error: 'Unsupported format' });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
 app.get('/api/audit-logs', (req, res) => {
   try {
     const { admin_id } = req.query;

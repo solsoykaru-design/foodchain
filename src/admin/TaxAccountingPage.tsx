@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Receipt, FileText, Calculator, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Receipt, FileText, Calculator, ArrowLeftRight, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import * as api from '../api';
+import { API_BASE } from '../api';
 
 type Tab = 'sales' | 'purchases' | 'declaration';
 
@@ -28,6 +29,23 @@ export default function TaxAccountingPage() {
     } catch { setData(null); }
     setLoading(false);
   }, [tab, year, month]);
+
+  const exportTax = async () => {
+    const type = tab === 'declaration' ? 'declaration' : tab;
+    const token = localStorage.getItem('fc_token');
+    const qs = `type=${type}&format=csv&year=${year}&month=${month}`;
+    const res = await fetch(`${API_BASE}/api/finance/tax/export?${qs}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) { alert('Ошибка экспорта'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type}_${year}_${String(month).padStart(2, '0')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -60,6 +78,9 @@ export default function TaxAccountingPage() {
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={exportTax} className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-3 py-2 rounded-xl text-sm font-medium transition">
+            <Download size={16} /> Экспорт CSV
+          </button>
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"><ChevronLeft size={18} /></button>
           <span className="text-sm font-medium w-20 text-center">{monthLabel}</span>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"><ChevronRight size={18} /></button>
