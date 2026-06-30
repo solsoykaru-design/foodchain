@@ -28,6 +28,7 @@ const autoOrdersService = require(path.join(__dirname, 'services', 'auto-orders.
 const autoWriteoffService = require(path.join(__dirname, 'services', 'auto-writeoff.service.js'));
 const costingService = require(path.join(__dirname, 'services', 'costing.service.js'));
 const campaignTriggersService = require(path.join(__dirname, 'services', 'campaign-triggers.service.js'));
+const telegramBotService = require(path.join(__dirname, 'services', 'telegram-bot.service.js'));
 const { seedDemoData } = require(path.join(__dirname, 'services', 'seed-demo-data.service.js'));
 const supplierPortal = require(path.join(__dirname, 'services', 'supplier-portal.service.js'));
 const backup = require(path.join(__dirname, 'backup.js'));
@@ -4741,6 +4742,14 @@ autoWriteoffService.scheduleAutoCheck(db);
 autoOrdersService.scheduleAutoCheck(db);
 campaignTriggersService.scheduleCampaignTriggers(db);
 console.log('[schedulers] Auto-writeoff, auto-orders and campaign trigger schedulers started');
+
+// ─── Telegram bot (if configured) ─────────────────────────────────
+try {
+  telegramBotService.startIfConfigured(db, 1);
+  console.log('[telegram] Bot startup check completed');
+} catch (e) {
+  console.warn('[telegram] Bot startup error:', e.message);
+}
 
 // ─── Voice WebSocket Server ──────────────────────────────────────
 const VoiceHeadsetService = require('./services/voice-headset.service');
