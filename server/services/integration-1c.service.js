@@ -304,7 +304,54 @@ async function syncPricesWith1C(db, settings) {
   };
 }
 
-// ─── 7. Export remains (stock) ─────────────────────────────────
+// ─── 7. Export accounting data (journal entries / chart of accounts) ──
+function escapeXml(str) {
+  return String(str || '').replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '\'': '&apos;', '"': '&quot;' }[c]));
+}
+
+async function exportAccountingTo1C(db, settings, startDate, endDate) {
+  const accounts = db.prepare('SELECT code, name, type FROM accounting_accounts ORDER BY code').all();
+  const params = [startDate || '1970-01-01', endDate || '2099-12-31'];
+  const entries = db.prepare(`
+    SELECT je.id, je.entry_date, je.description,
+      (SELECT json_group_array(json_object('code', aa.code, 'debit', jel.debit, 'credit', jel.credit, 'description', jel.description))
+       FROM journal_entry_lines jel JOIN accounting_accounts aa ON aa.id = jel.account_id
+       WHERE jel.entry_id = je.id) as lines_json
+    FROM journal_entries je
+    WHERE je.entry_date >= ? AND je.entry_date <= ?
+    ORDER BY je.entry_date, je.id
+  `).all(...params);
+
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += `<AccountingData PeriodStart="${escapeXml(startDate)}" PeriodEnd="${escapeXml(endDate)}" GeneratedAt="${new Date().toISOString()}">\n`;
+  xml += '  <ChartOfAccounts>\n';
+  for (const a of accounts) {
+    xml += `    <Account>\n      <Code>${escapeXml(a.code)}</Code>\n      <Name>${escapeXml(a.name)}</Name>\n      <Type>${escapeXml(a.type)}</Type>\n    </Account>\n`;
+  }
+  xml += '  </ChartOfAccounts>\n';
+  xml += '  <Entries>\n';
+  for (const e of entries) {
+    xml += `    <Entry Date="${escapeXml(e.entry_date)}" Description="${escapeXml(e.description)}">\n`;
+    xml += '      <Lines>\n';
+    const lines = (() => { try { return JSON.parse(e.lines_json || '[]'); } catch { return []; } })();
+    for (const l of lines) {
+      xml += `        <Line AccountCode="${escapeXml(l.code)}" Debit="${Number(l.debit || 0).toFixed(2)}" Credit="${Number(l.credit || 0).toFixed(2)}" Description="${escapeXml(l.description)}"/>\n`;
+    }
+    xml += '      </Lines>\n';
+    xml += '    </Entry>\n';
+  }
+  xml += '  </Entries>\n';
+  xml += '</AccountingData>';
+
+  if (settings.api_url) {
+    const url = settings.api_url.replace(/\/+$/, '') + '/api/v1/accounting/import';
+    const result = await apiRequest(url, 'POST', { 'Content-Type': 'application/xml' }, xml, settings.api_key, settings.login, settings.password);
+    return { ok: result.ok, data: { note: result.ok ? 'Отправлено в 1С' : (result.data?.message || result.data || 'Ошибка отправки') } };
+  }
+  return { ok: true, data: { xml, entries_count: entries.length, accounts_count: accounts.length, note: 'XML сгенерирован (API не настроен)' } };
+}
+
+// ─── 8. Export remains (stock) ─────────────────────────────────
 async function exportRemainsTo1C(db, settings) {
   const items = db.prepare(`
     SELECT id, name, article, id_1c, current_stock as stock, unit, price_per_unit as price
@@ -388,5 +435,6 @@ module.exports = {
   getSettings, updateSettings, logOperation, testConnection,
   exportOrdersTo1C, importGoodsFrom1C, importContragentsFrom1C,
   importMenuFrom1C, exportTechCardsTo1C, syncPricesWith1C, exportRemainsTo1C,
+  exportAccountingTo1C,
   runSyncAll,
 };

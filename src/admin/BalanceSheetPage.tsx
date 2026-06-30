@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Wallet, BookOpen, FileText, Plus, Pencil, Trash2, AlertCircle, Check, X, ArrowUpDown, List, Eye, RotateCcw } from 'lucide-react';
+import { Wallet, BookOpen, FileText, Plus, Pencil, Trash2, AlertCircle, Check, X, ArrowUpDown, List, Eye, RotateCcw, Upload } from 'lucide-react';
 import * as api from '../api';
 import { addToast } from '../ToastContext';
 
@@ -44,6 +44,7 @@ export default function BalanceSheetPage() {
   const [balanceDate, setBalanceDate] = useState(new Date().toISOString().slice(0, 10));
   const [balanceData, setBalanceData] = useState<any>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [exporting1C, setExporting1C] = useState(false);
 
   // ─── Data Loaders ─────────────────────────────────────────
   const loadAccounts = useCallback(async () => {
@@ -75,6 +76,24 @@ export default function BalanceSheetPage() {
     } catch (e: any) { addToast(e.message, 'error'); }
     setBalanceLoading(false);
   }, [balanceDate]);
+
+  const exportTo1C = async () => {
+    setExporting1C(true);
+    try {
+      const res = await api.export1CAccounting(entryFilterFrom || undefined, entryFilterTo || undefined);
+      if (res.data?.xml) {
+        const blob = new Blob([res.data.xml], { type: 'application/xml;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `accounting_1c_${entryFilterFrom || 'all'}_${entryFilterTo || 'all'}.xml`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      addToast(res.data?.note || 'Экспорт завершён', res.ok ? 'success' : 'error');
+    } catch (e: any) { addToast(e.message, 'error'); }
+    setExporting1C(false);
+  };
 
   useEffect(() => { if (tab === 'accounts') loadAccounts(); }, [tab, loadAccounts]);
   useEffect(() => { if (tab === 'entries') loadEntries(); }, [tab, loadEntries]);
@@ -310,6 +329,11 @@ export default function BalanceSheetPage() {
               Обновить
             </button>
             <div className="flex-1" />
+            <button onClick={exportTo1C} disabled={exporting1C}
+              className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50">
+              <Upload size={16} />
+              {exporting1C ? 'Экспорт...' : 'Экспорт в 1С'}
+            </button>
             <button onClick={() => { setShowEntryModal(true); }}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
               <Plus size={16} />

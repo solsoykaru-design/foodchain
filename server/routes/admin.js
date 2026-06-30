@@ -518,7 +518,21 @@ app.post('/api/admin/integrations/1c/sync/:operation', async (req, res) => {
       integration1C.updateSettings(db, 1, { last_sync_status: 'error' });
     }
     res.json(r);
-  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+  } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/admin/integrations/1c/export/accounting', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.body;
+    const settings = integration1C.getSettings(db);
+    const r = await integration1C.exportAccountingTo1C(db, settings, start_date, end_date);
+    if (!settings.api_url && r.ok && r.data.xml) {
+      res.set('Content-Type', 'application/xml; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="accounting_1c_${start_date || 'all'}_${end_date || 'all'}.xml"`);
+      return res.send(r.data.xml);
+    }
+    integration1C.logOperation(db, 1, 'export_accounting', 'export', r.ok ? 'success' : 'error', {}, r.data, r.ok ? null : (r.data?.message || r.data || 'Unknown error'));
+    res.json(r);
+  } catch(e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.get('/api/admin/crm/settings/:provider', (req, res) => {
   try {

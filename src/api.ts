@@ -1626,6 +1626,9 @@ export async function get1CLogs(params?: { page?: number; limit?: number; direct
   if (params?.dateTo) qs.set('dateTo', params.dateTo);
   return request(`/api/admin/integrations/1c/logs${qs.toString() ? '?' + qs.toString() : ''}`);
 }
+export async function export1CAccounting(startDate?: string, endDate?: string): Promise<any> {
+  return request('/api/admin/integrations/1c/export/accounting', { method: 'POST', body: JSON.stringify({ start_date: startDate, end_date: endDate }) });
+}
 
 // ─── Fiscalization ────────────────────────────────────────────
 export async function getFiscalSettings(): Promise<any[]> { return request('/api/admin/fiscal/settings'); }
