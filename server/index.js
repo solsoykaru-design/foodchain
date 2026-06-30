@@ -82,6 +82,13 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 const app = express();
 const server = http.createServer(app);
 
+const PORT = Number(process.env.PORT) || 4000;
+console.log(`[env] PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}`);
+server.on('error', (err) => console.error('[server] Listen error:', err.message));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[server] Accepting connections on http://0.0.0.0:${PORT}`);
+});
+
 // Увеличиваем timeout для длинных запросов
 server.timeout = 120000;
 server.keepAliveTimeout = 120000;
@@ -4664,9 +4671,6 @@ cron.schedule('0 * * * *', () => {
 
 
 
-// ─── Start ───────────────────────────────────────────────────────
-const PORT = process.env.PORT || 4000;
-
 // ─── Route modules (extracted for maintainability) ──────
 const config = {
   JWT_SECRET, PORTAL_SYNC_KEY, safeError, io, upload,
@@ -4731,21 +4735,6 @@ console.log('[Voice] WebSocket server initialized');
 app.use((err, req, res, next) => {
   console.error('[GlobalError]', err?.message || err, err?.stack || '');
   res.status(500).json({ error: safeError(err?.message || 'Внутренняя ошибка сервера') });
-});
-
-// ─── Start HTTP server ───────────────────────────────────────────
-console.log(`[server] Starting server on port ${PORT}...`);
-server.on('error', (err) => {
-  console.error('[server] Listen error:', err.message);
-});
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
-  if (superadminPassword) {
-    console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
-  }
-  // Start Telegram bot if configured
-  try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
-  try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
 });
 
 // ─── Backup endpoints ────────────────────────────────────────────
@@ -4815,6 +4804,14 @@ if (!superadmin) {
 } else {
   console.log('ℹ️  Superadmin "ali" already exists');
 }
+
+if (superadminPassword) {
+  console.log('🔐 SUPERADMIN PASSWORD (save it now): ' + superadminPassword);
+}
+
+// Start Telegram bot if configured
+try { db.exec("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT, tenant_id INTEGER DEFAULT 1)"); } catch(e) {}
+try { telegramBot.startIfConfigured(db); } catch (e) { console.error('[TelegramBot] Init error:', e.message); }
 
 portalReady.finally(() => {
   // Portal handler is now ready (or failed); it will be used by the /portal middleware.
