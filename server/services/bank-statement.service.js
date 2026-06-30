@@ -34,23 +34,46 @@ function parseDate(v) {
 
 function matchTransactions(db, transactions, tenantId = 1) {
   const matches = [];
-  const orders = db.prepare('SELECT id, total, created_at, order_type FROM orders WHERE tenant_id = ? AND total > 0 AND status NOT IN (?) ORDER BY created_at').all(tenantId, 'cancelled');
-  let orderIdx = 0;
-  for (const tx of transactions) {
-    let matched = false;
-    for (let j = orderIdx; j < orders.length; j++) {
-      const o = orders[j];
+  const orders = db.prepare("SELECT id, total, created_at, order_type FROM orders WHERE tenant_id = ? AND total > 0 AND status != 'cancelled' ORDER BY created_at").all(tenantId);
+  const matchedOrderIds = new Set();
+
+  function tryMatch(tx) {
+    // 1. Exact date + amount
+    for (const o of orders) {
+      if (matchedOrderIds.has(o.id)) continue;
       const oDate = (o.created_at || '').split('T')[0];
       if (Math.abs(o.total - tx.amount) < 0.5 && oDate === tx.date) {
-        matches.push({ tx_date: tx.date, tx_description: tx.description, tx_amount: tx.amount, order_id: o.id, order_total: o.total, confidence: 'high' });
-        orderIdx = j + 1;
-        matched = true;
-        break;
+        matchedOrderIds.add(o.id);
+        return { order_id: o.id, confidence: 'high' };
       }
     }
-    if (!matched) {
-      matches.push({ tx_date: tx.date, tx_description: tx.description, tx_amount: tx.amount, order_id: null, order_total: null, confidence: 'unmatched' });
+    // 2. Amount within ±2 days
+    const txDate = new Date(tx.date);
+    for (const o of orders) {
+      if (matchedOrderIds.has(o.id)) continue;
+      const oDate = new Date(o.created_at);
+      const daysDiff = Math.abs((txDate - oDate) / 86400000);
+      if (daysDiff <= 2 && Math.abs(o.total - tx.amount) < 0.5) {
+        matchedOrderIds.add(o.id);
+        return { order_id: o.id, confidence: 'medium' };
+      }
     }
+    // 3. Order ID in description
+    const orderIdMatch = tx.description && tx.description.match(/#?\b(\d{1,10})\b/);
+    if (orderIdMatch) {
+      const orderId = Number(orderIdMatch[1]);
+      const o = orders.find(oo => oo.id === orderId && !matchedOrderIds.has(oo.id));
+      if (o) {
+        matchedOrderIds.add(o.id);
+        return { order_id: o.id, confidence: 'medium' };
+      }
+    }
+    return { order_id: null, confidence: 'unmatched' };
+  }
+
+  for (const tx of transactions) {
+    const m = tryMatch(tx);
+    matches.push({ tx_date: tx.date, tx_description: tx.description, tx_amount: tx.amount, order_id: m.order_id, order_total: m.order_id ? orders.find(o => o.id === m.order_id)?.total : null, confidence: m.confidence });
   }
   return matches;
 }

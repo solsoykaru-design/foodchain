@@ -1704,6 +1704,18 @@ export async function getBankTransactions(): Promise<any[]> {
 export async function clearBankTransactions(): Promise<any> {
   return request('/api/finance/bank-statement/clear', { method: 'DELETE' });
 }
+export async function getBankTransactionCandidates(amount?: number, date?: string): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (amount != null) qs.set('amount', String(amount));
+  if (date) qs.set('date', date);
+  return request(`/api/finance/bank-statement/candidates?${qs.toString()}`);
+}
+export async function matchBankTransaction(id: number, orderId: number): Promise<any> {
+  return request(`/api/finance/bank-statement/transactions/${id}/match`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+}
+export async function unmatchBankTransaction(id: number): Promise<any> {
+  return request(`/api/finance/bank-statement/transactions/${id}/unmatch`, { method: 'POST' });
+}
 
 // ─── Tax Accounting ───────────────────────────────────
 export async function getSalesLedger(year?: number, month?: number): Promise<any> {

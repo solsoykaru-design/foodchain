@@ -353,7 +353,8 @@ app.get('/api/reports/balance-sheet', (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/finance/bank-statement/upload', multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }).single('file'), (req, res) => {
+const bankUpload = multer({ dest: path.join(require('os').tmpdir(), 'fc-bank'), limits: { fileSize: 10 * 1024 * 1024 } });
+app.post('/api/finance/bank-statement/upload', bankUpload.single('file'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
@@ -393,6 +394,37 @@ app.delete('/api/finance/bank-statement/clear', (req, res) => {
   try {
     const bankStmt = require(path.join(__dirname, '..', 'services', 'bank-statement.service.js'));
     bankStmt.clearTransactions(db, req.tenant_id || 1);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/finance/bank-statement/candidates', (req, res) => {
+  try {
+    const { amount, date } = req.query;
+    const tenantId = req.tenant_id || 1;
+    let sql = "SELECT id, total, created_at, user_name, order_type FROM orders WHERE tenant_id = ? AND total > 0 AND status != 'cancelled'";
+    const params = [tenantId];
+    if (amount) { sql += ' AND ABS(total - ?) < 0.5'; params.push(Number(amount)); }
+    if (date) { sql += " AND date(created_at) BETWEEN date(?, '-2 days') AND date(?, '+2 days')"; params.push(date, date); }
+    sql += ' ORDER BY created_at DESC LIMIT 20';
+    const rows = db.prepare(sql).all(...params);
+    res.json(toCamelCaseArray(rows));
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/finance/bank-statement/transactions/:id/match', (req, res) => {
+  try {
+    const { order_id } = req.body;
+    if (!order_id) return res.status(400).json({ error: 'order_id required' });
+    const existing = db.prepare('SELECT id FROM bank_transactions WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id || 1);
+    if (!existing) return res.status(404).json({ error: 'Transaction not found' });
+    db.prepare('UPDATE bank_transactions SET order_id = ?, confidence = ? WHERE id = ?').run(order_id, 'manual', req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/finance/bank-statement/transactions/:id/unmatch', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT id FROM bank_transactions WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id || 1);
+    if (!existing) return res.status(404).json({ error: 'Transaction not found' });
+    db.prepare('UPDATE bank_transactions SET order_id = NULL, confidence = ? WHERE id = ?').run('unmatched', req.params.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });

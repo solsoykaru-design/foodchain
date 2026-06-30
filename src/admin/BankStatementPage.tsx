@@ -8,6 +8,8 @@ export default function BankStatementPage() {
   const [summary, setSummary] = useState<any>({ total: 0, matched: 0, unmatched: 0 });
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [matchForms, setMatchForms] = useState<Record<number, string>>({});
+  const [matchLoading, setMatchLoading] = useState<Record<number, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -37,6 +39,29 @@ export default function BankStatementPage() {
   const clearAll = async () => {
     try { await api.clearBankTransactions(); addToast('Очищено', 'success'); load(); }
     catch (err: any) { addToast(err.message, 'error'); }
+  };
+
+  const matchTxn = async (id: number) => {
+    const orderId = Number(matchForms[id]);
+    if (!orderId) return;
+    setMatchLoading(m => ({ ...m, [id]: true }));
+    try {
+      await api.matchBankTransaction(id, orderId);
+      addToast('Сопоставлено', 'success');
+      setMatchForms(m => ({ ...m, [id]: '' }));
+      load();
+    } catch (err: any) { addToast(err.message, 'error'); }
+    setMatchLoading(m => ({ ...m, [id]: false }));
+  };
+
+  const unmatchTxn = async (id: number) => {
+    setMatchLoading(m => ({ ...m, [id]: true }));
+    try {
+      await api.unmatchBankTransaction(id);
+      addToast('Сопоставление снято', 'success');
+      load();
+    } catch (err: any) { addToast(err.message, 'error'); }
+    setMatchLoading(m => ({ ...m, [id]: false }));
   };
 
   return (
@@ -104,12 +129,20 @@ export default function BankStatementPage() {
                   <td className="px-3 py-2.5 max-w-xs truncate">{t.description}</td>
                   <td className={`px-3 py-2.5 font-medium ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{t.amount} ₽</td>
                   <td className="px-3 py-2.5 text-zinc-500">{t.balance != null ? `${t.balance} ₽` : '—'}</td>
-                  <td className="px-3 py-2.5">{t.order_id ? `#${t.order_id}` : '—'}</td>
+                  <td className="px-3 py-2.5">{(t.orderId ?? t.order_id) ? `#${t.orderId ?? t.order_id}` : '—'}</td>
                   <td className="px-3 py-2.5">
-                    {t.order_id ? (
-                      <span className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={14} /> Сопоставлен</span>
+                    {(t.orderId ?? t.order_id) ? (
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 size={14} /> #{t.orderId ?? t.order_id}</span>
+                        <button onClick={() => unmatchTxn(t.id)} disabled={matchLoading[t.id]} className="text-xs text-zinc-400 hover:text-red-500">Снять</button>
+                      </div>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs text-amber-600"><AlertCircle size={14} /> Не найден</span>
+                      <div className="flex items-center gap-2">
+                        <input type="number" placeholder="№ заказа" value={matchForms[t.id] || ''} onChange={e => setMatchForms(m => ({ ...m, [t.id]: e.target.value }))}
+                          className="w-24 px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs" />
+                        <button onClick={() => matchTxn(t.id)} disabled={matchLoading[t.id] || !matchForms[t.id]}
+                          className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-lg disabled:opacity-50">Сопоставить</button>
+                      </div>
                     )}
                   </td>
                 </tr>
