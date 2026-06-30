@@ -80,6 +80,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -131,7 +132,7 @@ const io = new Server(server, { cors: corsOptions });
 
 
 
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { error: 'Слишком много запросов, попробуйте позже' } });
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { error: 'Слишком много запросов, попробуйте позже' }, validate: { xForwardedForHeader: false } });
 
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -139,6 +140,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Слишком много запросов. Попробуйте позже.' },
+  validate: { xForwardedForHeader: false },
 });
 
 app.use(cors(corsOptions));
