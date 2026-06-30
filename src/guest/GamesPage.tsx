@@ -55,16 +55,26 @@ export default function GamesPage() {
   const [quizDone, setQuizDone] = useState(false);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [lastPlayed, setLastPlayed] = useState<Record<string, number>>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('foodchain_guest_user') || '{}');
+      if (stored?.id || stored?.userId) setCurrentUser(stored);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     loadChallenges();
-  }, []);
+  }, [currentUser]);
 
   const loadChallenges = async () => {
+    const userId = currentUser?.id || currentUser?.userId || 0;
+    if (!userId) { setChallenges([]); return; }
     try {
-      const data = await api.getChallenges(0);
+      const data = await api.getChallenges(userId);
       setChallenges(Array.isArray(data) ? data : []);
-    } catch { setChallenges(CHALLENGES.map(c => ({ ...c, progress: Math.floor(Math.random() * c.max) }))); }
+    } catch { setChallenges([]); }
   };
 
   const spinWheel = async () => {
@@ -87,7 +97,8 @@ export default function GamesPage() {
 
       setSpinning(false);
       try {
-        api.playWheelOfFortune(0, seg.points, seg.label);
+        const userId = currentUser?.id || currentUser?.userId || 0;
+        if (userId) api.playWheelOfFortune(userId, seg.points, seg.label);
       } catch {}
     }, 4000);
   };
@@ -104,6 +115,10 @@ export default function GamesPage() {
       } else {
         setQuizDone(true);
         if (correct) setQuizScore(prev => prev + 10);
+        try {
+          const userId = currentUser?.id || currentUser?.userId || 0;
+          if (userId) api.submitQuizAnswer(userId, quizScore + (correct ? 10 : 0));
+        } catch {}
       }
     }, 1200);
   };
@@ -247,14 +262,24 @@ export default function GamesPage() {
 
       {tab === 'challenges' && (
         <div className="px-4 py-6 space-y-3">
-          {CHALLENGES.map(ch => {
-            const progress = Math.min(challenges.find(c => c.id === ch.id)?.progress || 0, ch.max);
+          {!currentUser && (
+            <div className="text-center py-12 text-zinc-400 text-sm">
+              <p>Войдите в профиль, чтобы участвовать в челленджах</p>
+            </div>
+          )}
+          {currentUser && challenges.length === 0 && (
+            <div className="text-center py-12 text-zinc-400 text-sm">
+              <p>Челленджи загружаются...</p>
+            </div>
+          )}
+          {challenges.map((ch: any) => {
+            const progress = Math.min(ch.progress || 0, ch.max);
             const pct = Math.round((progress / ch.max) * 100);
-            const done = progress >= ch.max;
+            const done = ch.completed || progress >= ch.max;
             return (
               <div key={ch.id} className={`rounded-2xl p-4 border ${done ? 'bg-green-500/10 border-green-500/30' : 'bg-zinc-900 border-zinc-800'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">{ch.icon}</span>
+                  <span className="text-2xl">{ch.icon || '🎯'}</span>
                   <div className="flex-1">
                     <p className="font-bold text-sm">{ch.title}</p>
                     <p className="text-xs text-zinc-400">{ch.desc}</p>
@@ -264,7 +289,12 @@ export default function GamesPage() {
                 <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${done ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
                 </div>
-                <p className="text-xs text-zinc-500 mt-1">{progress} / {ch.max}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-zinc-500">{progress} / {ch.max}</p>
+                  {done && ch.rewarded && <p className="text-xs text-green-400 font-bold">+{ch.reward_points} бонусов получено</p>}
+                  {done && !ch.rewarded && <p className="text-xs text-yellow-400 font-bold">+{ch.reward_points} бонусов</p>}
+                  {!done && <p className="text-xs text-zinc-600">+{ch.reward_points} бонусов</p>}
+                </div>
               </div>
             );
           })}
