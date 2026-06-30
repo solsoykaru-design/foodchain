@@ -416,4 +416,30 @@ async function notifyOwner(db, tenantId, message) {
   finally { if (!bot && tmpBot) tmpBot.stopPolling().catch(() => {}); }
 }
 
-module.exports = { getSettings, saveSettings, startIfConfigured, stopBot, startBot, getStats, broadcast, notifyOrderStatus, notifyOwner };
+async function sendToPhone(db, tenantId, phone, message) {
+  if (!TelegramBotCtor) return { success: false, error: 'Telegram bot package not available' };
+  const settings = getSettings(db, tenantId);
+  const token = settings.token || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return { success: false, error: 'Telegram bot token not configured' };
+
+  let chatId = null;
+  try {
+    const user = db.prepare('SELECT chat_id FROM telegram_bot_users WHERE phone = ? AND tenant_id = ?').get(phone, tenantId);
+    chatId = user?.chat_id;
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+  if (!chatId) return { success: false, error: 'No Telegram chat linked for phone' };
+
+  const tmpBot = bot || new TelegramBotCtor(token, { polling: false });
+  try {
+    await tmpBot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    return { success: true, chatId };
+  } catch (e) {
+    return { success: false, error: e.message };
+  } finally {
+    if (!bot && tmpBot) tmpBot.stopPolling().catch(() => {});
+  }
+}
+
+module.exports = { getSettings, saveSettings, startIfConfigured, stopBot, startBot, getStats, broadcast, notifyOrderStatus, notifyOwner, sendToPhone };

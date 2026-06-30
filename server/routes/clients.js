@@ -1,6 +1,7 @@
 
 module.exports = function(app, db, config) {
   const { io, safeError, toCamelCase, toCamelCaseArray } = config;
+  const campaignDispatcher = require('../services/campaign-dispatcher.service');
 
 app.get('/api/users', (req, res) => {
   const { search } = req.query;
@@ -307,33 +308,32 @@ app.post('/api/campaigns', (req, res) => {
     res.status(201).json({ id: campaignId });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/campaigns/:id/send', (req, res) => {
+app.post('/api/campaigns/:id/send', async (req, res) => {
   try {
     const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ? AND tenant_id = ?').get(req.params.id, req.tenant_id || 1);
     if (!campaign) return res.status(404).json({ error: 'Кампания не найдена' });
     const segmentFilter = JSON.parse(campaign.segment_filter || '{}');
-    let sql = 'SELECT u.id FROM users u LEFT JOIN user_rfm r ON r.user_id = u.id WHERE u.tenant_id = ? AND u.role = ?';
+    let sql = 'SELECT u.id, u.name, u.phone, u.email FROM users u LEFT JOIN user_rfm r ON r.user_id = u.id WHERE u.tenant_id = ? AND u.role = ?';
     const params = [req.tenant_id || 1, 'guest'];
     if (segmentFilter.segment) { sql += ' AND r.segment = ?'; params.push(segmentFilter.segment); }
     if (segmentFilter.minMonetary) { sql += ' AND COALESCE(r.monetary, 0) >= ?'; params.push(segmentFilter.minMonetary); }
     const users = db.prepare(sql).all(...params);
     const variants = db.prepare('SELECT * FROM campaign_variants WHERE campaign_id = ?').all(campaign.id);
-    let sent = 0;
-    const logStmt = db.prepare('INSERT INTO campaign_logs (campaign_id, variant_id, user_id, channel, status) VALUES (?, ?, ?, ?, ?)');
-    const variantCounts = new Map();
-    for (const u of users) {
-      const variant = campaign.ab_enabled && variants.length
-        ? variants[Math.floor(Math.random() * 100) < (variants[0].weight || 50) ? 0 : 1]
-        : null;
-      logStmt.run(campaign.id, variant?.id || null, u.id, campaign.channel, 'sent');
-      if (variant) variantCounts.set(variant.id, (variantCounts.get(variant.id) || 0) + 1);
-      sent++;
+    const result = await campaignDispatcher.dispatchCampaign(db, req.tenant_id || 1, campaign, users, variants);
+
+    const totalProcessed = result.sent + result.failed + result.skipped;
+    db.prepare('UPDATE campaigns SET sent_count = sent_count + ?, status = ? WHERE id = ?').run(result.sent, 'sent', campaign.id);
+
+    // Update per-variant counters based on deterministic split
+    if (campaign.ab_enabled && variants.length) {
+      const weight = variants[0].weight || 50;
+      const countA = users.filter(u => (u.id % 100) < weight).length;
+      const countB = users.length - countA;
+      db.prepare('UPDATE campaign_variants SET sent_count = sent_count + ? WHERE id = ?').run(countA, variants[0].id);
+      if (variants[1]) db.prepare('UPDATE campaign_variants SET sent_count = sent_count + ? WHERE id = ?').run(countB, variants[1].id);
     }
-    for (const [vid, count] of variantCounts.entries()) {
-      db.prepare('UPDATE campaign_variants SET sent_count = sent_count + ? WHERE id = ?').run(count, vid);
-    }
-    db.prepare('UPDATE campaigns SET sent_count = sent_count + ?, status = ? WHERE id = ?').run(sent, 'sent', campaign.id);
-    res.json({ sent });
+
+    res.json({ sent: result.sent, failed: result.failed, skipped: result.skipped, total: totalProcessed, channel: result.channel });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 app.delete('/api/campaigns/:id', (req, res) => {
@@ -344,9 +344,9 @@ app.delete('/api/campaigns/:id', (req, res) => {
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
-app.post('/api/campaigns/triggers/run', (req, res) => {
+app.post('/api/campaigns/triggers/run', async (req, res) => {
   try {
-    const result = campaignTriggersService.processTriggeredCampaigns(db, req.tenant_id || 1);
+    const result = await campaignTriggersService.processTriggeredCampaigns(db, req.tenant_id || 1);
     res.json({ ok: true, result });
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });

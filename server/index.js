@@ -2243,6 +2243,8 @@ try { db.exec(`ALTER TABLE orders ADD COLUMN pickup_point_id INTEGER`); } catch(
 try { db.exec(`ALTER TABLE couriers ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE order_status_history ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE notifications ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE notifications ADD COLUMN type TEXT DEFAULT 'system'`); } catch(e) {}
+try { db.exec(`ALTER TABLE notifications ADD COLUMN data TEXT DEFAULT '{}'`); } catch(e) {}
 try { db.exec(`ALTER TABLE booking_tables ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE booking_tables ADD COLUMN status TEXT DEFAULT 'free'`); } catch(e) {}
 try { db.exec(`ALTER TABLE bookings ADD COLUMN tenant_id INTEGER DEFAULT 1`); } catch(e) {}

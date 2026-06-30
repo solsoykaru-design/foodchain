@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const campaignDispatcher = require('./campaign-dispatcher.service');
 
 let cronJob = null;
 
@@ -102,32 +103,20 @@ function wasRecentlySent(db, campaignId, userId, minDays = 30) {
   return row.cnt > 0;
 }
 
-function sendCampaign(db, tenantId, campaign, users) {
-  const channel = campaign.channel || 'push';
-  const title = campaign.message_title || '';
-  const body = campaign.message_body || '';
-  let sent = 0;
+async function sendCampaign(db, tenantId, campaign, users) {
+  const variants = db.prepare('SELECT * FROM campaign_variants WHERE campaign_id = ?').all(campaign.id);
+  const freshUsers = users.filter(u => !wasRecentlySent(db, campaign.id, u.id));
+  const result = await campaignDispatcher.dispatchCampaign(db, tenantId, campaign, freshUsers, variants);
 
-  const logStmt = db.prepare('INSERT INTO campaign_logs (campaign_id, variant_id, user_id, channel, status) VALUES (?, ?, ?, ?, ?)');
-  const notifyStmt = db.prepare('INSERT INTO notifications (user_id, title, body, type, data) VALUES (?, ?, ?, ?, ?)');
-
-  for (const u of users) {
-    if (wasRecentlySent(db, campaign.id, u.id)) continue;
-
-    logStmt.run(campaign.id, null, u.id, channel, 'sent');
-    notifyStmt.run(u.id, title, body, 'campaign', JSON.stringify({ campaignId: campaign.id, channel }));
-    sent++;
-  }
-
-  if (sent > 0) {
+  if (result.sent > 0 || result.failed > 0) {
     db.prepare("UPDATE campaigns SET sent_count = sent_count + ?, status = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(sent, 'active', campaign.id);
+      .run(result.sent, 'active', campaign.id);
   }
 
-  return { sent };
+  return { sent: result.sent, failed: result.failed, skipped: result.skipped };
 }
 
-function processTriggeredCampaigns(db, tenantId = 1) {
+async function processTriggeredCampaigns(db, tenantId = 1) {
   const campaigns = db.prepare(`
     SELECT * FROM campaigns
     WHERE tenant_id = ? AND trigger_type != 'manual' AND status IN ('draft', 'active')
@@ -142,8 +131,8 @@ function processTriggeredCampaigns(db, tenantId = 1) {
         results.push({ campaignId: campaign.id, name: campaign.name, sent: 0 });
         continue;
       }
-      const r = sendCampaign(db, tenantId, campaign, users);
-      results.push({ campaignId: campaign.id, name: campaign.name, sent: r.sent });
+      const r = await sendCampaign(db, tenantId, campaign, users);
+      results.push({ campaignId: campaign.id, name: campaign.name, sent: r.sent, failed: r.failed, skipped: r.skipped });
     } catch (e) {
       results.push({ campaignId: campaign.id, name: campaign.name, error: e.message });
     }
@@ -153,9 +142,9 @@ function processTriggeredCampaigns(db, tenantId = 1) {
 
 function scheduleCampaignTriggers(db) {
   if (cronJob) cronJob.stop();
-  cronJob = cron.schedule('0 * * * *', () => {
+  cronJob = cron.schedule('0 * * * *', async () => {
     try {
-      processTriggeredCampaigns(db, getTenantId());
+      await processTriggeredCampaigns(db, getTenantId());
     } catch (e) {
       console.error('Campaign trigger scheduler error:', e);
     }

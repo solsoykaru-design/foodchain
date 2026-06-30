@@ -84,24 +84,23 @@ function getDb() {
   }
 }
 
-async function sendSms(phone, code) {
-  const message = `FoodChain: ваш код подтверждения: ${code}`;
-  const logEntry = { phone, code, timestamp: new Date().toISOString(), status: 'pending' };
-
-  let result = null;
+async function sendMessage(phone, message, options = {}) {
+  const logEntry = { phone, message, timestamp: new Date().toISOString(), status: 'pending' };
 
   if (twilioConfigured) {
-    result = await sendViaTwilio(phone, message);
+    const result = await sendViaTwilio(phone, message);
     if (result) {
       logEntry.status = 'sent';
       logEntry.provider = 'twilio';
       logEntry.sid = result.sid;
+      if (SMS_LOG.length >= MAX_LOG_SIZE) SMS_LOG.shift();
       SMS_LOG.push(logEntry);
-      return logEntry;
+      return { sent: true, provider: 'twilio', sid: result.sid };
     }
   }
 
   if (telegramConfigured) {
+    let result = null;
     const db = getDb();
     if (db) {
       try {
@@ -120,23 +119,28 @@ async function sendSms(phone, code) {
       logEntry.status = 'sent';
       logEntry.provider = 'telegram';
       logEntry.chatId = result.chatId;
+      if (SMS_LOG.length >= MAX_LOG_SIZE) SMS_LOG.shift();
       SMS_LOG.push(logEntry);
-      return logEntry;
+      return { sent: true, provider: 'telegram', chatId: result.chatId };
     }
   }
 
-  if (TELEGRAM_NOTIFY_CHAT_ID && telegramConfigured) {
-    const notifyMessage = `📱 *Код подтверждения*\n\nТелефон: \`${phone}\nКод: *${code}*\n\n_Доставлен в консоль сервера_`;
+  if (TELEGRAM_NOTIFY_CHAT_ID && telegramConfigured && options.notify !== false) {
+    const notifyMessage = `📱 *Рассылка SMS (fallback)*\n\nТелефон: \`${phone}\`\nСообщение: ${message}`;
     await sendViaTelegram(TELEGRAM_NOTIFY_CHAT_ID, notifyMessage).catch(() => {});
   }
 
-  console.log(`[SMS Fallback] Code for ${phone}: ${code}`);
+  console.log(`[SMS Fallback] Message for ${phone}: ${message}`);
   logEntry.status = 'fallback';
   logEntry.provider = 'console';
-
   if (SMS_LOG.length >= MAX_LOG_SIZE) SMS_LOG.shift();
   SMS_LOG.push(logEntry);
-  return logEntry;
+  return { sent: true, fallback: true, provider: 'console' };
 }
 
-module.exports = { sendSms, getLog, isTwilioConfigured: () => twilioConfigured, isTelegramConfigured: () => telegramConfigured };
+async function sendSms(phone, code) {
+  const message = `FoodChain: ваш код подтверждения: ${code}`;
+  return sendMessage(phone, message, { notify: true });
+}
+
+module.exports = { sendSms, sendMessage, getLog, isTwilioConfigured: () => twilioConfigured, isTelegramConfigured: () => telegramConfigured };
