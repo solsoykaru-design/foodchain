@@ -1,6 +1,7 @@
 
 module.exports = function(app, db, config) {
   const { safeError, toCamelCase, toCamelCaseArray } = config;
+  const autoWriteoffService = require('../services/auto-writeoff.service');
 
 app.get('/api/inventory-items', (req, res) => {
   try {
@@ -951,6 +952,35 @@ app.delete('/api/production-orders/:id', (req, res) => {
     db.prepare('DELETE FROM production_order_items WHERE order_id = ?').run(req.params.id);
     db.prepare('DELETE FROM production_orders WHERE id = ?').run(req.params.id);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+
+// Auto-writeoff endpoints
+app.get('/api/auto-writeoff/settings', (req, res) => {
+  try {
+    const settings = autoWriteoffService.getSettings(db, req.tenant_id || 1);
+    res.json(settings);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/auto-writeoff/settings', (req, res) => {
+  try {
+    const current = autoWriteoffService.getSettings(db, req.tenant_id || 1);
+    const updated = autoWriteoffService.saveSettings(db, { ...current, ...req.body }, req.tenant_id || 1);
+    autoWriteoffService.rescheduleCron(db);
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.get('/api/auto-writeoff/expiring', (req, res) => {
+  try {
+    const settings = autoWriteoffService.getSettings(db, req.tenant_id || 1);
+    const items = autoWriteoffService.getExpiringSoon(db, settings.warn_days || 3);
+    res.json({ items, count: items.length });
+  } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
+});
+app.post('/api/auto-writeoff/run', (req, res) => {
+  try {
+    const result = autoWriteoffService.runAutoWriteoff(db, req.tenant_id || 1);
+    res.json(result);
   } catch (e) { res.status(500).json({ error: safeError(e.message) }); }
 });
 
